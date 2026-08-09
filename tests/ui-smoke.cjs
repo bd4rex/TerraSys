@@ -105,8 +105,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (!brandAsset.complete || brandAsset.naturalWidth < 1 || brandAsset.naturalHeight < 1) {
     throw new Error("The TerraSys application mark did not load.");
   }
-  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-app-icon.png")) {
-    throw new Error("The TerraSys browser icon is missing.");
+  const faviconLinks = await page.locator('link[rel="icon"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  for (const expected of ["terrasys-favicon.ico", "terrasys-favicon.svg", "terrasys-favicon-32.png", "terrasys-favicon-16.png"]) {
+    if (!faviconLinks.some((href) => href?.includes(expected))) throw new Error(`The TerraSys browser icon is missing: ${expected}`);
   }
   const storageMigration = await page.evaluate(() => ({
     current: localStorage.getItem("terrasys-route-recents"),

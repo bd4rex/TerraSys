@@ -50,8 +50,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (await page.locator(".header-brand-mark").evaluate((image) => getComputedStyle(image).backgroundColor) !== "rgb(255, 255, 255)") {
     throw new Error("The resource-console mark does not have a high-contrast white background.");
   }
-  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-app-icon.png")) {
-    throw new Error("The TerraSys resource-console browser icon is missing.");
+  const faviconLinks = await page.locator('link[rel="icon"]').evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  if (!faviconLinks.some((href) => href?.includes("terrasys-favicon-16.png"))) {
+    throw new Error("The TerraSys resource-console micro favicon is missing.");
   }
   if (!(await page.locator(".storage-key").innerText()).includes("TerraSys 占用")) {
     throw new Error("The resource-console storage label still uses the legacy product name.");

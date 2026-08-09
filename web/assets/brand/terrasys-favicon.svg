@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TerraSys">
+  <rect x="1" y="1" width="62" height="62" rx="14" fill="#072f5f" stroke="#031b38" stroke-width="2" />
+  <path d="M11 24 32 8l21 16Z" fill="#58d34b" />
+  <path d="M11 22h42v13H39v21H25V35H11Z" fill="#fff" />
+</svg>
