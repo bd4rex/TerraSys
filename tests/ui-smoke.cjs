@@ -97,6 +97,17 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.waitForTimeout(2500);
 
   if ((await page.title()) !== "TerraSys 个人离线地图") throw new Error("The TerraSys browser title is missing.");
+  const brandAsset = await page.locator(".brand-mark").evaluate((image) => ({
+    complete: image.complete,
+    naturalWidth: image.naturalWidth,
+    naturalHeight: image.naturalHeight
+  }));
+  if (!brandAsset.complete || brandAsset.naturalWidth < 1 || brandAsset.naturalHeight < 1) {
+    throw new Error("The TerraSys application mark did not load.");
+  }
+  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-mark.png")) {
+    throw new Error("The TerraSys browser icon is missing.");
+  }
   const storageMigration = await page.evaluate(() => ({
     current: localStorage.getItem("terrasys-route-recents"),
     legacy: localStorage.getItem("giss-route-recents")

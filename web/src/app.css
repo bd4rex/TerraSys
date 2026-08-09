@@ -410,6 +410,8 @@ body.panel-collapsed .side-panel { transform: translateX(calc(-1 * var(--panel-w
 .detail-panel footer .command-button[hidden] { display: none; }
 
 .panel-heading { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 11px; }
+.panel-brand { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid rgba(24, 60, 76, 0.24); border-radius: 7px; object-fit: cover; }
 .panel-heading h1 { margin: 0; font-size: 20px; line-height: 1.1; }
 .panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 

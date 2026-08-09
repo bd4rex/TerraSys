@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f6f2" />
     <title>TerraSys 个人离线地图</title>
-    <link rel="icon" href="data:," />
+    <link rel="icon" type="image/png" href="/assets/brand/terrasys-mark.png" />
+    <link rel="apple-touch-icon" href="/assets/brand/terrasys-mark.png" />
     <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css" />
-    <link rel="stylesheet" href="/src/app.css?v=20260809-6" />
+    <link rel="stylesheet" href="/src/app.css?v=20260809-7" />
   </head>
   <body class="panel-collapsed">
     <div id="map" aria-label="个人离线地图"></div>
@@ -190,9 +191,12 @@
 
     <aside id="sidePanel" class="side-panel" aria-label="地图工具" aria-hidden="true" inert>
       <div class="panel-heading">
-        <div>
-          <h1>TerraSys</h1>
-          <p>个人离线地图</p>
+        <div class="panel-brand">
+          <img class="brand-mark" src="/assets/brand/terrasys-mark.png" alt="" width="42" height="42" />
+          <div>
+            <h1>TerraSys</h1>
+            <p>个人离线地图</p>
+          </div>
         </div>
         <span id="systemState" class="status-badge">连接中</span>
       </div>

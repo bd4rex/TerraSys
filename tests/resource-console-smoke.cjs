@@ -39,6 +39,14 @@ fs.mkdirSync(outputDir, { recursive: true });
   );
 
   if ((await page.title()) !== "资源与版本 - TerraSys") throw new Error("The TerraSys resource-console title is missing.");
+  const brandAsset = await page.locator(".header-brand-mark").evaluate((image) => ({
+    complete: image.complete,
+    naturalWidth: image.naturalWidth,
+    naturalHeight: image.naturalHeight
+  }));
+  if (!brandAsset.complete || brandAsset.naturalWidth < 1 || brandAsset.naturalHeight < 1) {
+    throw new Error("The TerraSys resource-console mark did not load.");
+  }
   if (!(await page.locator(".storage-key").innerText()).includes("TerraSys 占用")) {
     throw new Error("The resource-console storage label still uses the legacy product name.");
   }

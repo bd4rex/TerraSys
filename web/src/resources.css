@@ -25,6 +25,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .app-title { min-width: 0; margin-right: auto; }
 .app-title h1 { margin: 0; font-size: 19px; line-height: 24px; letter-spacing: 0; }
 .app-title p { margin: 1px 0 0; color: #bfcfc8; font-size: 12px; }
+.header-brand-mark { width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid #456157; border-radius: 6px; object-fit: cover; }
 
 .icon-button, .command-button, .bulk-toolbar button, .row-actions button {
   border: 1px solid #cfd6d1;

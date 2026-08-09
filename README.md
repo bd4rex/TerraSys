@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/assets/brand/terrasys-logo-banner.png" alt="TerraSys" width="720" />
+</p>
+
 # TerraSys Personal Offline Map
 
 > English | [简体中文](README.zh-CN.md)

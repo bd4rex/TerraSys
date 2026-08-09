@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/assets/brand/terrasys-logo-banner.png" alt="TerraSys" width="720" />
+</p>
+
 # TerraSys 个人离线地图
 
 > [English](README.md) | 简体中文
