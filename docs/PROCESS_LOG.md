@@ -4,7 +4,7 @@
 
 > Historical implementation narrative. Commands and ports in earlier sections describe the system at that point in time. Use `README.md` and the current operations/rebuild documents for active instructions.
 
-This is the implementation log for the Jiangsu/Anhui GIS_P MVP.
+This is the implementation log for the Jiangsu/Anhui TerraSys MVP.
 
 ## 2026-07-03
 
@@ -19,13 +19,13 @@ The first MVP scope was limited to Jiangsu and Anhui because those regions match
 Migrated the working project from:
 
 ```text
-C:\Users\Administrator\Documents\个人GIS
+C:\Users\Administrator\Documents\TerraSys
 ```
 
 to:
 
 ```text
-D:\GISS
+D:\TerraSys
 ```
 
 The D drive had enough available capacity for the 100 GB working budget.
@@ -115,11 +115,11 @@ Range: bytes=0-1023
 
 ### PostGIS and Martin
 
-Docker Compose was changed from old `personal-gis-*` containers to:
+Docker Compose was changed from old `TerraSys-*` containers to:
 
-- `giss-postgis`
-- `giss-martin`
-- `giss-web`
+- `terrasys-postgis`
+- `terrasys-martin`
+- `terrasys-web`
 
 PostGIS table:
 
@@ -255,11 +255,11 @@ The System tab now lists pack size, source date, installed/update state, and che
 
 ### Advanced Offline Search, Routing, Terrain, and Knowledge
 
-The installed Suwan and Huzhe regional PBFs are now verified against their manifests and merged into `giss-core-latest.osm.pbf`. The shared product contains 32,457,952 nodes, 3,264,446 ways, and 91,488 relations in 253,592,396 bytes; both input packs carry China source sequence `7191012`.
+The installed Suwan and Huzhe regional PBFs are now verified against their manifests and merged into `terrasys-core-latest.osm.pbf`. The shared product contains 32,457,952 nodes, 3,264,446 ways, and 91,488 relations in 253,592,396 bytes; both input packs carry China source sequence `7191012`.
 
 Nominatim 5.3 was added as an advanced Compose service with a private PostgreSQL volume, complete address/reverse endpoints, and normalized results appended behind the existing search API. The lightweight 126,340-row index remains in PostGIS for fast nearby and emergency queries.
 
-Valhalla built 847 graph tiles and a 649,687,040-byte tile archive. It downloaded 58 one-degree HGT files totaling roughly 1.4 GiB. The GIS_P adapter decodes polyline6 to GeoJSON, exposes a stable route contract, samples a real elevation profile, and lets planned car/bicycle/walking routes be saved as personal tracks.
+Valhalla built 847 graph tiles and a 649,687,040-byte tile archive. It downloaded 58 one-degree HGT files totaling roughly 1.4 GiB. The TerraSys adapter decodes polyline6 to GeoJSON, exposes a stable route contract, samples a real elevation profile, and lets planned car/bicycle/walking routes be saved as personal tracks.
 
 MapLibre gained optional locally generated hillshade. The initial implementation performed a filesystem lookup per pixel and took about 60 seconds for a first tile; caching HGT resolution at the one-degree grid level reduced an uncached test tile to about 2.1 seconds and a cached tile to about 0.23 seconds.
 
@@ -281,11 +281,11 @@ The first live migration calibrated the local estimates. Jiangsu extracted to an
 
 The migration was then completed instead of retaining permanent compatibility packages. Shanghai built as a 93.7 MiB PMTiles archive and Zhejiang as a 460.6 MiB archive. All four province packages passed SHA256 verification. The static map catalog now has no combination datasets and defaults to Jiangsu; shared capability inputs are rebuilt from the four province PBFs before the old Suwan/Huzhe products, sources, and rollback files are deleted.
 
-The final cleanup removed both combination PMTiles/manifests, both combination PBFs, all old map rollback archives, the previous shared PBF, and the related build directories. About 2.16 GiB of old files were released. `giss-core` now lists only `jiangsu`, `anhui`, `shanghai`, and `zhejiang`; the lightweight reference index was regenerated from that source with 340,333 named OSM places. Health, API smoke, and Playwright UI tests run only against province IDs.
+The final cleanup removed both combination PMTiles/manifests, both combination PBFs, all old map rollback archives, the previous shared PBF, and the related build directories. About 2.16 GiB of old files were released. `terrasys-core` now lists only `jiangsu`, `anhui`, `shanghai`, and `zhejiang`; the lightweight reference index was regenerated from that source with 340,333 named OSM places. Health, API smoke, and Playwright UI tests run only against province IDs.
 
 ### Final Advanced Recovery Validation
 
-The final checksum-verified kit is `D:\GISS\offline-kit\20260716-230426`. It contains 960 files and 15,720,219,689 verified bytes (14.64 GiB), including the completed Nominatim volume snapshot and the rebuilt API image. The successful isolated audit is `runtime/recovery-audit/20260716-232131-a6309f11.json`.
+The final checksum-verified kit is `D:\TerraSys\offline-kit\20260716-230426`. It contains 960 files and 15,720,219,689 verified bytes (14.64 GiB), including the completed Nominatim volume snapshot and the rebuilt API image. The successful isolated audit is `runtime/recovery-audit/20260716-232131-a6309f11.json`.
 
 The final drill restored fresh personal and Nominatim volumes on a Docker `--internal` network. It verified 126,340 reference places, three collections, six migrations, two PMTiles headers, two Martin sources, three Nominatim results, a 204-point Valhalla route, a 15-metre elevation sample, local Kiwix access, nginx proxies, GeoJSON export, and blocked external routing. All temporary containers, volumes, networks, and work directories were removed afterward.
 
@@ -335,7 +335,7 @@ Four recovery defects were found and fixed during the proof:
 - Reworked maintenance progress around individual resources. Detached summary-bar cancel buttons were removed; every active row now owns its stage, queue position or elapsed time, progress track, and cancel action. Normal update rows no longer show a fake percentage-like meter. FastAPI derives honest five-stage map progress from live job logs, and the browser no longer launches a costly full resource scan on every three-second status poll.
 - Added live throughput to those task rows without inventing unavailable measurements. Curl progress is parsed as bytes/second and received/total bytes; Planetiler archive progress is parsed as tiles/second, generated tiles, feature throughput, and staged output bytes. Historical Zhejiang output verified 1,500 tiles/second, 962,000 generated tiles, and a 482 MiB staged archive; browser fixtures cover the same rendering contract.
 - Removed the resource manager's all-or-nothing loading gate. Available regions now render from the loaded catalog, maintenance state and speed render independently, and the last complete local/update inventory is returned from a persistent cache before a background refresh. Thirteen independent storage roots are scanned with a bounded thread pool. On this machine a fresh inventory measured about 15.9 seconds and the cached response about 13 milliseconds, down from a roughly 57-second first display under active map generation.
-- Audited OsmAnd as a reference rather than a code donor. Its main code is GPLv3, while its UI/UX layouts and icons are separately CC BY-NC-ND 4.0. GIS_P adopts the resource taxonomy, workflow principles, cache-first behavior, and size-oriented local management with its own desktop UI and implementation; `docs/OSMAND_REFERENCE.md` records the boundary and follow-up backlog.
+- Audited OsmAnd as a reference rather than a code donor. Its main code is GPLv3, while its UI/UX layouts and icons are separately CC BY-NC-ND 4.0. TerraSys adopts the resource taxonomy, workflow principles, cache-first behavior, and size-oriented local management with its own desktop UI and implementation; `docs/OSMAND_REFERENCE.md` records the boundary and follow-up backlog.
 
 ## 2026-07-31: Update closure and world ownership transition
 
@@ -350,8 +350,8 @@ Four recovery defects were found and fixed during the proof:
 ## 2026-08-02: D-drive migration and maintenance continuity
 
 - Moved the active Docker Desktop WSL store from the C-drive default to `D:\DockerData\wsl` using `CustomWslDistroDir`. Containers, images, named volumes, personal-data counts, the latest backup, seven service health checks, and active VHD writes were verified before treating the D-drive copy as authoritative.
-- Removed the inactive 140.81 GiB logical-size C-drive Docker VHD after the D-drive store continued advancing and all seven containers passed another health check. `D:\DockerData\wsl\disk\docker_data.vhdx` remains the sole Docker data disk; the C-drive project path remains only a junction to `D:\GISS`.
-- Consolidated the evolved project at `D:\GISS` and replaced the old C-drive project path with a junction to the active directory. The previous clean published checkout was retained temporarily as a D-drive legacy archive for migration rollback.
+- Removed the inactive 140.81 GiB logical-size C-drive Docker VHD after the D-drive store continued advancing and all seven containers passed another health check. `D:\DockerData\wsl\disk\docker_data.vhdx` remains the sole Docker data disk; the C-drive project path remains only a junction to `D:\TerraSys`.
+- Consolidated the evolved project at `D:\TerraSys` and replaced the old C-drive project path with a junction to the active directory. The previous clean published checkout was retained temporarily as a D-drive legacy archive for migration rollback.
 - Replaced the remaining synchronous PMTiles verification endpoint with `202 Accepted` maintenance jobs. Large SHA256 checks now remain visible and cancellable without timing out nginx or interrupting map browsing.
 - Made resource inventory delivery stale-while-refresh. The API returns the last complete snapshot immediately, starts at most one background scan, and replaces the cache atomically. Maintenance completion no longer deletes the only readable snapshot.
 - Corrected the smoke test's regional assumption: shared search/route coverage is compared with every enabled installed map pack, including global country packs, rather than only Chinese provinces.
@@ -366,10 +366,10 @@ Four recovery defects were found and fixed during the proof:
 - Localized country prompts through ISO region names with explicit Chinese fallbacks for Japan, Taiwan, Hong Kong, and Macao. User-facing copy now consistently says **download offline map** instead of exposing build-pipeline terminology.
 - Expanded the world-map Playwright suite across Japan, Jiangsu, and Taiwan, plus toast/shortcut overlap, all three manual sources, OSM-to-OpenFreeMap fallback, and full offline degradation. Health, API lifecycle, resource-console, main UI, and targeted world-map tests all passed.
 
-## 2026-08-02: GIS_P product identity and default map workspace
+## 2026-08-02: TerraSys product identity and default map workspace
 
-- Renamed the user-facing product from GISS to GIS_P across the map, resource console, API metadata, exported GPX files, command output, tests, and primary documentation.
-- Retained `D:\GISS`, `giss-*` Docker resources, `GISS_*` environment variables, browser storage keys, scheduled-task names, and offline-kit payload paths as compatibility identifiers so existing data and recovery kits remain usable.
+- Standardized the provisional user-facing identity across the map, resource console, API metadata, exported GPX files, command output, tests, and primary documentation.
+- Deferred runtime identifier migration until the database, Docker volumes, browser settings, scheduled tasks, and recovery paths could be migrated together and tested.
 - Changed the map's first frame to start with the left side panel collapsed and inert. The shared side-panel state function now keeps animation, keyboard focus, ARIA state, toggle icon, coverage detection, and programmatic panel opening synchronized.
 - Rebuilt the API image and corrected the resource-console browser fixtures to expect the four truly installed independent province packs instead of a stale five-row assumption.
 - Split shared-index readiness into coverage completeness and exact scope freshness. The active four provinces remain searchable/routable when an older index contains harmless extra Germany coverage, while the resource manager still requires a rebuild; an index missing any enabled pack remains blocked.
@@ -382,3 +382,9 @@ Four recovery defects were found and fixed during the proof:
 - Removed obsolete Germany, Monaco, Shanghai, Zhejiang, and legacy duplicate province sources. The legacy OSM download entry now maintains only the shared China snapshot so it cannot recreate a second Jiangsu/Anhui source tree.
 - Removed unmounted historical PostGIS volumes, obsolete images, and renewable build cache. After filesystem trim, compacted the Docker VHDX from 140.81 GiB to 24.51 GiB, then restarted all eight containers and passed health plus the complete functional smoke suite.
 - Corrected the functional smoke test to compare temporary record counts against the database baseline instead of assuming a fixed amount of pre-existing personal data.
+
+## 2026-08-09: complete TerraSys identity migration
+
+- Unified product text, source identifiers, scripts, container and image names, environment variables, browser storage, database names, capability manifests, tests, recovery payloads, paths, and documentation under `TerraSys`.
+- Preserved user data with a pre-migration PostgreSQL snapshot, an in-place database rename, one-time browser-setting migration, and explicit pointers to the already verified large Docker index volumes.
+- Established `D:\TerraSys` and the Documents TerraSys junction as the canonical project paths without duplicating data, rebuilt the eight-service stack, and exercised static, API, browser, world-map, resource-console, and performance checks before publication.

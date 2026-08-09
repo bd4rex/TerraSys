@@ -25,7 +25,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 Push-Location $services
 try {
   docker compose down
-  if ($LASTEXITCODE -ne 0) { throw "Could not stop GIS_P services." }
+  if ($LASTEXITCODE -ne 0) { throw "Could not stop TerraSys services." }
 }
 finally {
   Pop-Location

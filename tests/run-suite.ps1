@@ -2,7 +2,7 @@
 param(
   [ValidateSet("static", "browser", "full", "recovery")]
   [string]$Profile = "static",
-  [string]$UiImage = "giss-ui-test:suite",
+  [string]$UiImage = "terrasys-ui-test:suite",
   [string]$BrowserBaseUrl = "http://127.0.0.1",
   [string]$KitDirectory = "",
   [switch]$SkipImageBuild
@@ -55,8 +55,8 @@ function Invoke-BrowserTest {
   New-Item -ItemType Directory -Force -Path $runtimePath | Out-Null
   $arguments = @(
     "run", "--rm",
-    "--network", "container:giss-web",
-    "-e", "GISS_UI_URL=$BrowserBaseUrl",
+    "--network", "container:terrasys-web",
+    "-e", "TERRASYS_UI_URL=$BrowserBaseUrl",
     "-v", "${runtimePath}:/work/runtime",
     "--entrypoint", "node",
     $UiImage,

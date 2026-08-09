@@ -11,7 +11,7 @@ trap {
 }
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 $profile = $pack.sourceProfile
@@ -57,7 +57,7 @@ function Get-PbfHeaderSequence([string]$Path) {
 }
 
 try {
-  $osmiumImage = "giss-osmium:1"
+  $osmiumImage = "terrasys-osmium:1"
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker is required to validate regional source data."
   }

@@ -1,4 +1,4 @@
-schema_name: GIS_P OSM Details
+schema_name: TerraSys OSM Details
 schema_description: Rich offline OSM point-of-interest attributes paired with each regional basemap.
 attribution: '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
 version: 1

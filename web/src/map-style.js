@@ -1,4 +1,4 @@
-(function registerGissMapStyle(global) {
+(function registerTerraSysMapStyle(global) {
   const nameField = [
     "coalesce",
     ["get", "name:zh"],
@@ -497,7 +497,7 @@
     return {
       style: {
         version: 8,
-        name: "GIS_P interactive vector",
+        name: "TerraSys interactive vector",
         glyphs: `${window.location.origin}/assets/glyphs/{fontstack}/{range}.pbf`,
         sprite: `${window.location.origin}/assets/sprites/ofm_f384/ofm`,
         sources,
@@ -507,5 +507,5 @@
     };
   }
 
-  global.GissMapStyle = { create };
+  global.TerraSysMapStyle = { create };
 })(window);

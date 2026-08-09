@@ -10,7 +10,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   || chromeCandidates.find((candidate) => fs.existsSync(candidate));
 
 const outputDir = path.resolve(__dirname, "..", "runtime", "ui-smoke");
-const baseUrl = process.env.GISS_UI_URL || "http://127.0.0.1:8080";
+const baseUrl = process.env.TERRASYS_UI_URL || "http://127.0.0.1:8080";
 fs.mkdirSync(outputDir, { recursive: true });
 
 (async () => {
@@ -37,7 +37,8 @@ fs.mkdirSync(outputDir, { recursive: true });
     if (request.url().includes("/osm-carto/tile/")) localCartoRequestCount += 1;
   });
   await page.addInitScript(() => {
-    window.__gissMapInstance = null;
+    localStorage.setItem("giss-route-recents", "[]");
+    window.__terrasysMapInstance = null;
     Object.defineProperty(window, "maplibregl", {
       configurable: true,
       set(value) {
@@ -45,7 +46,7 @@ fs.mkdirSync(outputDir, { recursive: true });
         value.Map = class TestMap extends MapLibreMap {
           constructor(...args) {
             super(...args);
-            window.__gissMapInstance = this;
+            window.__terrasysMapInstance = this;
           }
         };
         Object.defineProperty(window, "maplibregl", { configurable: true, writable: true, value });
@@ -95,7 +96,14 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.waitForFunction(() => document.querySelector("#systemState")?.textContent === "本地在线", null, { timeout: 90000 });
   await page.waitForTimeout(2500);
 
-  if ((await page.title()) !== "GIS_P 个人离线地图") throw new Error("The GIS_P browser title is missing.");
+  if ((await page.title()) !== "TerraSys 个人离线地图") throw new Error("The TerraSys browser title is missing.");
+  const storageMigration = await page.evaluate(() => ({
+    current: localStorage.getItem("terrasys-route-recents"),
+    legacy: localStorage.getItem("giss-route-recents")
+  }));
+  if (storageMigration.current !== "[]" || storageMigration.legacy !== null) {
+    throw new Error(`Legacy browser settings were not migrated: ${JSON.stringify(storageMigration)}`);
+  }
   if (!(await page.locator("body").evaluate((body) => body.classList.contains("panel-collapsed")))) {
     throw new Error("The side panel is not collapsed on first load.");
   }
@@ -158,7 +166,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.locator('#layersPopover [data-scale-unit="metric"]').click();
   await page.waitForFunction(() => !/ft|mi|nm/.test(document.querySelector(".maplibregl-ctrl-scale")?.textContent || ""));
   const onlineSources = await page.evaluate(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     return ["online-osm", "online-openfreemap", "online-esri-imagery", "online-opentopomap"]
       .map((id) => ({ id, source: Boolean(map.getSource(id)) }));
   });
@@ -346,7 +354,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   await contourShortcut.click();
   if (await contourShortcut.getAttribute("aria-pressed") !== "true") throw new Error("Contour shortcut did not enable contours.");
   const contourLabelStyles = await page.evaluate(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     return {
       minorFilter: map.getFilter("terrain-contour-labels-minor"),
       minorSize: map.getLayoutProperty("terrain-contour-labels-minor", "text-size"),
@@ -444,7 +452,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 
   await browser.close();
   if (errors.length) throw new Error(errors.join("\n"));
-  console.log("UI smoke test passed: GIS_P branding, default-collapsed sidebar, map, details, collections, readiness, theme, and narrow layout.");
+  console.log("UI smoke test passed: TerraSys branding, default-collapsed sidebar, map, details, collections, readiness, theme, and narrow layout.");
 })().catch((error) => {
   console.error(error);
   process.exit(1);

@@ -21,17 +21,17 @@ if ($ResumeCandidateId -and $ResumeCandidateId -notmatch '^\d{8}-\d{6}$') {
 $timestamp = if ($ResumeCandidateId) { $ResumeCandidateId } else { Get-Date -Format "yyyyMMdd-HHmmss" }
 $audit = Join-Path $root "runtime\index-rebuild\$timestamp"
 $capabilityRoot = Join-Path $root "raw\osm\china"
-$capabilitySource = Join-Path $capabilityRoot "giss-core-latest.osm.pbf"
-$capabilityManifestPath = Join-Path $capabilityRoot "giss-core.manifest.json"
+$capabilitySource = Join-Path $capabilityRoot "terrasys-core-latest.osm.pbf"
+$capabilityManifestPath = Join-Path $capabilityRoot "terrasys-core.manifest.json"
 $activeRoutingDefault = Join-Path $root "products\routing\valhalla"
 $elevationRoot = Join-Path $root "products\elevation"
 $routingVersions = Join-Path $root "products\routing\versions"
 $candidateRouting = Join-Path $audit "candidate-valhalla"
 $candidateRoutingFinal = Join-Path $routingVersions $timestamp
 $statePath = Join-Path $root "data\maintenance\shared-index-state.json"
-$candidateNominatimVolume = "giss_nominatim_candidate_$timestamp"
-$candidateNominatimContainer = "giss-nominatim-candidate-$timestamp"
-$candidateValhallaContainer = "giss-valhalla-candidate-$timestamp"
+$candidateNominatimVolume = "terrasys_nominatim_candidate_$timestamp"
+$candidateNominatimContainer = "terrasys-nominatim-candidate-$timestamp"
+$candidateValhallaContainer = "terrasys-valhalla-candidate-$timestamp"
 $nominatimImage = "mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
 $valhallaImage = "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1"
 $utf8 = New-Object Text.UTF8Encoding($false)
@@ -97,12 +97,12 @@ function Get-ActiveMount([string]$Container, [string]$Destination, [string]$Prop
 }
 
 function Get-CapabilityValidationPoints {
-  $manifestPath = Join-Path $capabilityRoot "giss-core.manifest.json"
+  $manifestPath = Join-Path $capabilityRoot "terrasys-core.manifest.json"
   if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
     throw "Capability-source manifest is missing: $manifestPath"
   }
   $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-  $catalog = Get-GissExpandedCatalog -Root $root
+  $catalog = Get-TerraSysExpandedCatalog -Root $root
   $datasets = @{}
   foreach ($dataset in @($catalog.datasets)) { $datasets[[string]$dataset.id] = $dataset }
 
@@ -208,12 +208,12 @@ function Restore-ActivePointers {
   Set-DotEnvValue "NOMINATIM_VOLUME_NAME" $previousNominatimVolume
   Set-DotEnvValue "VALHALLA_DATA_PATH" ($previousRoutingPath -replace '\\', '/')
   Invoke-Compose @("up", "-d", "--force-recreate", "nominatim", "valhalla") "Restoring the previous shared indexes"
-  Wait-Healthy "giss-nominatim" 20
-  Wait-Healthy "giss-valhalla" 20
+  Wait-Healthy "terrasys-nominatim" 20
+  Wait-Healthy "terrasys-valhalla" 20
   Invoke-Compose @("up", "-d", "--force-recreate", "api") "Refreshing the API after rollback"
-  Wait-Healthy "giss-api" 10
+  Wait-Healthy "terrasys-api" 10
   Invoke-Compose @("up", "-d", "--force-recreate", "web") "Refreshing the web entry after rollback"
-  Wait-Healthy "giss-web" 5
+  Wait-Healthy "terrasys-web" 5
 }
 
 if ($Plan) {
@@ -223,7 +223,7 @@ if ($Plan) {
     CandidateMemoryLimit = "${BuildMemoryGB}GB"
     CandidateCpuLimit = $BuildCpus
     CapabilitySource = $capabilitySource
-    Command = "D:\GISS\rebuild-shared-indexes.cmd -ConfirmRebuild"
+    Command = "D:\TerraSys\rebuild-shared-indexes.cmd -ConfirmRebuild"
   } | Format-List
   exit 0
 }
@@ -236,8 +236,8 @@ New-Item -ItemType Directory -Force -Path $audit, $routingVersions, (Split-Path 
 if ($MaintenanceJobId) { [IO.File]::WriteAllText((Join-Path $audit "maintenance-job-id.txt"), $MaintenanceJobId, $utf8) }
 
 try {
-  $previousNominatimVolume = Get-ActiveMount "giss-nominatim" "/var/lib/postgresql/16/main" "Name"
-  $previousRoutingPath = Get-ActiveMount "giss-valhalla" "/custom_files" "Source"
+  $previousNominatimVolume = Get-ActiveMount "terrasys-nominatim" "/var/lib/postgresql/16/main" "Name"
+  $previousRoutingPath = Get-ActiveMount "terrasys-valhalla" "/custom_files" "Source"
   if (-not $previousNominatimVolume -or -not $previousRoutingPath) { throw "The active index pointers could not be identified." }
   $report.previous = [ordered]@{ nominatimVolume = $previousNominatimVolume; valhallaPath = $previousRoutingPath }
 
@@ -257,7 +257,7 @@ try {
     Write-Host "Resuming completed shared-index candidates from $ResumeCandidateId..."
     if (-not (Test-Path -LiteralPath $capabilitySource -PathType Leaf)) { throw "The shared capability source is missing." }
     $validationPoints = @(Get-CapabilityValidationPoints)
-    foreach ($name in @("giss-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json")) {
+    foreach ($name in @("terrasys-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json")) {
       if (-not (Test-Path -LiteralPath (Join-Path $candidateRouting $name) -PathType Leaf)) {
         throw "Resumable Valhalla candidate is missing $name."
       }
@@ -268,7 +268,7 @@ try {
 
     $resumeValhallaArgs = @(
       "run", "-d", "--name", $candidateValhallaContainer,
-      "--label", "giss.role=shared-index-candidate", "--label", "giss.maintenance-job=$MaintenanceJobId",
+      "--label", "terrasys.role=shared-index-candidate", "--label", "terrasys.maintenance-job=$MaintenanceJobId",
       "--memory", "4g", "--memory-swap", "5g", "--cpus", ([string][math]::Min(3, $BuildCpus)),
       "-e", "use_tiles_ignore_pbf=True", "-e", "force_rebuild=False", "-e", "build_elevation=True",
       "-e", "build_admins=True", "-e", "build_time_zones=True", "-e", "build_tar=True",
@@ -286,9 +286,9 @@ try {
     if (-not $dotenv.ContainsKey("NOMINATIM_PASSWORD") -or -not $dotenv.NOMINATIM_PASSWORD) { throw "NOMINATIM_PASSWORD is missing from services/.env." }
     $resumeNominatimArgs = @(
       "run", "-d", "--name", $candidateNominatimContainer,
-      "--label", "giss.role=shared-index-candidate", "--label", "giss.maintenance-job=$MaintenanceJobId",
+      "--label", "terrasys.role=shared-index-candidate", "--label", "terrasys.maintenance-job=$MaintenanceJobId",
       "--memory", "${BuildMemoryGB}g", "--memory-swap", "$($BuildMemoryGB + 1)g", "--cpus", ([string]$BuildCpus), "--shm-size", "1g",
-      "-e", "PBF_PATH=/data/giss-core-latest.osm.pbf", "-e", "UPDATE_MODE=none", "-e", "FREEZE=true",
+      "-e", "PBF_PATH=/data/terrasys-core-latest.osm.pbf", "-e", "UPDATE_MODE=none", "-e", "FREEZE=true",
       "-e", "IMPORT_STYLE=extratags", "-e", "IMPORT_WIKIPEDIA=false", "-e", "THREADS=3", "-e", "GUNICORN_WORKERS=2",
       "-e", "NOMINATIM_PASSWORD=$($dotenv.NOMINATIM_PASSWORD)", "-e", "TZ=Asia/Shanghai",
       "-v", "${candidateNominatimVolume}:/var/lib/postgresql/16/main", "-v", "${capabilityRoot}:/data:ro", $nominatimImage
@@ -306,11 +306,11 @@ try {
   Write-Host "Building Valhalla candidate in isolation; active routing remains online..."
   & (Join-Path $PSScriptRoot "sync-elevation.ps1")
   New-Item -ItemType Directory -Force -Path $candidateRouting | Out-Null
-  New-CapabilitySourceLink (Join-Path $candidateRouting "giss-core-latest.osm.pbf")
+  New-CapabilitySourceLink (Join-Path $candidateRouting "terrasys-core-latest.osm.pbf")
   $valhallaArgs = @(
     "run", "-d", "--name", $candidateValhallaContainer,
-    "--label", "giss.role=shared-index-candidate",
-    "--label", "giss.maintenance-job=$MaintenanceJobId",
+    "--label", "terrasys.role=shared-index-candidate",
+    "--label", "terrasys.maintenance-job=$MaintenanceJobId",
     "--memory", "4g", "--memory-swap", "5g", "--cpus", ([string][math]::Min(3, $BuildCpus)),
     "-e", "use_tiles_ignore_pbf=False", "-e", "force_rebuild=True", "-e", "build_elevation=True",
     "-e", "build_admins=True", "-e", "build_time_zones=True", "-e", "build_tar=True",
@@ -333,13 +333,13 @@ try {
   Write-Host "Building Nominatim candidate in an isolated, resource-limited volume; active search remains online..."
   $dotenv = Read-DotEnv
   if (-not $dotenv.ContainsKey("NOMINATIM_PASSWORD") -or -not $dotenv.NOMINATIM_PASSWORD) { throw "NOMINATIM_PASSWORD is missing from services/.env." }
-  & docker volume create --label "giss.role=shared-index-candidate" --label "giss.maintenance-job=$MaintenanceJobId" $candidateNominatimVolume | Out-Null
+  & docker volume create --label "terrasys.role=shared-index-candidate" --label "terrasys.maintenance-job=$MaintenanceJobId" $candidateNominatimVolume | Out-Null
   Assert-NativeSuccess "Creating the Nominatim candidate volume"
   $nominatimArgs = @(
     "run", "-d", "--name", $candidateNominatimContainer,
-    "--label", "giss.role=shared-index-candidate", "--label", "giss.maintenance-job=$MaintenanceJobId",
+    "--label", "terrasys.role=shared-index-candidate", "--label", "terrasys.maintenance-job=$MaintenanceJobId",
     "--memory", "${BuildMemoryGB}g", "--memory-swap", "$($BuildMemoryGB + 1)g", "--cpus", ([string]$BuildCpus), "--shm-size", "1g",
-    "-e", "PBF_PATH=/data/giss-core-latest.osm.pbf", "-e", "UPDATE_MODE=none", "-e", "FREEZE=true",
+    "-e", "PBF_PATH=/data/terrasys-core-latest.osm.pbf", "-e", "UPDATE_MODE=none", "-e", "FREEZE=true",
     "-e", "IMPORT_STYLE=extratags", "-e", "IMPORT_WIKIPEDIA=false", "-e", "THREADS=3", "-e", "GUNICORN_WORKERS=2",
     "-e", "NOMINATIM_PASSWORD=$($dotenv.NOMINATIM_PASSWORD)", "-e", "POSTGRES_SHARED_BUFFERS=1GB",
     "-e", "POSTGRES_MAINTENANCE_WORK_MEM=1GB", "-e", "POSTGRES_AUTOVACUUM_WORK_MEM=256MB",
@@ -376,12 +376,12 @@ try {
   Set-DotEnvValue "VALHALLA_DATA_PATH" ($candidateRoutingFinal -replace '\\', '/')
   $switchStarted = Get-Date
   Invoke-Compose @("up", "-d", "--force-recreate", "nominatim", "valhalla") "Activating the validated shared indexes"
-  Wait-Healthy "giss-nominatim" 20
-  Wait-Healthy "giss-valhalla" 20
+  Wait-Healthy "terrasys-nominatim" 20
+  Wait-Healthy "terrasys-valhalla" 20
   Invoke-Compose @("up", "-d", "--force-recreate", "api") "Refreshing the API index mounts"
-  Wait-Healthy "giss-api" 10
+  Wait-Healthy "terrasys-api" 10
   Invoke-Compose @("up", "-d", "--force-recreate", "web") "Refreshing the local web entry"
-  Wait-Healthy "giss-web" 5
+  Wait-Healthy "terrasys-web" 5
 
   $report.switched = $true
   $report.switchSeconds = [math]::Round(((Get-Date) - $switchStarted).TotalSeconds, 1)

@@ -1,6 +1,6 @@
 param(
   [string]$Image = "overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79",
-  [string]$DataVolume = "giss_osm_carto_data"
+  [string]$DataVolume = "terrasys_osm_carto_data"
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +10,7 @@ $externalConfig = Join-Path $root "config\osm-carto\external-data.local.yml"
 $repairScript = Join-Path $root "scripts\osm-carto-repair.sh"
 $normalizedRepairScript = Join-Path $root "runtime\osm-carto-support\repair-external.sh"
 $network = "services_default"
-$assetContainer = "giss-osm-carto-assets"
+$assetContainer = "terrasys-osm-carto-assets"
 
 $required = @(
   "simplified-water-polygons-split-3857.zip",
@@ -56,7 +56,7 @@ try {
   if (-not $assetServerReady) { throw "The local Carto dataset server did not become ready." }
 
   $repairArgs = @(
-    "run", "--rm", "--name", "giss-osm-carto-repair",
+    "run", "--rm", "--name", "terrasys-osm-carto-repair",
     "--network", $network, "--shm-size", "1g",
     "-v", "${DataVolume}:/data/database/",
     "-v", "${externalConfig}:/repair/external-data.yml:ro",

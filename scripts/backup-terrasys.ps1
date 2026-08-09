@@ -1,6 +1,6 @@
 param(
   [int]$Keep = 14,
-  [string]$MirrorRoot = $env:GISS_BACKUP_MIRROR
+  [string]$MirrorRoot = $env:TERRASYS_BACKUP_MIRROR
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,7 +8,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $backupRoot = Join-Path $root "backups"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $target = Join-Path $backupRoot $timestamp
-$dumpFile = Join-Path $target "personal_gis.dump"
+$dumpFile = Join-Path $target "terrasys.dump"
 $mediaRoot = Join-Path $root "data\media"
 
 function Assert-NativeSuccess([string]$Operation) {
@@ -19,11 +19,11 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 try {
   Write-Host "Creating PostGIS backup..."
-  docker exec giss-postgis pg_dump -U gis -d personal_gis -Fc -f /tmp/personal_gis.dump
+  docker exec terrasys-postgis pg_dump -U gis -d terrasys -Fc -f /tmp/terrasys.dump
   Assert-NativeSuccess "Creating the PostgreSQL dump"
-  docker cp "giss-postgis:/tmp/personal_gis.dump" $dumpFile
+  docker cp "terrasys-postgis:/tmp/terrasys.dump" $dumpFile
   Assert-NativeSuccess "Copying the PostgreSQL dump"
-  docker exec giss-postgis rm /tmp/personal_gis.dump
+  docker exec terrasys-postgis rm /tmp/terrasys.dump
   Assert-NativeSuccess "Removing the temporary container dump"
   if ((Get-Item $dumpFile).Length -lt 1024) {
     throw "Database backup is unexpectedly small."
@@ -68,6 +68,6 @@ try {
   Write-Host "Backup created: $target"
 }
 catch {
-  docker exec giss-postgis rm -f /tmp/personal_gis.dump 2>$null
+  docker exec terrasys-postgis rm -f /tmp/terrasys.dump 2>$null
   throw
 }

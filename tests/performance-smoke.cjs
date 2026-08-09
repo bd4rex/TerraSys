@@ -8,7 +8,7 @@ const chromeCandidates = [
 ];
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   || chromeCandidates.find((candidate) => fs.existsSync(candidate));
-const baseUrl = process.env.GISS_UI_URL || "http://127.0.0.1:8080";
+const baseUrl = process.env.TERRASYS_UI_URL || "http://127.0.0.1:8080";
 const baselinePath = path.join(__dirname, "performance-baseline.json");
 const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
 

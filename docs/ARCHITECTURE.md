@@ -76,13 +76,13 @@ FastAPI is the write boundary. The browser does not receive database credentials
 
 ### Offline reference search
 
-`app.reference_places` contains a derived index of named OSM nodes from `giss-core-latest.osm.pbf`, which merges every installed province source. `app.dataset_state` records its source timestamp, import time, row count, and source hash. These tables are replaceable products, not personal records, so an import truncates and atomically replaces the index.
+`app.reference_places` contains a derived index of named OSM nodes from `terrasys-core-latest.osm.pbf`, which merges every installed province source. `app.dataset_state` records its source timestamp, import time, row count, and source hash. These tables are replaceable products, not personal records, so an import truncates and atomically replaces the index.
 
 `GET /api/search` merges personal places, personal tracks, lightweight reference matches, and normalized Nominatim address matches behind one stable API. Personal matches sort first. The lightweight table remains useful for fast nearby and emergency queries; Nominatim adds house numbers, structured addresses, ranking, and reverse lookup without becoming the personal source of truth.
 
 ### Routing, terrain, and encyclopedia
 
-Valhalla and Nominatim consume `giss-core-latest.osm.pbf`, a manifest-tracked merge of all installed and enabled regional source PBFs. They are optional Compose-profile services behind FastAPI adapters. The browser never depends on their native response formats or ports.
+Valhalla and Nominatim consume `terrasys-core-latest.osm.pbf`, a manifest-tracked merge of all installed and enabled regional source PBFs. They are optional Compose-profile services behind FastAPI adapters. The browser never depends on their native response formats or ports.
 
 Weather, nautical references, OSM Carto, Nominatim, Valhalla, and lightweight reference search record regional IDs and source SHA256 values in their manifests. Inventory checks compare those inputs per region, so a healthy service cannot conceal missing coverage after another package is installed.
 
@@ -98,7 +98,7 @@ Uploaded images are decoded and validated before storage. The file name is based
 
 ## Database evolution
 
-SQL files under `services/postgis/migrations/` are ordered and recorded in `public.app_schema_migrations`. `scripts/migrate-giss.ps1` applies each migration once with `ON_ERROR_STOP` enabled. Initialization is therefore reproducible on both empty and existing volumes.
+SQL files under `services/postgis/migrations/` are ordered and recorded in `public.app_schema_migrations`. `scripts/migrate-terrasys.ps1` applies each migration once with `ON_ERROR_STOP` enabled. Initialization is therefore reproducible on both empty and existing volumes.
 
 ## Map rendering
 

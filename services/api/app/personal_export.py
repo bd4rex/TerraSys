@@ -26,7 +26,7 @@ def gpx_document(features: list[dict[str, Any]]) -> str:
             tracks.append(f"<trk><name>{name}</name><desc>{note}</desc>{''.join(segment_xml)}</trk>")
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<gpx version="1.1" creator="GIS_P" xmlns="http://www.topografix.com/GPX/1/1">'
+        '<gpx version="1.1" creator="TerraSys" xmlns="http://www.topografix.com/GPX/1/1">'
         + "".join(tracks)
         + "</gpx>"
     )

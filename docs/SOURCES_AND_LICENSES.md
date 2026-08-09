@@ -83,7 +83,7 @@ Project: `https://nominatim.org/`
 
 Container project: `https://github.com/mediagis/nominatim-docker`
 
-Role: imports `giss-core-latest.osm.pbf` for full local address search and reverse geocoding. The runtime image is pinned by digest. Nominatim is an index over OSM data; ODbL attribution and redistribution obligations still apply to the underlying database.
+Role: imports `terrasys-core-latest.osm.pbf` for full local address search and reverse geocoding. The runtime image is pinned by digest. Nominatim is an index over OSM data; ODbL attribution and redistribution obligations still apply to the underlying database.
 
 ## Valhalla and elevation
 

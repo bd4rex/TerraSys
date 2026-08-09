@@ -9,8 +9,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $kit = (Resolve-Path -LiteralPath $KitDirectory).Path.TrimEnd('\')
-$payload = Join-Path $kit "payload\GISS"
-$imageArchive = Join-Path $kit "docker\giss-images.tar"
+$payload = Join-Path $kit "payload\TerraSys"
+$imageArchive = Join-Path $kit "docker\terrasys-images.tar"
 $dockerDirectory = Join-Path $kit "docker"
 $kitInfoPath = Join-Path $kit "kit-info.json"
 if (-not (Test-Path -LiteralPath $payload -PathType Container)) {
@@ -57,7 +57,7 @@ if ($kitInfo.nominatimIndexIncluded) {
     throw "Nominatim index archive is missing: $nominatimArchive"
   }
   $projectName = (Split-Path (Join-Path $target "services") -Leaf).ToLowerInvariant() -replace '[^a-z0-9_-]', ''
-  $nominatimVolume = "${projectName}_giss_nominatim_data"
+  $nominatimVolume = "${projectName}_terrasys_nominatim_data"
   docker volume inspect $nominatimVolume *> $null
   if ($LASTEXITCODE -eq 0) {
     $entryCount = ((docker run --rm -v "${nominatimVolume}:/target:ro" `
@@ -81,7 +81,7 @@ if ($kitInfo.osmCartoIncluded) {
   if (-not (Test-Path -LiteralPath $cartoArchive -PathType Leaf)) {
     throw "OSM Carto database archive is missing: $cartoArchive"
   }
-  $cartoVolume = "giss_osm_carto_data"
+  $cartoVolume = "terrasys_osm_carto_data"
   docker volume inspect $cartoVolume *> $null
   if ($LASTEXITCODE -eq 0) {
     $entryCount = ((docker run --rm -v "${cartoVolume}:/target:ro" `
@@ -100,12 +100,12 @@ if ($kitInfo.osmCartoIncluded) {
   if ($LASTEXITCODE -ne 0) { throw "Restoring the OSM Carto database failed." }
 }
 
-& (Join-Path $target "scripts\start-giss.ps1") -NoBuild
+& (Join-Path $target "scripts\start-terrasys.ps1") -NoBuild
 $backupRoot = Join-Path $target "backups"
 $latestBackup = Get-ChildItem -LiteralPath $backupRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
 if (-not $latestBackup) { throw "The restored payload contains no database backup." }
-& (Join-Path $target "scripts\restore-giss.ps1") -BackupDirectory $latestBackup.FullName
+& (Join-Path $target "scripts\restore-terrasys.ps1") -BackupDirectory $latestBackup.FullName
 & (Join-Path $target "scripts\health-check.ps1") | Out-Host
 
-Write-Host "Offline GIS_P recovery completed: $target"
+Write-Host "Offline TerraSys recovery completed: $target"
 Write-Host "Map: http://localhost:8080/"

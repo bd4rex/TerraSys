@@ -10,7 +10,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   || chromeCandidates.find((candidate) => fs.existsSync(candidate));
 
 const outputDir = path.resolve(__dirname, "..", "runtime", "ui-smoke");
-const baseUrl = process.env.GISS_UI_URL || "http://127.0.0.1:8080";
+const baseUrl = process.env.TERRASYS_UI_URL || "http://127.0.0.1:8080";
 fs.mkdirSync(outputDir, { recursive: true });
 
 (async () => {
@@ -148,8 +148,8 @@ fs.mkdirSync(outputDir, { recursive: true });
     await route.fulfill({ response, json: inventory });
   });
   await cartoLagPage.addInitScript(() => {
-    localStorage.setItem("giss-theme", "osm-carto");
-    localStorage.setItem("giss-online-map", "false");
+    localStorage.setItem("terrasys-theme", "osm-carto");
+    localStorage.setItem("terrasys-online-map", "false");
   });
   await cartoLagPage.goto(`${baseUrl}/?lon=118.89574&lat=32.05272&zoom=9`, { waitUntil: "load" });
   await cartoLagPage.waitForFunction(() => document.querySelector("#mapSourceStatus")?.textContent.includes("交互矢量")
@@ -168,8 +168,8 @@ fs.mkdirSync(outputDir, { recursive: true });
   const fallbackPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await fallbackPage.route("https://tile.openstreetmap.org/**", (route) => route.abort("internetdisconnected"));
   await fallbackPage.addInitScript(() => {
-    localStorage.setItem("giss-online-map", "true");
-    localStorage.setItem("giss-online-provider", "osm");
+    localStorage.setItem("terrasys-online-map", "true");
+    localStorage.setItem("terrasys-online-provider", "osm");
   });
   await fallbackPage.goto(`${baseUrl}/?coverage=gf-japan`, { waitUntil: "load" });
   await fallbackPage.locator("#coveragePrompt").waitFor({ state: "visible", timeout: 15000 });
@@ -187,8 +187,8 @@ fs.mkdirSync(outputDir, { recursive: true });
   await degradedPage.route("https://tile.openstreetmap.org/**", (route) => route.abort("internetdisconnected"));
   await degradedPage.route("https://tiles.openfreemap.org/**", (route) => route.abort("internetdisconnected"));
   await degradedPage.addInitScript(() => {
-    localStorage.setItem("giss-online-map", "true");
-    localStorage.setItem("giss-online-provider", "osm");
+    localStorage.setItem("terrasys-online-map", "true");
+    localStorage.setItem("terrasys-online-provider", "osm");
   });
   await degradedPage.goto(`${baseUrl}/?coverage=gf-japan`, { waitUntil: "load" });
   await degradedPage.waitForFunction(() => {
@@ -243,9 +243,9 @@ fs.mkdirSync(outputDir, { recursive: true });
 
   const movementPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await movementPage.addInitScript(() => {
-    localStorage.setItem("giss-online-map", "false");
-    localStorage.setItem("giss-theme", "osm-carto");
-    window.__gissMapInstance = null;
+    localStorage.setItem("terrasys-online-map", "false");
+    localStorage.setItem("terrasys-theme", "osm-carto");
+    window.__terrasysMapInstance = null;
     Object.defineProperty(window, "maplibregl", {
       configurable: true,
       set(value) {
@@ -253,7 +253,7 @@ fs.mkdirSync(outputDir, { recursive: true });
         value.Map = class TestMap extends MapLibreMap {
           constructor(...args) {
             super(...args);
-            window.__gissMapInstance = this;
+            window.__terrasysMapInstance = this;
           }
         };
         Object.defineProperty(window, "maplibregl", { configurable: true, writable: true, value });
@@ -265,9 +265,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   await movementPage.waitForTimeout(2200);
   await movementPage.evaluate(() => {
     const originalSetStyle = maplibregl.Map.prototype.setStyle;
-    window.__gissSetStyleCalls = 0;
+    window.__terrasysSetStyleCalls = 0;
     maplibregl.Map.prototype.setStyle = function (...args) {
-      window.__gissSetStyleCalls += 1;
+      window.__terrasysSetStyleCalls += 1;
       return originalSetStyle.apply(this, args);
     };
   });
@@ -283,16 +283,16 @@ fs.mkdirSync(outputDir, { recursive: true });
   await movementPage.mouse.up();
   await movementPage.waitForTimeout(1800);
   await movementPage.evaluate(() => {
-    if (!window.__gissMapInstance) throw new Error("The movement test did not capture the active MapLibre map.");
-    window.__gissMapInstance.jumpTo({ center: [123.29027, 32.05272], zoom: 6 });
+    if (!window.__terrasysMapInstance) throw new Error("The movement test did not capture the active MapLibre map.");
+    window.__terrasysMapInstance.jumpTo({ center: [123.29027, 32.05272], zoom: 6 });
   });
   await movementPage.waitForFunction(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     if (!map || map.getLayoutProperty("local-osm-carto-raster", "visibility") !== "visible") return false;
     return map.getStyle().layers.some((layer) => ["jiangsu", "jiangsu-details"].includes(layer.source)
       && map.getLayoutProperty(layer.id, "visibility") !== "none");
   }, null, { timeout: 10000 });
-  if (await movementPage.evaluate(() => window.__gissSetStyleCalls) !== 0) {
+  if (await movementPage.evaluate(() => window.__terrasysSetStyleCalls) !== 0) {
     throw new Error("Panning still rebuilds the complete MapLibre style.");
   }
   if (await movementPage.locator("#coveragePrompt").isVisible()) {
@@ -306,7 +306,7 @@ fs.mkdirSync(outputDir, { recursive: true });
     throw new Error("The map source control did not switch to the persistent offline overview.");
   }
   const edgeLayerState = await movementPage.evaluate(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     if (!map) throw new Error("The movement test did not capture the active MapLibre map.");
     const localRasterVisibility = map.getLayoutProperty("local-osm-carto-raster", "visibility");
     const jiangsuLayers = map.getStyle().layers.filter((layer) => ["jiangsu", "jiangsu-details"].includes(layer.source));
@@ -327,11 +327,11 @@ fs.mkdirSync(outputDir, { recursive: true });
     throw new Error(`Panning the center outside Jiangsu hid its vector layers while Jiangsu was still inside the viewport: ${JSON.stringify(edgeLayerState)}`);
   }
   await movementPage.evaluate(() => {
-    if (!window.__gissMapInstance) throw new Error("The movement test did not capture the active MapLibre map.");
-    window.__gissMapInstance.jumpTo({ center: [118.89574, 32.05272], zoom: 6 });
+    if (!window.__terrasysMapInstance) throw new Error("The movement test did not capture the active MapLibre map.");
+    window.__terrasysMapInstance.jumpTo({ center: [118.89574, 32.05272], zoom: 6 });
   });
   await movementPage.waitForTimeout(1800);
-  if (await movementPage.evaluate(() => window.__gissSetStyleCalls) !== 0) {
+  if (await movementPage.evaluate(() => window.__terrasysSetStyleCalls) !== 0) {
     throw new Error("Returning to an installed region rebuilt the complete MapLibre style.");
   }
   if (!(await movementPage.locator("#mapCoverageStatus").textContent()).includes("江苏省已安装并启用")) {
@@ -351,7 +351,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (await movementPage.locator("#coveragePrompt").isVisible()) {
     throw new Error("The 100 km United States overview still displayed an automatic download prompt.");
   }
-  await movementPage.evaluate(() => window.__gissMapInstance?.jumpTo({ zoom: 8 }));
+  await movementPage.evaluate(() => window.__terrasysMapInstance?.jumpTo({ zoom: 8 }));
   await movementPage.locator("#coveragePrompt").waitFor({ state: "visible", timeout: 15000 });
   const automaticUsPrompt = await movementPage.locator("#coveragePromptTitle").textContent();
   if (!automaticUsPrompt.includes("美国")) {
@@ -360,7 +360,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   await movementPage.goto(`${baseUrl}/?lon=139.6917&lat=35.6895&zoom=6&overview-regression=3`, { waitUntil: "load" });
   await movementPage.waitForFunction(() => document.querySelector("#systemState")?.textContent === "本地在线", null, { timeout: 30000 });
   await movementPage.waitForFunction(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     if (!map?.loaded()) return false;
     return map.queryRenderedFeatures({ layers: ["world-vector-major-road"] }).length > 0
       && map.queryRenderedFeatures({ layers: ["world-vector-place-label"] }).length > 0;
@@ -369,7 +369,7 @@ fs.mkdirSync(outputDir, { recursive: true });
     throw new Error("The 100 km Japan overview still displayed an automatic download prompt.");
   }
   const japanOverviewState = await movementPage.evaluate(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     const layers = map.getStyle().layers;
     const layerIndex = (id) => layers.findIndex((layer) => layer.id === id);
     return {
@@ -385,7 +385,7 @@ fs.mkdirSync(outputDir, { recursive: true });
       || japanOverviewState.worldPlaceIndex <= japanOverviewState.localRasterIndex) {
     throw new Error(`The global vector skeleton was missing or covered at Japan z6: ${JSON.stringify(japanOverviewState)}`);
   }
-  await movementPage.evaluate(() => window.__gissMapInstance?.jumpTo({ zoom: 8 }));
+  await movementPage.evaluate(() => window.__terrasysMapInstance?.jumpTo({ zoom: 8 }));
   await movementPage.locator("#coveragePrompt").waitFor({ state: "visible", timeout: 15000 });
   const automaticJapanPrompt = await movementPage.locator("#coveragePromptTitle").textContent();
   if (!automaticJapanPrompt.includes("日本") || /Kyūshū|Kyushu/i.test(automaticJapanPrompt)) {
@@ -393,13 +393,13 @@ fs.mkdirSync(outputDir, { recursive: true });
   }
   await movementPage.goto(`${baseUrl}/?lon=121&lat=23.7&zoom=3&overview-regression=taiwan-label`, { waitUntil: "load" });
   await movementPage.waitForFunction(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     if (!map?.loaded() || !map.getLayer("world-vector-country-label")) return false;
     return map.querySourceFeatures("world-vector-overview", { sourceLayer: "place" })
       .some((feature) => /Taiwan|中华民国|台湾/.test(JSON.stringify(feature.properties)));
   }, null, { timeout: 30000 });
   const taiwanLabelState = await movementPage.evaluate(() => {
-    const map = window.__gissMapInstance;
+    const map = window.__terrasysMapInstance;
     const sourceFeatures = map.querySourceFeatures("world-vector-overview", { sourceLayer: "place" })
       .map((feature) => feature.properties)
       .filter((properties) => /Taiwan|中华民国|台湾/.test(JSON.stringify(properties)));

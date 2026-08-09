@@ -1,4 +1,4 @@
-# GIS_P Offline Recovery Guide
+# TerraSys Offline Recovery Guide
 
 > English | [简体中文](OFFLINE_RECOVERY.zh-CN.md) · Snapshot `2026-08-03T23:12:23+08:00`
 
@@ -6,7 +6,7 @@ This guide is designed to remain usable when internet access and image registrie
 
 ## What the kit contains
 
-- the GIS_P application, scripts, documentation, browser libraries, glyphs, and sprites;
+- the TerraSys application, scripts, documentation, browser libraries, glyphs, and sprites;
 - the latest PostgreSQL and media backup;
 - every installed catalogued PMTiles archive and provenance manifest;
 - every installed pack's regional PBF, the China PBF/state, all member polygons, and cached Planetiler inputs;
@@ -28,10 +28,10 @@ The kit does not include Windows or the Docker Desktop installer. Archive a test
 
 ## Verify a kit
 
-From the original GIS_P project:
+From the original TerraSys project:
 
 ```powershell
-D:\GISS\verify-offline-kit.cmd -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS
+D:\TerraSys\verify-offline-kit.cmd -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS
 ```
 
 From inside the kit itself:
@@ -47,9 +47,9 @@ Do not restore a kit when any checksum or size check fails.
 Prerequisites: 64-bit Windows, Docker Desktop with Linux containers, and enough free space for the kit plus Docker images. The target directory must be empty.
 
 ```powershell
-D:\GISS\restore-offline-kit.cmd `
-  -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS `
-  -TargetDirectory D:\GISS-RESTORED
+D:\TerraSys\restore-offline-kit.cmd `
+  -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS `
+  -TargetDirectory D:\TerraSys-RESTORED
 ```
 
 The restore process:
@@ -85,9 +85,9 @@ The **OSM Standard** and **OpenFreeMap** source choices are expected to be unava
 Use this when preparing files for inspection or when Docker is not yet available:
 
 ```powershell
-D:\GISS\restore-offline-kit.cmd `
-  -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS `
-  -TargetDirectory D:\GISS-RESTORED `
+D:\TerraSys\restore-offline-kit.cmd `
+  -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS `
+  -TargetDirectory D:\TerraSys-RESTORED `
   -PrepareOnly `
   -SkipImageLoad
 ```
@@ -97,12 +97,12 @@ D:\GISS\restore-offline-kit.cmd `
 The kit includes the China PBF, province polygons, regional PBF, cached Planetiler supporting datasets, and required Docker images. In the restored project:
 
 ```powershell
-D:\GISS-RESTORED\region-pack.cmd Build -PackId jiangsu
-D:\GISS-RESTORED\region-pack.cmd Build -PackId anhui
-D:\GISS-RESTORED\build-capability-source.cmd
-D:\GISS-RESTORED\import-reference-search.cmd
-D:\GISS-RESTORED\scripts\build-osm-carto.ps1
-D:\GISS-RESTORED\health-check.cmd
+D:\TerraSys-RESTORED\region-pack.cmd Build -PackId jiangsu
+D:\TerraSys-RESTORED\region-pack.cmd Build -PackId anhui
+D:\TerraSys-RESTORED\build-capability-source.cmd
+D:\TerraSys-RESTORED\import-reference-search.cmd
+D:\TerraSys-RESTORED\scripts\build-osm-carto.ps1
+D:\TerraSys-RESTORED\health-check.cmd
 ```
 
 Do not run `download-osm.cmd` or `download-web-assets.cmd` while disconnected; those commands intentionally contact upstream sources.

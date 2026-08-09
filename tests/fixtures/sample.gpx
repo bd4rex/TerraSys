@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GIS_P smoke test" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="TerraSys smoke test" xmlns="http://www.topografix.com/GPX/1/1">
   <trk>
-    <name>GIS_P smoke track</name>
+    <name>TerraSys smoke track</name>
     <trkseg>
       <trkpt lat="32.0603" lon="118.7969" />
       <trkpt lat="32.0703" lon="118.8069" />

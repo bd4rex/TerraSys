@@ -32,7 +32,7 @@
 | 过程日志 | [Process log](PROCESS_LOG.md) | [过程日志](PROCESS_LOG.zh-CN.md) |
 | 初始 MVP 规划 | [MVP plan](local-mvp-plan.md) | [MVP 规划](local-mvp-plan.zh-CN.md) |
 | 本地服务栈说明 | [Local stack](local-stack.md) | [本地服务栈](local-stack.zh-CN.md) |
-| 江苏/安徽 MVP | [Regional MVP](mvp-d-giss.md) | [区域 MVP](mvp-d-giss.zh-CN.md) |
+| 江苏/安徽 MVP | [Regional MVP](mvp-d-terrasys.md) | [区域 MVP](mvp-d-terrasys.zh-CN.md) |
 | OsmAnd 调研 | [OsmAnd reference](OSMAND_REFERENCE.md) | [OsmAnd 参考](OSMAND_REFERENCE.zh-CN.md) |
 | 资源布局 QA | [QA record](../design-qa.md) | [QA 记录](../design-qa.zh-CN.md) |
 | GitHub 发布说明 | [GitHub upload](GITHUB_UPLOAD.md) | [GitHub 上传](GITHUB_UPLOAD.zh-CN.md) |

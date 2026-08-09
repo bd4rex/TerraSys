@@ -1,16 +1,29 @@
 import { escapeHtml, formatBytes, formatDate, formatEstimateRange } from "./format.js";
 
-const onlineMapProviders = ["osm", "openfreemap", "esri-imagery", "opentopomap"];
-const savedOnlineMapProvider = onlineMapProviders.includes(localStorage.getItem("giss-online-provider"))
-  ? localStorage.getItem("giss-online-provider")
-  : "osm";
-const previousMapTheme = localStorage.getItem("giss-theme");
-const mapStyleSchema = "osm-carto-2";
-if (localStorage.getItem("giss-map-style-schema") !== mapStyleSchema) {
-  localStorage.setItem("giss-map-style-schema", mapStyleSchema);
-  localStorage.setItem("giss-theme", ["standard", "explore", "vector"].includes(previousMapTheme) ? "vector" : "osm-carto");
+const legacyStorageKeys = [
+  "online-provider", "theme", "map-style-schema", "online-map", "poi-density",
+  "map-light", "scale-unit", "active-pack", "route-recents", "resource-revision"
+];
+for (const suffix of legacyStorageKeys) {
+  const legacyKey = `giss-${suffix}`;
+  const currentKey = `terrasys-${suffix}`;
+  if (localStorage.getItem(currentKey) === null && localStorage.getItem(legacyKey) !== null) {
+    localStorage.setItem(currentKey, localStorage.getItem(legacyKey));
+  }
+  localStorage.removeItem(legacyKey);
 }
-const savedMapTheme = localStorage.getItem("giss-theme");
+
+const onlineMapProviders = ["osm", "openfreemap", "esri-imagery", "opentopomap"];
+const savedOnlineMapProvider = onlineMapProviders.includes(localStorage.getItem("terrasys-online-provider"))
+  ? localStorage.getItem("terrasys-online-provider")
+  : "osm";
+const previousMapTheme = localStorage.getItem("terrasys-theme");
+const mapStyleSchema = "osm-carto-2";
+if (localStorage.getItem("terrasys-map-style-schema") !== mapStyleSchema) {
+  localStorage.setItem("terrasys-map-style-schema", mapStyleSchema);
+  localStorage.setItem("terrasys-theme", ["standard", "explore", "vector"].includes(previousMapTheme) ? "vector" : "osm-carto");
+}
+const savedMapTheme = localStorage.getItem("terrasys-theme");
 
 const state = {
   catalog: null,
@@ -39,7 +52,7 @@ const state = {
   selectedResourcePackIds: new Set(),
   resourceMenuPackId: null,
   mapResourceChanged: false,
-  onlineMapEnabled: localStorage.getItem("giss-online-map") === "true",
+  onlineMapEnabled: localStorage.getItem("terrasys-online-map") === "true",
   onlineMapStatus: "idle",
   onlineMapProvider: savedOnlineMapProvider,
   onlinePreferredProvider: savedOnlineMapProvider,
@@ -77,9 +90,9 @@ const state = {
   mode: null,
   measureKind: "distance",
   measureCoordinates: [],
-  poiDensity: ["low", "standard", "high"].includes(localStorage.getItem("giss-poi-density")) ? localStorage.getItem("giss-poi-density") : "standard",
-  mapLight: localStorage.getItem("giss-map-light") === "night" ? "night" : "day",
-  scaleUnit: ["metric", "imperial", "nautical"].includes(localStorage.getItem("giss-scale-unit")) ? localStorage.getItem("giss-scale-unit") : "metric",
+  poiDensity: ["low", "standard", "high"].includes(localStorage.getItem("terrasys-poi-density")) ? localStorage.getItem("terrasys-poi-density") : "standard",
+  mapLight: localStorage.getItem("terrasys-map-light") === "night" ? "night" : "day",
+  scaleUnit: ["metric", "imperial", "nautical"].includes(localStorage.getItem("terrasys-scale-unit")) ? localStorage.getItem("terrasys-scale-unit") : "metric",
   scaleControl: null,
   layerMinZoom: new Map(),
   listFilter: "all",
@@ -253,7 +266,7 @@ function syncMapStyleForInstalledPacks() {
   const nextIds = datasets.map((dataset) => dataset.id).sort();
   const currentIds = [...state.renderedPackIds].sort();
   if (nextIds.length === currentIds.length && nextIds.every((id, index) => id === currentIds[index])) return false;
-  const generated = window.GissMapStyle.create(mapStyleCatalog(datasets), state.theme);
+  const generated = window.TerraSysMapStyle.create(mapStyleCatalog(datasets), state.theme);
   state.renderedPackIds = nextIds;
   state.visiblePackIds = new Set(nextIds);
   state.layerGroups = generated.groups;
@@ -267,7 +280,7 @@ function createOnlineVectorStyle(theme = state.theme) {
   if (!onlineVector?.url) return null;
   const attributionUrl = escapeHtml(onlineVector.homepage || "https://openfreemap.org/");
   const attributionText = escapeHtml(onlineVector.attribution || "OpenFreeMap © OpenStreetMap contributors");
-  return window.GissMapStyle.create({
+  return window.TerraSysMapStyle.create({
     datasets: [{
       id: "online-openfreemap",
       source: {
@@ -383,7 +396,7 @@ function copyRegionPackCommand(packId, action = "Build") {
   if (!pack) return;
   const suffix = action === "Remove" ? " -ConfirmRemove" : "";
   const actionLabel = { Build: "构建", Update: "更新", Remove: "移除" }[action] || action;
-  copyText(`D:\\GISS\\region-pack.cmd ${action} -PackId ${pack.id}${suffix}`, `${pack.shortName || pack.name}${actionLabel}命令已复制`);
+  copyText(`D:\\TerraSys\\region-pack.cmd ${action} -PackId ${pack.id}${suffix}`, `${pack.shortName || pack.name}${actionLabel}命令已复制`);
 }
 
 function mergeResourceCatalog(baseCatalog, worldCatalog) {
@@ -1079,10 +1092,10 @@ function renderResourceManager() {
     const managedPercent = Number(storage.diskTotalBytes) > 0 ? Number(storage.managedBytes) / Number(storage.diskTotalBytes) * 100 : 0;
     elements.resourceDiskFree.textContent = `${formatBytes(Number(storage.diskFreeBytes))} 可用`;
     elements.resourceDiskUsed.textContent = `磁盘已用 ${formatBytes(Number(storage.diskUsedBytes))}`;
-    elements.resourceManagedSize.textContent = `GIS_P 占用 ${formatBytes(Number(storage.managedBytes))}`;
+    elements.resourceManagedSize.textContent = `TerraSys 占用 ${formatBytes(Number(storage.managedBytes))}`;
     elements.resourceDiskUsedBar.style.width = `${Math.max(0, Math.min(100, usedPercent)).toFixed(1)}%`;
     elements.resourceManagedUsedBar.style.width = `${Math.max(0, Math.min(100, managedPercent)).toFixed(1)}%`;
-    elements.resourceStorageTrack.setAttribute("aria-label", `磁盘已用 ${formatBytes(Number(storage.diskUsedBytes))}，其中 GIS_P 占用 ${formatBytes(Number(storage.managedBytes))}`);
+    elements.resourceStorageTrack.setAttribute("aria-label", `磁盘已用 ${formatBytes(Number(storage.diskUsedBytes))}，其中 TerraSys 占用 ${formatBytes(Number(storage.managedBytes))}`);
   }
   if (!state.resourceInventory && state.resourceTab === "download" && state.resourceCatalog && state.mapPacks.length) {
     elements.resourceManagerContent.innerHTML = renderResourceDownload();
@@ -1104,7 +1117,7 @@ function renderResourceManager() {
   elements.resourceRefreshButton.classList.toggle("loading", state.resourceLoading);
   elements.resourceRefreshButton.disabled = state.resourceLoading;
   elements.resourceManagerSubtitle.textContent = state.resourceInventory
-    ? `离线资源目录 · GIS_P 占用 ${formatBytes(Number(state.resourceInventory.storage.managedBytes))}${state.resourceInventory.cache?.state === "cached" ? " · 后台刷新中" : ""}`
+    ? `离线资源目录 · TerraSys 占用 ${formatBytes(Number(state.resourceInventory.storage.managedBytes))}${state.resourceInventory.cache?.state === "cached" ? " · 后台刷新中" : ""}`
     : "离线资源目录与本地存储";
   icons();
 }
@@ -1256,7 +1269,7 @@ function fitActiveRegion() {
 function activateRegionPack(packId) {
   const pack = state.mapPacks.find((item) => item.id === packId);
   if (!pack?.installed || pack.enabled === false) return;
-  localStorage.setItem("giss-active-pack", packId);
+  localStorage.setItem("terrasys-active-pack", packId);
   if (!state.map?.getSource(packId) || state.mapResourceChanged) {
     window.location.reload();
     return;
@@ -1971,7 +1984,7 @@ async function routeToSelectedFeature() {
 
 function routeRecentLocations() {
   try {
-    const parsed = JSON.parse(localStorage.getItem("giss-route-recents") || "[]");
+    const parsed = JSON.parse(localStorage.getItem("terrasys-route-recents") || "[]");
     return Array.isArray(parsed)
       ? parsed.filter((item) => Number.isFinite(item?.longitude) && Number.isFinite(item?.latitude)).slice(0, 6)
       : [];
@@ -1984,7 +1997,7 @@ function rememberRouteLocation(location) {
   if (!location) return;
   const recent = routeRecentLocations().filter((item) => Math.abs(item.longitude - location.longitude) > 1e-5 || Math.abs(item.latitude - location.latitude) > 1e-5);
   recent.unshift({ longitude: location.longitude, latitude: location.latitude, name: routePointLabel(location) });
-  localStorage.setItem("giss-route-recents", JSON.stringify(recent.slice(0, 6)));
+  localStorage.setItem("terrasys-route-recents", JSON.stringify(recent.slice(0, 6)));
 }
 
 function updateRouteCoverageStatus() {
@@ -2302,7 +2315,7 @@ async function saveRouteTrack() {
       body: JSON.stringify({
         name: `${routePointLabel(start)} 至 ${routePointLabel(end)}`,
         activity: activities[state.route.costing],
-        note: "由 GIS_P 离线 Valhalla 路线引擎生成",
+        note: "由 TerraSys 离线 Valhalla 路线引擎生成",
         tags: ["offline-route", state.route.costing],
         color: "#2679a6",
         geometry: state.route.result.geometry
@@ -2805,7 +2818,7 @@ function activateOnlineFallback() {
 
 function setOnlineMapEnabled(enabled, announce = true) {
   state.onlineMapEnabled = Boolean(enabled);
-  localStorage.setItem("giss-online-map", String(state.onlineMapEnabled));
+  localStorage.setItem("terrasys-online-map", String(state.onlineMapEnabled));
   state.onlineFallbackAnnounced = false;
   watchOnlineMapConnection(state.onlinePreferredProvider);
   syncMapShortcuts();
@@ -2826,8 +2839,8 @@ function setOnlineMapProvider(provider, announce = true) {
   state.onlineMapProvider = provider;
   state.onlineMapEnabled = true;
   state.onlineFallbackAnnounced = false;
-  localStorage.setItem("giss-online-provider", provider);
-  localStorage.setItem("giss-online-map", "true");
+  localStorage.setItem("terrasys-online-provider", provider);
+  localStorage.setItem("terrasys-online-map", "true");
   watchOnlineMapConnection(provider);
   updateCoveragePrompt();
   if (announce) {
@@ -3079,7 +3092,7 @@ function syncDisplaySettings() {
 function setPoiDensity(density) {
   if (!["low", "standard", "high"].includes(density)) return;
   state.poiDensity = density;
-  localStorage.setItem("giss-poi-density", density);
+  localStorage.setItem("terrasys-poi-density", density);
   applyPoiDensity();
   syncDisplaySettings();
   showToast(`兴趣点密度已切换为${density === "low" ? "精简" : density === "high" ? "丰富" : "标准"}`);
@@ -3087,7 +3100,7 @@ function setPoiDensity(density) {
 
 function setMapLight(mode) {
   state.mapLight = mode === "night" ? "night" : "day";
-  localStorage.setItem("giss-map-light", state.mapLight);
+  localStorage.setItem("terrasys-map-light", state.mapLight);
   syncDisplaySettings();
   showToast(state.mapLight === "night" ? "已启用夜间浏览" : "已恢复昼间浏览");
 }
@@ -3095,7 +3108,7 @@ function setMapLight(mode) {
 function setScaleUnit(unit) {
   if (!["metric", "imperial", "nautical"].includes(unit)) return;
   state.scaleUnit = unit;
-  localStorage.setItem("giss-scale-unit", unit);
+  localStorage.setItem("terrasys-scale-unit", unit);
   state.scaleControl?.setUnit(unit);
   syncDisplaySettings();
   showToast(`比例尺已切换为${{ metric: "公制", imperial: "英制", nautical: "海里" }[unit]}`);
@@ -4449,7 +4462,7 @@ async function switchTheme(theme) {
   // so leave online mode before applying a local theme.
   if (state.onlineMapEnabled) setOnlineMapEnabled(false, false);
   state.theme = normalizedTheme;
-  localStorage.setItem("giss-theme", normalizedTheme);
+  localStorage.setItem("terrasys-theme", normalizedTheme);
   document.querySelectorAll("[data-theme]").forEach((button) => {
     const active = button.dataset.theme === normalizedTheme;
     button.classList.toggle("active", active);
@@ -4457,7 +4470,7 @@ async function switchTheme(theme) {
   });
   const renderedIds = new Set(state.renderedPackIds);
   const renderedDatasets = renderingMapCatalog().datasets.filter((dataset) => renderedIds.has(dataset.id));
-  const generated = window.GissMapStyle.create(mapStyleCatalog(renderedDatasets), normalizedTheme);
+  const generated = window.TerraSysMapStyle.create(mapStyleCatalog(renderedDatasets), normalizedTheme);
   generated.style.layers.forEach((layer) => {
     if (!state.map.getLayer(layer.id)) return;
     Object.entries(layer.paint || {}).forEach(([property, value]) => {
@@ -4962,7 +4975,7 @@ function wireUi() {
     state.viewPackId = view.packId;
     if (view.packId !== "all") {
       state.activePackId = view.packId;
-      localStorage.setItem("giss-active-pack", view.packId);
+      localStorage.setItem("terrasys-active-pack", view.packId);
     }
     renderViewSwitcher();
     renderRegionPacks();
@@ -5192,13 +5205,13 @@ async function init() {
   state.osmCartoPackIds = packStatus?.osmCartoPackIds || null;
   state.mapPackBoundaries = {};
   syncInstalledCatalogDatasets();
-  const preferredPackId = localStorage.getItem("giss-active-pack");
+  const preferredPackId = localStorage.getItem("terrasys-active-pack");
   const installedPackIds = new Set(state.mapPacks.filter((pack) => pack.installed && pack.enabled !== false).map((pack) => pack.id));
   state.activePackId = [preferredPackId, catalog.activeDataset]
     .find((packId) => packId && installedPackIds.has(packId))
     || state.mapPacks.find((pack) => pack.installed && pack.enabled !== false)?.id
     || catalog.activeDataset;
-  if (state.activePackId) localStorage.setItem("giss-active-pack", state.activePackId);
+  if (state.activePackId) localStorage.setItem("terrasys-active-pack", state.activePackId);
   state.viewPackId = "all";
   document.querySelectorAll("[data-theme]").forEach((button) => {
     button.classList.toggle("active", button.dataset.theme === state.theme);
@@ -5232,7 +5245,7 @@ async function init() {
   const initialStyleDatasets = renderingMapCatalog().datasets;
   state.renderedPackIds = initialStyleDatasets.map((dataset) => dataset.id).sort();
   state.visiblePackIds = new Set(state.renderedPackIds);
-  const generated = window.GissMapStyle.create(mapStyleCatalog(initialStyleDatasets), state.theme);
+  const generated = window.TerraSysMapStyle.create(mapStyleCatalog(initialStyleDatasets), state.theme);
   state.layerGroups = generated.groups;
   indexRenderedPackLayers(generated.style);
 
@@ -5282,7 +5295,7 @@ async function init() {
   const requestedCoveragePack = requestParameters.get("coverage");
   if (requestedCoveragePack) locateRegionPack(requestedCoveragePack);
   window.addEventListener("storage", (event) => {
-    if (event.key === "giss-resource-revision" && event.newValue) {
+    if (event.key === "terrasys-resource-revision" && event.newValue) {
       refreshMapPackStateFromResources();
     }
   });

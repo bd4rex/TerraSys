@@ -4,7 +4,7 @@
 
 ## Current repository
 
-- Repository: [bd4rex/personal-gis](https://github.com/bd4rex/personal-gis)
+- Repository: [bd4rex/TerraSys](https://github.com/bd4rex/TerraSys)
 - Visibility: public
 - Default branch: `main`
 - Local remote: `origin`
@@ -42,7 +42,7 @@ Do not commit:
 Use a focused branch and explicit staging when the worktree also contains generated runtime changes:
 
 ```powershell
-Set-Location D:\GISS
+Set-Location D:\TerraSys
 git status -sb
 git switch -c agent/<description>
 git add README.md README.zh-CN.md CHANGELOG.md CHANGELOG.zh-CN.md docs

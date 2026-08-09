@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
 
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
 $packState = if (Test-Path -LiteralPath $packStatePath -PathType Leaf) {
   Get-Content -Raw -LiteralPath $packStatePath | ConvertFrom-Json
@@ -31,7 +31,7 @@ foreach ($dataset in @($catalog.datasets)) {
 }
 
 $drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($root).TrimEnd('\').TrimEnd(':'))
-$osmiumReady = [bool](docker image ls -q giss-osmium:1 2>$null)
+$osmiumReady = [bool](docker image ls -q terrasys-osmium:1 2>$null)
 $report = [ordered]@{
   schemaVersion = 1
   generatedAt = [DateTimeOffset]::Now.ToString("o")

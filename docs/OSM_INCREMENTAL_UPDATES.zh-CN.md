@@ -16,8 +16,8 @@
 只读准备检查：
 
 ```powershell
-D:\GISS\plan-osm-incremental-updates.cmd
-D:\GISS\plan-osm-incremental-updates.cmd -Json
+D:\TerraSys\plan-osm-incremental-updates.cmd
+D:\TerraSys\plan-osm-incremental-updates.cmd -Json
 ```
 
 ## 试验流水线

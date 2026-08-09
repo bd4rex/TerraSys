@@ -1,4 +1,4 @@
-# GIS_P 测试用例集
+# TerraSys 测试用例集
 
 > [English](README.md) | 简体中文
 
@@ -22,7 +22,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profi
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
 ```
 
-浏览器层会构建 `giss-ui-test:suite`，并与 `giss-web` 共享网络命名空间。重复测试时可用 `-SkipImageBuild` 复用已构建镜像；测试脚本或基线有变化时不要跳过构建。
+浏览器层会构建 `terrasys-ui-test:suite`，并与 `terrasys-web` 共享网络命名空间。重复测试时可用 `-SkipImageBuild` 复用已构建镜像；测试脚本或基线有变化时不要跳过构建。
 
 ## 回归覆盖
 

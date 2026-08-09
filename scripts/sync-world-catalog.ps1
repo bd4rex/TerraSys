@@ -70,7 +70,7 @@ function Get-CleanDisplayName {
 
 Write-Host "Refreshing the local Geofabrik catalog snapshot..."
 $client = New-Object Net.WebClient
-$client.Headers['User-Agent'] = 'GIS_P/1.0 offline-map-catalog'
+$client.Headers['User-Agent'] = 'TerraSys/1.0 offline-map-catalog'
 $indexBytes = $client.DownloadData($IndexUrl)
 $index = [Text.Encoding]::UTF8.GetString($indexBytes) | ConvertFrom-Json
 $features = @($index.features | Where-Object { $_.properties.id -and $_.properties.urls.pbf })

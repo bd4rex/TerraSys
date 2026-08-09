@@ -24,7 +24,7 @@ POSTGRES_PASSWORD=<long-random-local-password>
 NOMINATIM_PASSWORD=<independent-long-random-local-password>
 ```
 
-The file is ignored by Git. `scripts/start-giss.ps1` creates a 32-byte random password if the file is missing and synchronizes it with the existing `gis` database role.
+The file is ignored by Git. `scripts/start-terrasys.ps1` creates a 32-byte random password if the file is missing and synchronizes it with the existing `gis` database role.
 
 ## Compose services
 
@@ -32,14 +32,14 @@ The Compose project lives in `services/docker-compose.yml`.
 
 | Service | Persistent data | Host exposure |
 | --- | --- | --- |
-| `postgis` | Docker volume `giss_postgis_data` | none |
+| `postgis` | Docker volume `terrasys_postgis_data` | none |
 | `api` | `data/media`, `data/exports`; read-only backups, maps, resources, and recovery kits | none |
 | `martin` | PostGIS views | none |
 | `web` | read-only `web`, read-only PMTiles | `127.0.0.1:8080` |
-| `nominatim` (`advanced`) | Docker volume `giss_nominatim_data` | none |
+| `nominatim` (`advanced`) | Docker volume `terrasys_nominatim_data` | none |
 | `valhalla` (`advanced`) | `products/routing/valhalla` | none |
 | `kiwix` (`advanced`) | read-only `products/encyclopedia` | none |
-| `osm-carto` (`advanced`) | external Docker volume `giss_osm_carto_data`; `data/osm-carto-tiles` | none |
+| `osm-carto` (`advanced`) | external Docker volume `terrasys_osm_carto_data`; `data/osm-carto-tiles` | none |
 
 All third-party runtime images are pinned by digest. The API image is built from `services/api/Dockerfile` with exact Python dependency versions.
 
@@ -82,7 +82,7 @@ Every province entry carries its administrative type, abbreviation, bounds, sour
 
 ## Host storage locations
 
-The active project is `D:\GISS`. `C:\Users\Administrator\Documents\个人GIS` is a compatibility junction to that directory so older shortcuts continue to work without retaining a second project copy.
+The active project is `D:\TerraSys`. `C:\Users\Administrator\Documents\TerraSys` is a compatibility junction to that directory so older shortcuts continue to work without retaining a second project copy.
 
 Docker Desktop's WSL data root is `D:\DockerData\wsl`. The persisted Docker setting is:
 
@@ -92,9 +92,9 @@ Docker Desktop's WSL data root is `D:\DockerData\wsl`. The persisted Docker sett
 
 Verify the active location in `%LOCALAPPDATA%\Docker\log\host\com.docker.backend.exe.log` or by checking that `D:\DockerData\wsl\disk\docker_data.vhdx` advances. During a future migration, do not delete the previous VHD until containers, images, volumes, API counts, and a backup have all been checked from the destination copy.
 
-On 2026-08-02, the migrated D-drive store passed those checks and the inactive `C:\Users\Administrator\AppData\Local\Docker\wsl\disk\docker_data.vhdx` was removed. On 2026-08-03, obsolete volumes, images, and renewable build cache were pruned after a recovery kit passed; filesystem trim and offline compaction reduced the active VHDX from 140.81 GiB to 24.51 GiB. The D-drive VHD is the only retained Docker data disk, and all eight GIS_P containers passed health and functional smoke checks after compaction.
+On 2026-08-02, the migrated D-drive store passed those checks and the inactive `C:\Users\Administrator\AppData\Local\Docker\wsl\disk\docker_data.vhdx` was removed. On 2026-08-03, obsolete volumes, images, and renewable build cache were pruned after a recovery kit passed; filesystem trim and offline compaction reduced the active VHDX from 140.81 GiB to 24.51 GiB. The D-drive VHD is the only retained Docker data disk, and all eight TerraSys containers passed health and functional smoke checks after compaction.
 
-The user-facing product name is `GIS_P`. Existing paths, Docker resource names, environment variables, local-storage keys, scheduled-task names, and offline-kit payload paths keep their `GISS`/`giss` identifiers as a compatibility contract until a separately tested data migration is available.
+The product and runtime identity is `TerraSys`. New paths, containers, images, environment variables, browser keys, scheduled tasks, database names, and offline-kit payloads use `TerraSys`, `terrasys`, or `TERRASYS_*` according to context. During an in-place upgrade, `services/.env` may point at previously verified physical Docker volumes; those volume pointers are data-location compatibility settings rather than product identity.
 
 ## Style and local assets
 

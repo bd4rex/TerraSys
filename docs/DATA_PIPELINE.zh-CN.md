@@ -55,7 +55,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Packs["已启用区域源"] --> Core["giss-core-latest.osm.pbf"]
+  Packs["已启用区域源"] --> Core["terrasys-core-latest.osm.pbf"]
   Core --> ValCandidate["Valhalla 候选版本"]
   Core --> NomCandidate["Nominatim 候选卷"]
   ValCandidate --> Validate["路线、海拔与健康验证"]

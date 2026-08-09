@@ -10,7 +10,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   || chromeCandidates.find((candidate) => fs.existsSync(candidate));
 
 const outputDir = path.resolve(__dirname, "..", "runtime", "resource-console-smoke");
-const baseUrl = process.env.GISS_UI_URL || "http://127.0.0.1:8080";
+const baseUrl = process.env.TERRASYS_UI_URL || "http://127.0.0.1:8080";
 fs.mkdirSync(outputDir, { recursive: true });
 
 (async () => {
@@ -38,12 +38,12 @@ fs.mkdirSync(outputDir, { recursive: true });
     { timeout: 60000 }
   );
 
-  if ((await page.title()) !== "资源与版本 - GIS_P") throw new Error("The GIS_P resource-console title is missing.");
-  if (!(await page.locator(".storage-key").innerText()).includes("GIS_P 占用")) {
+  if ((await page.title()) !== "资源与版本 - TerraSys") throw new Error("The TerraSys resource-console title is missing.");
+  if (!(await page.locator(".storage-key").innerText()).includes("TerraSys 占用")) {
     throw new Error("The resource-console storage label still uses the legacy product name.");
   }
   const managedBarWidth = await page.locator("#storageManagedBar").evaluate((element) => element.getBoundingClientRect().width);
-  if (managedBarWidth <= 0) throw new Error("The blue GIS_P storage segment is not rendered in the usage track.");
+  if (managedBarWidth <= 0) throw new Error("The blue TerraSys storage segment is not rendered in the usage track.");
 
   const rows = await page.locator("#versionRows tr[data-pack-row]").count();
   if (rows !== packSummary.installed) throw new Error(`Expected ${packSummary.installed} installed packs, found ${rows}.`);

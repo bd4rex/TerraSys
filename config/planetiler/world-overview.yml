@@ -1,4 +1,4 @@
-schema_name: GIS_P World Overview
+schema_name: TerraSys World Overview
 schema_description: Natural Earth multiscale vector basemap for uninterrupted global browsing at zoom 0-7.
 attribution: '<a href="https://www.naturalearthdata.com/">Made with Natural Earth</a>'
 version: 1

@@ -1,4 +1,4 @@
-# GIS_P 离线恢复指南
+# TerraSys 离线恢复指南
 
 > [English](OFFLINE_RECOVERY.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
 
@@ -6,7 +6,7 @@
 
 ## 恢复包内容
 
-- GIS_P 应用、脚本、双语文档、浏览器库、字形和 sprites；
+- TerraSys 应用、脚本、双语文档、浏览器库、字形和 sprites；
 - 最新 PostgreSQL 与媒体备份；
 - 所有已安装 PMTiles 及来源清单；
 - 区域 PBF、中国 PBF/状态、边界和 Planetiler 缓存输入；
@@ -31,7 +31,7 @@
 从原项目执行：
 
 ```powershell
-D:\GISS\verify-offline-kit.cmd -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS
+D:\TerraSys\verify-offline-kit.cmd -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS
 ```
 
 从恢复包内部执行：
@@ -47,9 +47,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-offline-kit.ps1
 前提：64 位 Windows、Linux 容器模式 Docker Desktop，以及能够同时容纳恢复包、项目和 Docker 镜像的空间。目标目录必须为空。
 
 ```powershell
-D:\GISS\restore-offline-kit.cmd `
-  -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS `
-  -TargetDirectory D:\GISS-RESTORED
+D:\TerraSys\restore-offline-kit.cmd `
+  -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS `
+  -TargetDirectory D:\TerraSys-RESTORED
 ```
 
 恢复过程：
@@ -84,9 +84,9 @@ D:\GISS\restore-offline-kit.cmd `
 ## 只恢复文件，不启动服务
 
 ```powershell
-D:\GISS\restore-offline-kit.cmd `
-  -KitDirectory E:\GISS-OFFLINE\YYYYMMDD-HHMMSS `
-  -TargetDirectory D:\GISS-RESTORED `
+D:\TerraSys\restore-offline-kit.cmd `
+  -KitDirectory E:\TerraSys-OFFLINE\YYYYMMDD-HHMMSS `
+  -TargetDirectory D:\TerraSys-RESTORED `
   -PrepareOnly `
   -SkipImageLoad
 ```
@@ -96,12 +96,12 @@ D:\GISS\restore-offline-kit.cmd `
 ## 断网重建区域地图
 
 ```powershell
-D:\GISS-RESTORED\region-pack.cmd Build -PackId jiangsu
-D:\GISS-RESTORED\region-pack.cmd Build -PackId anhui
-D:\GISS-RESTORED\build-capability-source.cmd
-D:\GISS-RESTORED\import-reference-search.cmd
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\GISS-RESTORED\scripts\build-osm-carto.ps1
-D:\GISS-RESTORED\health-check.cmd
+D:\TerraSys-RESTORED\region-pack.cmd Build -PackId jiangsu
+D:\TerraSys-RESTORED\region-pack.cmd Build -PackId anhui
+D:\TerraSys-RESTORED\build-capability-source.cmd
+D:\TerraSys-RESTORED\import-reference-search.cmd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\TerraSys-RESTORED\scripts\build-osm-carto.ps1
+D:\TerraSys-RESTORED\health-check.cmd
 ```
 
 断网时不要运行 `download-osm.cmd` 或 `download-web-assets.cmd`，它们会主动访问上游。

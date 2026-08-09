@@ -82,8 +82,8 @@ $valhallaDataPath = if ($valhallaPathLine) {
 else {
   Join-Path $root "products\routing\valhalla"
 }
-$advancedReady = (Test-Path -LiteralPath (Join-Path $root "raw\osm\china\giss-core-latest.osm.pbf") -PathType Leaf) -and
-  (Test-Path -LiteralPath (Join-Path $valhallaDataPath "giss-core-latest.osm.pbf") -PathType Leaf) -and
+$advancedReady = (Test-Path -LiteralPath (Join-Path $root "raw\osm\china\terrasys-core-latest.osm.pbf") -PathType Leaf) -and
+  (Test-Path -LiteralPath (Join-Path $valhallaDataPath "terrasys-core-latest.osm.pbf") -PathType Leaf) -and
   (Test-Path -LiteralPath (Join-Path $root "products\encyclopedia\wikipedia_zh_all_mini_2026-05.zim") -PathType Leaf)
 $profileArguments = if ($advancedReady) { @("--profile", "advanced") } else { @() }
 
@@ -93,23 +93,23 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Could not start PostGIS." }
   $ready = $false
   for ($attempt = 0; $attempt -lt 30; $attempt++) {
-    docker exec giss-postgis pg_isready -U gis -d personal_gis *> $null
+    docker exec terrasys-postgis pg_isready -U gis -d terrasys *> $null
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     Start-Sleep -Seconds 1
   }
   if (-not $ready) { throw "PostGIS did not become ready." }
 
-  docker exec giss-postgis psql -v ON_ERROR_STOP=1 -U gis -d personal_gis -c `
+  docker exec terrasys-postgis psql -v ON_ERROR_STOP=1 -U gis -d terrasys -c `
     "ALTER ROLE gis PASSWORD '$sqlPassword'" | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "Could not synchronize the PostGIS password." }
-  & (Join-Path $PSScriptRoot "migrate-giss.ps1")
+  & (Join-Path $PSScriptRoot "migrate-terrasys.ps1")
   if ($NoBuild) {
     docker compose @profileArguments up -d | Out-Host
   }
   else {
     docker compose @profileArguments up -d --build | Out-Host
   }
-  if ($LASTEXITCODE -ne 0) { throw "One or more GIS_P services failed to start." }
+  if ($LASTEXITCODE -ne 0) { throw "One or more TerraSys services failed to start." }
 }
 finally {
   Pop-Location
@@ -137,8 +137,8 @@ if (-not $workerRunning) {
 }
 
 Write-Host ""
-Write-Host "GIS_P is starting."
+Write-Host "TerraSys is starting."
 Write-Host "Advanced offline engines: $(if ($advancedReady) { 'enabled' } else { 'not prepared' })"
 Write-Host "Maintenance worker: enabled"
 Write-Host "Map: http://localhost:8080/"
-Write-Host "Health: run D:\GISS\health-check.cmd"
+Write-Host "Health: run D:\TerraSys\health-check.cmd"

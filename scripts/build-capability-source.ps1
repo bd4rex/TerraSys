@@ -1,18 +1,18 @@
 param(
-  [string]$OutputId = "giss-core"
+  [string]$OutputId = "terrasys-core"
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
 $disabledPackIds = @()
 if (Test-Path -LiteralPath $packStatePath -PathType Leaf) {
   $packState = Get-Content -Raw -LiteralPath $packStatePath | ConvertFrom-Json
   $disabledPackIds = @($packState.disabledPackIds | ForEach-Object { [string]$_ })
 }
-$osmiumImage = "giss-osmium:1"
+$osmiumImage = "terrasys-osmium:1"
 $outputDirectory = Join-Path $root "raw\osm\china"
 $output = Join-Path $outputDirectory "$OutputId-latest.osm.pbf"
 $staged = Join-Path $outputDirectory "$OutputId-staged.osm.pbf"

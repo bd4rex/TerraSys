@@ -83,7 +83,7 @@ HGT 文件同时用于 Valhalla 海拔、FastAPI 点/路线采样和 Terrarium �
 
 ## 数据库演进
 
-`services/postgis/migrations/` 中的 SQL 按顺序执行，并记录到 `public.app_schema_migrations`。`scripts/migrate-giss.ps1` 使用 `ON_ERROR_STOP`，保证新卷和已有卷都能重现同一结构。
+`services/postgis/migrations/` 中的 SQL 按顺序执行，并记录到 `public.app_schema_migrations`。`scripts/migrate-terrasys.ps1` 使用 `ON_ERROR_STOP`，保证新卷和已有卷都能重现同一结构。
 
 ## 地图渲染
 

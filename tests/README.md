@@ -1,4 +1,4 @@
-# GIS_P test suite
+# TerraSys test suite
 
 > English | [简体中文](README.zh-CN.md)
 
@@ -22,7 +22,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profi
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
 ```
 
-The browser profiles build `giss-ui-test:suite` and share the `giss-web` network namespace. Use `-SkipImageBuild` to reuse an existing image during repeated runs; do not skip the build after changing a test or its baseline.
+The browser profiles build `terrasys-ui-test:suite` and share the `terrasys-web` network namespace. Use `-SkipImageBuild` to reuse an existing image during repeated runs; do not skip the build after changing a test or its baseline.
 
 ## Regression coverage
 

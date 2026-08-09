@@ -1,10 +1,10 @@
-# GIS_P Personal Offline Map
+# TerraSys Personal Offline Map
 
 > English | [简体中文](README.zh-CN.md)
 >
-> Documentation snapshot: `2026-08-03T23:12:23+08:00` · Verified code revision: [`b2a6503`](https://github.com/bd4rex/personal-gis/commit/b2a6503304fbea851a968d7cdabeddb1b7e1a81c)
+> Documentation snapshot: `2026-08-09` · Product identity: `TerraSys`
 
-GIS_P is a local-first personal geographic information system for owning, exploring, and recovering offline map data. It combines an OpenStreetMap-style local renderer, portable regional vector maps, private places and tracks, address search, routing, terrain, weather, nautical references, a Chinese encyclopedia and travel guide, resource lifecycle management, backups, and disconnected recovery.
+TerraSys is a local-first personal geographic information system for owning, exploring, and recovering offline map data. It combines an OpenStreetMap-style local renderer, portable regional vector maps, private places and tracks, address search, routing, terrain, weather, nautical references, a Chinese encyclopedia and travel guide, resource lifecycle management, backups, and disconnected recovery.
 
 The project is designed for one trusted user on a local computer. Its only host-facing endpoint is:
 
@@ -66,25 +66,25 @@ The active Compose profile contains eight services: `web`, `api`, `postgis`, `ma
 ## Start and verify
 
 ```powershell
-D:\GISS\start-giss.cmd
-D:\GISS\health-check.cmd
-D:\GISS\smoke-test.cmd
+D:\TerraSys\start-terrasys.cmd
+D:\TerraSys\health-check.cmd
+D:\TerraSys\smoke-test.cmd
 ```
 
 Ongoing development uses the layered [test suite](tests/README.md): `static` for every commit, `browser` for map and resource UI coverage, `full` for API and personal-data lifecycles, and `recovery` for the isolated disconnected recovery drill.
 
-`start-giss.cmd` creates local secrets when required, starts Docker Desktop, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
+`start-terrasys.cmd` creates local secrets when required, starts Docker Desktop, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
 
 Prepare or rebuild advanced offline capabilities:
 
 ```powershell
-D:\GISS\prepare-advanced.cmd
+D:\TerraSys\prepare-advanced.cmd
 ```
 
 Build or resume the OSM Carto renderer independently:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File D:\GISS\scripts\build-osm-carto.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\TerraSys\scripts\build-osm-carto.ps1
 ```
 
 Heavy builds are intentionally serialized on a 16 GiB host. Existing validated products remain active until their staged replacements pass verification.
@@ -92,13 +92,13 @@ Heavy builds are intentionally serialized on a 16 GiB host. Existing validated p
 ## Routine operations
 
 ```powershell
-D:\GISS\backup-giss.cmd
-D:\GISS\region-pack.cmd List
-D:\GISS\region-pack.cmd Verify
-D:\GISS\rebuild-shared-indexes.cmd -Plan
-D:\GISS\create-offline-kit.cmd
-D:\GISS\test-offline-recovery.cmd
-D:\GISS\stop-giss.cmd
+D:\TerraSys\backup-terrasys.cmd
+D:\TerraSys\region-pack.cmd List
+D:\TerraSys\region-pack.cmd Verify
+D:\TerraSys\rebuild-shared-indexes.cmd -Plan
+D:\TerraSys\create-offline-kit.cmd
+D:\TerraSys\test-offline-recovery.cmd
+D:\TerraSys\stop-terrasys.cmd
 ```
 
 The resource console exposes Available, Local, and Updates views. Regular update-all jobs exclude heavy map, knowledge, and shared-index builds. Each active task owns its queue position, stage, measured transfer or generation rate, cancellation action, and retry state.
@@ -120,7 +120,7 @@ The resource console exposes Available, Local, and Updates views. Regular update
 | `offline-kit/` | Complete disconnected recovery packages |
 | `runtime/` and `tmp/` | Audits, logs, candidate builds, and renewable scratch data |
 
-The active project is stored at `D:\GISS`; `C:\Users\Administrator\Documents\个人GIS` is a compatibility junction. Docker Desktop data is stored at `D:\DockerData\wsl`. The `GISS` path, `giss-*` container names, environment variables, scheduled task names, and recovery payload paths remain compatibility identifiers while the user-facing product name is GIS_P.
+The canonical project path is `D:\TerraSys`; `C:\Users\Administrator\Documents\TerraSys` is a junction to the same files. Docker Desktop data is stored at `D:\DockerData\wsl`. Product text, scripts, containers, images, environment variables, browser keys, recovery payloads, and new database names use the TerraSys identity. Upgrade code migrates prior browser settings and can attach the existing verified Docker index volumes without copying them.
 
 ## Documentation
 
@@ -145,7 +145,7 @@ The repository had no Git tags or GitHub Releases before this documentation snap
 
 ## Security scope
 
-GIS_P is a trusted, single-user localhost application. Do not bind it to `0.0.0.0` or expose it to the internet without authentication, TLS, rate limits, and a stricter upload policy.
+TerraSys is a trusted, single-user localhost application. Do not bind it to `0.0.0.0` or expose it to the internet without authentication, TLS, rate limits, and a stricter upload policy.
 
 ## Project status
 

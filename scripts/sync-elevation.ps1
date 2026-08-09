@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
 $elevationRoot = Join-Path $root "products\elevation"
 $stagingRoot = Join-Path $root "tmp\elevation-downloads"

@@ -38,7 +38,7 @@ foreach ($asset in @(
   Move-Item -LiteralPath "$target.part" -Destination $target -Force
 }
 
-if (-not (docker image ls -q "giss-api:1")) {
+if (-not (docker image ls -q "terrasys-api:1")) {
   docker compose --env-file (Join-Path $root "services\.env") -f (Join-Path $root "services\docker-compose.yml") build api
   if ($LASTEXITCODE -ne 0) { throw "Building the local image converter failed." }
 }
@@ -77,7 +77,7 @@ mercator = source.transform(
 )
 mercator.save('/data/web/assets/overview/gray-earth.jpg', quality=86, optimize=True, progressive=True)
 '@
-docker run --rm --user 0 -v "${root}:/data" --entrypoint python giss-api:1 -c $conversion
+docker run --rm --user 0 -v "${root}:/data" --entrypoint python terrasys-api:1 -c $conversion
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $image -PathType Leaf)) { throw "Converting the Natural Earth raster failed." }
 
 $files = @(Get-ChildItem -LiteralPath $outputDirectory -File | Where-Object { $_.Name -ne "overview.manifest.json" })

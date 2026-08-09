@@ -79,7 +79,7 @@ function announceResourceChange(job) {
     action: job.action,
     status: job.status
   });
-  localStorage.setItem("giss-resource-revision", revision);
+  localStorage.setItem("terrasys-resource-revision", revision);
 }
 
 function detectJobTransitions(jobs) {
@@ -211,7 +211,7 @@ function renderStorage() {
   $("#storageMeta").textContent = `磁盘总计 ${formatBytes(total)} · 资源清单 ${cacheLabel}`;
   $("#storageUsedBar").style.width = `${total ? Math.min(100, used / total * 100) : 0}%`;
   $("#storageManagedBar").style.width = `${total ? Math.min(100, managed / total * 100) : 0}%`;
-  $("#storageTrack").setAttribute("aria-label", `磁盘已用 ${formatBytes(used)}，其中 GIS_P 占用 ${formatBytes(managed)}`);
+  $("#storageTrack").setAttribute("aria-label", `磁盘已用 ${formatBytes(used)}，其中 TerraSys 占用 ${formatBytes(managed)}`);
   $("#managedSize").textContent = managedPending ? "计算中" : formatBytes(managed);
   $("#diskUsed").textContent = formatBytes(used);
 }

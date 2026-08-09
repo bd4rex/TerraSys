@@ -20,8 +20,8 @@ $manifestPath = Join-Path $productRoot "osm-carto.manifest.json"
 $tileCache = Join-Path $root "data\osm-carto-tiles"
 $statePath = Join-Path $root "data\maintenance\osm-carto-state.json"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$candidateVolume = "giss_osm_carto_candidate_$timestamp"
-$candidateContainer = "giss-osm-carto-candidate-$timestamp"
+$candidateVolume = "terrasys_osm_carto_candidate_$timestamp"
+$candidateContainer = "terrasys-osm-carto-candidate-$timestamp"
 $candidateCache = Join-Path $root "runtime\osm-carto-candidate\$timestamp"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
 $switched = $false
@@ -180,14 +180,14 @@ $previousState = if (Test-Path -LiteralPath $statePath -PathType Leaf) {
   Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
 } else { $null }
 
-$inspect = docker inspect giss-osm-carto 2>$null | ConvertFrom-Json
+$inspect = docker inspect terrasys-osm-carto 2>$null | ConvertFrom-Json
 if ($LASTEXITCODE -eq 0 -and @($inspect).Count) {
   $mount = $inspect[0].Mounts | Where-Object { $_.Destination -eq "/data/database" } | Select-Object -First 1
   if ($mount.Name) { $activeVolume = [string]$mount.Name }
 }
 if (-not $activeVolume) {
   $configured = Get-Content -LiteralPath $envFile -ErrorAction SilentlyContinue | Where-Object { $_ -match '^OSM_CARTO_VOLUME_NAME=' } | Select-Object -First 1
-  $activeVolume = if ($configured) { $configured.Substring("OSM_CARTO_VOLUME_NAME=".Length).Trim() } else { "giss_osm_carto_data" }
+  $activeVolume = if ($configured) { $configured.Substring("OSM_CARTO_VOLUME_NAME=".Length).Trim() } else { "terrasys_osm_carto_data" }
 }
 
 $currentExternalSignature = if ($current -and $current.externalData -and $current.externalData.inputs) {
@@ -213,12 +213,12 @@ Assert-NativeSuccess "Downloading the pinned OSM Carto renderer"
 
 try {
   Write-Host "OSM_CARTO_STAGE 1/4 IMPORT"
-  & docker volume create --label "giss.role=osm-carto-candidate" --label "giss.maintenance-job=$MaintenanceJobId" $candidateVolume | Out-Null
+  & docker volume create --label "terrasys.role=osm-carto-candidate" --label "terrasys.maintenance-job=$MaintenanceJobId" $candidateVolume | Out-Null
   Assert-NativeSuccess "Creating the OSM Carto candidate volume"
   $importArgs = @(
-    "run", "--rm", "--name", "giss-osm-carto-import-$timestamp", "--shm-size", "1g",
+    "run", "--rm", "--name", "terrasys-osm-carto-import-$timestamp", "--shm-size", "1g",
     "--memory", "6g", "--memory-swap", "7g", "--cpus", "4",
-    "--label", "giss.role=osm-carto-candidate", "--label", "giss.maintenance-job=$MaintenanceJobId",
+    "--label", "terrasys.role=osm-carto-candidate", "--label", "terrasys.maintenance-job=$MaintenanceJobId",
     "-e", "THREADS=3", "-e", "OSM2PGSQL_EXTRA_ARGS=-C 3072",
     "-v", "${source}:/data/region.osm.pbf:ro", "-v", "${candidateVolume}:/data/database/",
     "-v", "${candidateCache}:/data/tiles/", "-v", "${externalRoot}:/external:ro",
@@ -248,7 +248,7 @@ try {
   $candidateArgs = @(
     "run", "-d", "--name", $candidateContainer, "--shm-size", "1g",
     "--memory", "3g", "--memory-swap", "3g", "--cpus", "2",
-    "--label", "giss.role=osm-carto-candidate", "--label", "giss.maintenance-job=$MaintenanceJobId",
+    "--label", "terrasys.role=osm-carto-candidate", "--label", "terrasys.maintenance-job=$MaintenanceJobId",
     "-e", "THREADS=2", "-e", "ALLOW_CORS=enabled", "-e", "AUTOVACUUM=on", "-e", "TZ=Asia/Shanghai",
     "-v", "${candidateVolume}:/data/database/", "-v", "${candidateCache}:/data/tiles/",
     "-v", "${apacheConfig}:/etc/apache2/sites-available/000-default.conf:ro", $image, "run"
@@ -257,7 +257,7 @@ try {
   Assert-NativeSuccess "Starting the OSM Carto candidate renderer"
   Wait-ContainerEndpoint $candidateContainer "http://127.0.0.1/" 10 "OSM Carto candidate"
 
-  $catalog = Get-GissExpandedCatalog -Root $root
+  $catalog = Get-TerraSysExpandedCatalog -Root $root
   $datasets = @{}
   foreach ($dataset in @($catalog.datasets)) { $datasets[[string]$dataset.id] = $dataset }
   foreach ($id in @($sourceState.scope)) {
@@ -312,14 +312,14 @@ try {
   Get-ChildItem -LiteralPath $candidateCache -Force -ErrorAction Stop | Copy-Item -Destination $tileCache -Recurse -Force
   try {
     Invoke-Compose @("up", "-d", "--force-recreate", "osm-carto") "Activating the OSM Carto candidate"
-    Wait-Healthy "giss-osm-carto" 15
+    Wait-Healthy "terrasys-osm-carto" 15
     $switched = $true
   }
   catch {
     Set-DotEnvValue "OSM_CARTO_VOLUME_NAME" $activeVolume
     Get-ChildItem -LiteralPath $tileCache -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
     Invoke-Compose @("up", "-d", "--force-recreate", "osm-carto") "Restoring the previous OSM Carto database"
-    Wait-Healthy "giss-osm-carto" 15
+    Wait-Healthy "terrasys-osm-carto" 15
     throw
   }
 
@@ -336,12 +336,12 @@ try {
   }
   [IO.File]::WriteAllText($statePath, ($state | ConvertTo-Json -Depth 6), $utf8NoBom)
   Invoke-Compose @("up", "-d", "--force-recreate", "api", "web") "Refreshing API and web resource state"
-  Wait-Healthy "giss-api" 10
-  Wait-Healthy "giss-web" 5
+  Wait-Healthy "terrasys-api" 10
+  Wait-Healthy "terrasys-web" 5
 
   $obsoleteVolumes = @()
   if ($previousState -and $previousState.previousVolume) { $obsoleteVolumes += [string]$previousState.previousVolume }
-  $obsoleteVolumes += @(docker volume ls -q --filter "label=giss.role=osm-carto-candidate" 2>$null)
+  $obsoleteVolumes += @(docker volume ls -q --filter "label=terrasys.role=osm-carto-candidate" 2>$null)
   foreach ($volume in @($obsoleteVolumes | Select-Object -Unique)) {
     if (-not $volume -or $volume -in @($candidateVolume, $activeVolume)) { continue }
     docker volume rm $volume | Out-Null

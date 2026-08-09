@@ -1,10 +1,10 @@
-# GIS_P 个人离线地图
+# TerraSys 个人离线地图
 
 > [English](README.md) | 简体中文
 >
-> 文档快照：`2026-08-03T23:12:23+08:00` · 已核对代码版本：[`b2a6503`](https://github.com/bd4rex/personal-gis/commit/b2a6503304fbea851a968d7cdabeddb1b7e1a81c)
+> 文档快照：`2026-08-09` · 产品标识：`TerraSys`
 
-GIS_P 是一套本地优先的个人地理信息系统，用于拥有、浏览和恢复离线地图数据。系统组合了 OpenStreetMap 风格本地渲染、可移植区域矢量地图、个人点位与轨迹、地址搜索、路线规划、地形、天气、航海参考、中文百科与旅行指南、资源生命周期管理、备份和断网恢复。
+TerraSys 是一套本地优先的个人地理信息系统，用于拥有、浏览和恢复离线地图数据。系统组合了 OpenStreetMap 风格本地渲染、可移植区域矢量地图、个人点位与轨迹、地址搜索、路线规划、地形、天气、航海参考、中文百科与旅行指南、资源生命周期管理、备份和断网恢复。
 
 项目面向一台受信任计算机上的单用户，唯一对宿主机开放的入口是：
 
@@ -66,25 +66,25 @@ flowchart LR
 ## 启动与验证
 
 ```powershell
-D:\GISS\start-giss.cmd
-D:\GISS\health-check.cmd
-D:\GISS\smoke-test.cmd
+D:\TerraSys\start-terrasys.cmd
+D:\TerraSys\health-check.cmd
+D:\TerraSys\smoke-test.cmd
 ```
 
 后续开发使用分层的[测试用例集](tests/README.zh-CN.md)：`static` 适合每次提交，`browser` 覆盖地图与资源界面，`full` 增加 API 和个人数据生命周期，`recovery` 增加隔离断网恢复演练。
 
-`start-giss.cmd` 会在需要时创建本地密钥、启动 Docker Desktop、应用有序 PostGIS 迁移、构建 API 镜像、启动核心服务和已准备的高级服务，并启动白名单维护任务工作器。
+`start-terrasys.cmd` 会在需要时创建本地密钥、启动 Docker Desktop、应用有序 PostGIS 迁移、构建 API 镜像、启动核心服务和已准备的高级服务，并启动白名单维护任务工作器。
 
 准备或重建高级离线能力：
 
 ```powershell
-D:\GISS\prepare-advanced.cmd
+D:\TerraSys\prepare-advanced.cmd
 ```
 
 独立构建或续建 OSM Carto 渲染器：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File D:\GISS\scripts\build-osm-carto.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\TerraSys\scripts\build-osm-carto.ps1
 ```
 
 在 16 GiB 主机上，重型构建会串行执行。新产品只有在暂存版本通过校验后才替换当前可用版本。
@@ -92,13 +92,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\GISS\scripts\build-osm-ca
 ## 日常操作
 
 ```powershell
-D:\GISS\backup-giss.cmd
-D:\GISS\region-pack.cmd List
-D:\GISS\region-pack.cmd Verify
-D:\GISS\rebuild-shared-indexes.cmd -Plan
-D:\GISS\create-offline-kit.cmd
-D:\GISS\test-offline-recovery.cmd
-D:\GISS\stop-giss.cmd
+D:\TerraSys\backup-terrasys.cmd
+D:\TerraSys\region-pack.cmd List
+D:\TerraSys\region-pack.cmd Verify
+D:\TerraSys\rebuild-shared-indexes.cmd -Plan
+D:\TerraSys\create-offline-kit.cmd
+D:\TerraSys\test-offline-recovery.cmd
+D:\TerraSys\stop-terrasys.cmd
 ```
 
 资源页面提供“可获取、本地、可更新”三个视图。常规批量更新不会自动包含地图构建、知识库下载和共享索引重建等重型任务。每个活动任务在自身行内显示队列位置、阶段、实测速率、取消操作和重试状态。
@@ -120,7 +120,7 @@ D:\GISS\stop-giss.cmd
 | `offline-kit/` | 完整断网恢复包 |
 | `runtime/`、`tmp/` | 审计、日志、候选构建和可再生临时数据 |
 
-活动项目位于 `D:\GISS`；`C:\Users\Administrator\Documents\个人GIS` 是兼容 Junction。Docker Desktop 数据位于 `D:\DockerData\wsl`。`GISS` 路径、`giss-*` 容器名、环境变量、计划任务名和恢复包路径作为兼容标识继续保留，界面产品名统一为 GIS_P。
+项目统一入口为 `D:\TerraSys`；`C:\Users\Administrator\Documents\TerraSys` 是指向同一份文件的 Junction。Docker Desktop 数据位于 `D:\DockerData\wsl`。产品文案、脚本、容器、镜像、环境变量、浏览器键、恢复包目录和新数据库名称均使用 TerraSys 标识；升级代码会迁移旧浏览器设置，并直接挂载已经校验的 Docker 索引卷，无需复制大体积数据。
 
 ## 文档
 
@@ -145,7 +145,7 @@ D:\GISS\stop-giss.cmd
 
 ## 安全边界
 
-GIS_P 是受信任环境中的单用户 localhost 应用。没有加入身份认证、TLS、限流和更严格的上传策略前，不应绑定 `0.0.0.0` 或直接暴露到互联网。
+TerraSys 是受信任环境中的单用户 localhost 应用。没有加入身份认证、TLS、限流和更严格的上传策略前，不应绑定 `0.0.0.0` 或直接暴露到互联网。
 
 ## 项目状态
 

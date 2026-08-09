@@ -77,7 +77,7 @@ def upstream_source_states(
             sources[url] = {"error": "不受信任的上游地址"}
             continue
         try:
-            request = Request(url, headers={"User-Agent": "GIS_P/1.0 offline-map-updater"})
+            request = Request(url, headers={"User-Agent": "TerraSys/1.0 offline-map-updater"})
             with urlopen(request, timeout=12) as response:
                 content = response.read(256 * 1024).decode("utf-8", errors="strict")
             sources[url] = {**parse_state_text(content), "checkedAt": datetime.now().astimezone().isoformat()}

@@ -15,7 +15,11 @@ if (-not $target.StartsWith($backupRoot + '\', [StringComparison]::OrdinalIgnore
   throw "BackupDirectory must be inside $backupRoot"
 }
 
-$dump = Join-Path $target "personal_gis.dump"
+$dump = Join-Path $target "terrasys.dump"
+if (-not (Test-Path -LiteralPath $dump -PathType Leaf)) {
+  $legacyDump = Join-Path $target "personal_gis.dump"
+  if (Test-Path -LiteralPath $legacyDump -PathType Leaf) { $dump = $legacyDump }
+}
 $manifest = Join-Path $target "manifest.json"
 $mediaBackup = Join-Path $target "media"
 $mediaRoot = Join-Path $root "data\media"
@@ -55,16 +59,16 @@ Push-Location $services
 try {
   docker compose stop api martin | Out-Host
   Assert-NativeSuccess "Stopping API and Martin"
-  docker cp $dump "giss-postgis:/tmp/personal_gis.dump"
+  docker cp $dump "terrasys-postgis:/tmp/terrasys.dump"
   Assert-NativeSuccess "Copying the restore dump"
   try {
-    docker exec giss-postgis pg_restore -U gis -d personal_gis --clean --if-exists --no-owner /tmp/personal_gis.dump | Out-Host
+    docker exec terrasys-postgis pg_restore -U gis -d terrasys --clean --if-exists --no-owner /tmp/terrasys.dump | Out-Host
     Assert-NativeSuccess "Restoring PostgreSQL"
   }
   finally {
-    docker exec giss-postgis rm -f /tmp/personal_gis.dump 2>$null
+    docker exec terrasys-postgis rm -f /tmp/terrasys.dump 2>$null
   }
-  & (Join-Path $PSScriptRoot "migrate-giss.ps1")
+  & (Join-Path $PSScriptRoot "migrate-terrasys.ps1")
   if (Test-Path $mediaBackup) {
     New-Item -ItemType Directory -Force -Path $mediaRoot | Out-Null
     Get-ChildItem -LiteralPath $mediaBackup -Force | Copy-Item -Destination $mediaRoot -Recurse -Force

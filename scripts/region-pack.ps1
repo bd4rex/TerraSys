@@ -13,7 +13,7 @@ trap {
 }
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packs = @($catalog.datasets)
 if ($PackId) {
   $packs = @($packs | Where-Object { $_.id -eq $PackId })
@@ -44,7 +44,7 @@ if ($Action -eq "Plan") {
     EstimatedInstallGiB = (@($pack.estimatedInstallGiB) -join "-")
     EstimatedTemporaryGiB = $pack.estimatedTemporaryGiB
     EstimatedBuildMinutes = (@($pack.estimatedBuildMinutes) -join "-")
-    BuildCommand = "D:\GISS\region-pack.cmd Build -PackId $($pack.id)"
+    BuildCommand = "D:\TerraSys\region-pack.cmd Build -PackId $($pack.id)"
   } | Format-List
   $boundaries | Format-Table -AutoSize
   exit 0

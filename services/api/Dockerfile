@@ -10,10 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-RUN useradd --create-home --uid 10001 giss \
-    && chown -R giss:giss /app
+RUN useradd --create-home --uid 10001 terrasys \
+    && chown -R terrasys:terrasys /app
 
-USER giss
+USER terrasys
 
 EXPOSE 8000
 

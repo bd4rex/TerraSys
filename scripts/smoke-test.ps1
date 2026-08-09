@@ -253,7 +253,7 @@ try {
   $collections = Invoke-RestMethod -Uri "$base/collections"
   if (@($collections).Count -lt 3) { throw "Default place collections are missing." }
   $collectionPayload = @{
-    name = "GIS_P smoke collection"
+    name = "TerraSys smoke collection"
     color = "#266f9d"
     note = "Temporary collection verification"
   } | ConvertTo-Json
@@ -261,7 +261,7 @@ try {
   $collectionId = $collection.id
 
   $placePayload = @{
-    name = "GIS_P smoke place"
+    name = "TerraSys smoke place"
     province = "江苏省"
     category = "reference"
     note = "Temporary API verification record"
@@ -306,7 +306,7 @@ try {
   }
 
   $trackPayload = @{
-    name = "GIS_P smoke line"
+    name = "TerraSys smoke line"
     activity = "walk"
     note = "Temporary geometry verification"
     tags = @("smoke")
@@ -318,13 +318,13 @@ try {
   } | ConvertTo-Json -Depth 6
   $track = Invoke-RestMethod -Method Post -Uri "$base/tracks" -ContentType "application/json" -Body $trackPayload
   $trackIds.Add($track.id)
-  $trackCollection = Invoke-RestMethod -Uri "$base/tracks.geojson?q=GIS_P%20smoke%20line"
+  $trackCollection = Invoke-RestMethod -Uri "$base/tracks.geojson?q=TerraSys%20smoke%20line"
   $trackFeature = @($trackCollection.features | Where-Object { $_.id -eq $track.id }) | Select-Object -First 1
   if (-not $trackFeature -or $trackFeature.properties.version -lt 1) {
     throw "New track could not be read with version metadata."
   }
   $trackUpdate = $trackPayload | ConvertFrom-Json
-  $trackUpdate.name = "GIS_P smoke line updated"
+  $trackUpdate.name = "TerraSys smoke line updated"
   $trackUpdate | Add-Member -NotePropertyName version -NotePropertyValue $trackFeature.properties.version
   $trackUpdateJson = $trackUpdate | ConvertTo-Json -Depth 6
   $updatedTrack = Invoke-RestMethod -Method Put -Uri "$base/tracks/$($track.id)" -ContentType "application/json" -Body $trackUpdateJson
@@ -351,7 +351,7 @@ try {
       throw "Offline route adapter returned incomplete geometry, maneuvers, or elevation."
     }
     $savedRoutePayload = @{
-      name = "GIS_P smoke route"
+      name = "TerraSys smoke route"
       activity = "driving"
       note = "Temporary offline route verification"
       tags = @("smoke", "offline-route")
@@ -415,13 +415,13 @@ try {
     throw "Single-track GPX export is invalid."
   }
   $allGpx = Invoke-WebRequest -UseBasicParsing -Uri "$base/export/gpx"
-  if ($allGpx.StatusCode -ne 200 -or $allGpx.Headers["Content-Disposition"] -notmatch 'GIS_P-tracks\.gpx' -or
-      $allGpx.Content -notmatch 'GIS_P smoke line updated') {
+  if ($allGpx.StatusCode -ne 200 -or $allGpx.Headers["Content-Disposition"] -notmatch 'TerraSys-tracks\.gpx' -or
+      $allGpx.Content -notmatch 'TerraSys smoke line updated') {
     throw "Full GPX export does not include the updated smoke track."
   }
   $archiveResponse = Invoke-WebRequest -UseBasicParsing -Uri "$base/export/archive" -OutFile $archivePath -PassThru
-  if ($archiveResponse.Headers["Content-Disposition"] -notmatch 'GIS_P-personal-\d{8}-\d{6}\.zip') {
-    throw "Personal archive export does not use the GIS_P filename."
+  if ($archiveResponse.Headers["Content-Disposition"] -notmatch 'TerraSys-personal-\d{8}-\d{6}\.zip') {
+    throw "Personal archive export does not use the TerraSys filename."
   }
   if (-not (Test-Path $archivePath) -or (Get-Item $archivePath).Length -lt 1KB) {
     throw "Personal archive export is missing or implausibly small."

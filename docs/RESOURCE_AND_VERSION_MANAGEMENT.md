@@ -46,7 +46,7 @@ An already-current update returns `409`. Regeneration from an unchanged source u
 
 The resource page polls the lightweight maintenance snapshot rather than starting a disk scan. Each row owns its queue position or elapsed time, stage, measured throughput, cancellation action, and retry state. Unknown progress remains labelled as processing instead of displaying a fabricated percentage.
 
-Map changes notify other open tabs through the local `giss-resource-revision` value. Tabs refresh package state without forcibly reloading a PMTiles source while the user is editing a place or route.
+Map changes notify other open tabs through the local `terrasys-resource-revision` value. Tabs refresh package state without forcibly reloading a PMTiles source while the user is editing a place or route.
 
 Shared Nominatim and Valhalla indexes use a blue-green lifecycle. Candidate versions are resource-limited and built sequentially. Validation points are derived from the enabled coverage instead of hard-coded countries. Candidates must pass route health, Nominatim database integrity, search/reverse checks, and API readiness before activity pointers are changed. A failed or cancelled job leaves the active version intact; one previous version is retained by default.
 

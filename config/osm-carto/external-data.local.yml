@@ -7,7 +7,7 @@ settings:
 sources:
   simplified_water_polygons:
     type: shp
-    url: http://giss-osm-carto-assets:8090/simplified-water-polygons-split-3857.zip
+    url: http://terrasys-osm-carto-assets:8090/simplified-water-polygons-split-3857.zip
     file: simplified-water-polygons-split-3857/simplified_water_polygons.shp
     archive:
       format: zip
@@ -19,7 +19,7 @@ sources:
         - simplified-water-polygons-split-3857/simplified_water_polygons.shx
   water_polygons:
     type: shp
-    url: http://giss-osm-carto-assets:8090/water-polygons-split-3857.zip
+    url: http://terrasys-osm-carto-assets:8090/water-polygons-split-3857.zip
     file: water-polygons-split-3857/water_polygons.shp
     archive:
       format: zip
@@ -31,7 +31,7 @@ sources:
         - water-polygons-split-3857/water_polygons.shx
   icesheet_polygons:
     type: shp
-    url: http://giss-osm-carto-assets:8090/antarctica-icesheet-polygons-3857.zip
+    url: http://terrasys-osm-carto-assets:8090/antarctica-icesheet-polygons-3857.zip
     file: antarctica-icesheet-polygons-3857/icesheet_polygons.shp
     archive:
       format: zip
@@ -43,7 +43,7 @@ sources:
         - antarctica-icesheet-polygons-3857/icesheet_polygons.shx
   icesheet_outlines:
     type: shp
-    url: http://giss-osm-carto-assets:8090/antarctica-icesheet-outlines-3857.zip
+    url: http://terrasys-osm-carto-assets:8090/antarctica-icesheet-outlines-3857.zip
     file: antarctica-icesheet-outlines-3857/icesheet_outlines.shp
     ogropts:
       - "-explodecollections"
@@ -57,7 +57,7 @@ sources:
         - antarctica-icesheet-outlines-3857/icesheet_outlines.shx
   ne_110m_admin_0_boundary_lines_land:
     type: shp
-    url: http://giss-osm-carto-assets:8090/ne_110m_admin_0_boundary_lines_land.zip
+    url: http://terrasys-osm-carto-assets:8090/ne_110m_admin_0_boundary_lines_land.zip
     file: ne_110m_admin_0_boundary_lines_land.shp
     ogropts:
       - "--config"

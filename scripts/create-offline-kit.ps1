@@ -12,7 +12,7 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not $OutputRoot) { $OutputRoot = Join-Path $root "offline-kit" }
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $target = Join-Path ([IO.Path]::GetFullPath($OutputRoot)) $timestamp
-$payload = Join-Path $target "payload\GISS"
+$payload = Join-Path $target "payload\TerraSys"
 $dockerDirectory = Join-Path $target "docker"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
 
@@ -56,7 +56,7 @@ if ($freeBytes -lt $estimatedBytes + 2GB) {
 }
 
 Write-Host "Creating a fresh personal-data recovery point..."
-& (Join-Path $PSScriptRoot "backup-giss.ps1") | Out-Host
+& (Join-Path $PSScriptRoot "backup-terrasys.ps1") | Out-Host
 $latestBackup = Get-ChildItem -LiteralPath (Join-Path $root "backups") -Directory | Sort-Object Name -Descending | Select-Object -First 1
 if (-not $latestBackup) { throw "No database backup is available for the offline kit." }
 
@@ -81,7 +81,7 @@ foreach ($relative in @(
 )) {
   Copy-PayloadFile (Join-Path $root $relative) $relative
 }
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $includedPacks = @()
 $skippedPackCount = 0
 foreach ($dataset in @($catalog.datasets)) {
@@ -132,25 +132,25 @@ foreach ($resourceTree in @(
   Copy-PayloadTree (Join-Path $root $resourceTree.Source) $resourceTree.Target
 }
 
-$advancedManifest = Join-Path $root "raw\osm\china\giss-core.manifest.json"
+$advancedManifest = Join-Path $root "raw\osm\china\terrasys-core.manifest.json"
 $advancedIncluded = Test-Path -LiteralPath $advancedManifest -PathType Leaf
 if ($advancedIncluded) {
   foreach ($relative in @(
-    "raw\osm\china\giss-core-latest.osm.pbf",
-    "raw\osm\china\giss-core.manifest.json"
+    "raw\osm\china\terrasys-core-latest.osm.pbf",
+    "raw\osm\china\terrasys-core.manifest.json"
   )) {
     Copy-PayloadFile (Join-Path $root $relative) $relative
   }
   $activeRouting = Join-Path $root "products\routing\valhalla"
   if (Get-Command docker -ErrorAction SilentlyContinue) {
-    $valhallaInspect = docker inspect giss-valhalla 2>$null | ConvertFrom-Json
+    $valhallaInspect = docker inspect terrasys-valhalla 2>$null | ConvertFrom-Json
     if ($LASTEXITCODE -eq 0 -and @($valhallaInspect).Count -gt 0) {
       $activeMount = $valhallaInspect[0].Mounts | Where-Object { $_.Destination -eq "/custom_files" } | Select-Object -First 1
       if ($activeMount.Source) { $activeRouting = [string]$activeMount.Source }
     }
   }
   foreach ($name in @(
-    "giss-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json", "admins.sqlite",
+    "terrasys-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json", "admins.sqlite",
     "timezones.sqlite", "default_speeds.json", "file_hashes.txt"
   )) {
     Copy-PayloadFile (Join-Path $activeRouting $name) (Join-Path "products\routing\valhalla" $name)
@@ -162,10 +162,10 @@ $images = @(
   "postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538",
   "ghcr.io/maplibre/martin@sha256:0650e9025f5fcffdc686358114679421b5e6b0ca37b374ad8a66f14709d59d2b",
   "nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
-  "giss-api:1",
-  "giss-osmium:1",
+  "terrasys-api:1",
+  "terrasys-osmium:1",
   "ghcr.io/onthegomap/planetiler:latest",
-  "giss-ui-test:1",
+  "terrasys-ui-test:1",
   "overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79",
   "mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8",
   "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1",
@@ -175,15 +175,15 @@ $images = @(
 $nominatimIndexIncluded = $false
 $nominatimArchiveName = "nominatim-data.tar.gz"
 if ($advancedIncluded -and $IncludeNominatimIndex) {
-  docker exec giss-nominatim test -f /var/lib/postgresql/16/main/import-finished
+  docker exec terrasys-nominatim test -f /var/lib/postgresql/16/main/import-finished
   Assert-NativeSuccess "Checking the completed Nominatim index"
-  $nominatimInspect = (docker inspect giss-nominatim | ConvertFrom-Json)[0]
+  $nominatimInspect = (docker inspect terrasys-nominatim | ConvertFrom-Json)[0]
   $nominatimVolume = [string]($nominatimInspect.Mounts |
     Where-Object { $_.Destination -eq "/var/lib/postgresql/16/main" } |
     Select-Object -First 1 -ExpandProperty Name)
   if (-not $nominatimVolume) { throw "Nominatim data volume could not be identified." }
   Write-Host "Creating a consistent Nominatim volume snapshot..."
-  docker stop giss-nominatim | Out-Null
+  docker stop terrasys-nominatim | Out-Null
   try {
     docker run --rm -v "${nominatimVolume}:/source:ro" -v "${dockerDirectory}:/backup" `
       postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538 `
@@ -192,7 +192,7 @@ if ($advancedIncluded -and $IncludeNominatimIndex) {
     $nominatimIndexIncluded = $true
   }
   finally {
-    docker start giss-nominatim | Out-Null
+    docker start terrasys-nominatim | Out-Null
   }
 }
 
@@ -200,14 +200,14 @@ $osmCartoIncluded = $false
 $osmCartoArchiveName = "osm-carto-data.tar.gz"
 $osmCartoManifest = Join-Path $root "products\osm-carto\osm-carto.manifest.json"
 if ($IncludeOsmCartoIndex -and (Test-Path -LiteralPath $osmCartoManifest -PathType Leaf)) {
-  $cartoInspect = (docker inspect giss-osm-carto | ConvertFrom-Json)[0]
+  $cartoInspect = (docker inspect terrasys-osm-carto | ConvertFrom-Json)[0]
   Assert-NativeSuccess "Inspecting the OSM Carto renderer"
   $cartoVolume = [string]($cartoInspect.Mounts |
     Where-Object { $_.Destination -eq "/data/database" } |
     Select-Object -First 1 -ExpandProperty Name)
   if (-not $cartoVolume) { throw "OSM Carto database volume could not be identified." }
   Write-Host "Creating a consistent OSM Carto database snapshot..."
-  docker stop giss-osm-carto | Out-Null
+  docker stop terrasys-osm-carto | Out-Null
   try {
     docker run --rm -v "${cartoVolume}:/source:ro" -v "${dockerDirectory}:/backup" `
       postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538 `
@@ -216,7 +216,7 @@ if ($IncludeOsmCartoIndex -and (Test-Path -LiteralPath $osmCartoManifest -PathTy
     $osmCartoIncluded = $true
   }
   finally {
-    docker start giss-osm-carto | Out-Null
+    docker start terrasys-osm-carto | Out-Null
   }
 }
 
@@ -227,7 +227,7 @@ if (-not $SkipDockerImages) {
     Assert-NativeSuccess "Finding Docker image $image"
   }
   Write-Host "Exporting Docker runtime, build, and verification images..."
-  docker save --output (Join-Path $dockerDirectory "giss-images.tar") $images
+  docker save --output (Join-Path $dockerDirectory "terrasys-images.tar") $images
   Assert-NativeSuccess "Exporting Docker images"
 }
 

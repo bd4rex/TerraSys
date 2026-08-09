@@ -165,9 +165,9 @@ function Stop-JobCandidates {
   param([string]$JobId)
   if (-not $JobId -or -not (Get-Command docker -ErrorAction SilentlyContinue)) { return }
   try {
-    $containers = @(docker ps -aq --filter "label=giss.maintenance-job=$JobId" 2>$null)
+    $containers = @(docker ps -aq --filter "label=terrasys.maintenance-job=$JobId" 2>$null)
     if ($containers.Count) { docker rm -f @containers *> $null }
-    $volumes = @(docker volume ls -q --filter "label=giss.maintenance-job=$JobId" 2>$null)
+    $volumes = @(docker volume ls -q --filter "label=terrasys.maintenance-job=$JobId" 2>$null)
     $mountedVolumes = @()
     foreach ($container in @(docker ps -aq 2>$null)) {
       $mountedVolumes += @(docker inspect --format '{{range .Mounts}}{{if eq .Type "volume"}}{{println .Name}}{{end}}{{end}}' $container 2>$null)
@@ -400,7 +400,7 @@ function Remove-ExpiredHistory {
   }
 }
 
-$mutex = New-Object Threading.Mutex($false, "Local\GISS-MaintenanceWorker")
+$mutex = New-Object Threading.Mutex($false, "Local\TerraSys-MaintenanceWorker")
 if (-not $mutex.WaitOne(0)) { exit 0 }
 
 try {

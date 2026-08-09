@@ -31,8 +31,8 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw "Docker is 
 docker info *> $null
 Assert-NativeSuccess "Checking Docker"
 
-$activeVolume = Get-ActiveMount "giss-nominatim" "/var/lib/postgresql/16/main" "Name"
-$activeRouting = Normalize-Path (Get-ActiveMount "giss-valhalla" "/custom_files" "Source")
+$activeVolume = Get-ActiveMount "terrasys-nominatim" "/var/lib/postgresql/16/main" "Name"
+$activeRouting = Normalize-Path (Get-ActiveMount "terrasys-valhalla" "/custom_files" "Source")
 $state = if (Test-Path -LiteralPath $statePath -PathType Leaf) {
   Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
 } else { $null }
@@ -46,7 +46,7 @@ if ($KeepPrevious -eq 1) {
   if ($previousRouting) { $keepRouting += $previousRouting }
 }
 
-$volumeCandidates = @(docker volume ls --filter "label=giss.role=shared-index-candidate" --format '{{.Name}}')
+$volumeCandidates = @(docker volume ls --filter "label=terrasys.role=shared-index-candidate" --format '{{.Name}}')
 if ($KeepPrevious -eq 0 -and $previousVolume) { $volumeCandidates += $previousVolume }
 $removeVolumes = @($volumeCandidates | Where-Object { $_ -and $keepVolumes -notcontains $_ } | Sort-Object -Unique)
 

@@ -1,4 +1,4 @@
-# Local Personal GIS MVP Plan
+# Local TerraSys MVP Plan
 
 > English | [简体中文](local-mvp-plan.zh-CN.md) · Historical document
 

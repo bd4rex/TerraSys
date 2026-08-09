@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { throw "curl.exe was not found on PATH." }

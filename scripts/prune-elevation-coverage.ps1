@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
 $elevationRoot = Join-Path $RoutingRoot "elevation_data"
 $manifestPath = Join-Path $RoutingRoot "elevation-coverage.manifest.json"
@@ -18,7 +18,7 @@ if (-not (Test-Path -LiteralPath $elevationRoot -PathType Container)) {
 $resolvedRoot = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
 $resolvedRouting = [IO.Path]::GetFullPath($RoutingRoot).TrimEnd('\') + '\'
 if (-not $resolvedRouting.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
-  throw "RoutingRoot must remain inside the GIS_P project: $RoutingRoot"
+  throw "RoutingRoot must remain inside the TerraSys project: $RoutingRoot"
 }
 
 $disabledPackIds = @()

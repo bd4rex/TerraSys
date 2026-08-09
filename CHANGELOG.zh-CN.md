@@ -39,7 +39,7 @@
 
 ## M0.9 — 本地 OSM Carto 渲染与缓存可靠性
 
-- **提交：** [`d360249`](https://github.com/bd4rex/personal-gis/commit/d360249de86110511eb7ae5f49e8237d810f5d96)
+- **提交：** [`d360249`](https://github.com/bd4rex/TerraSys/commit/d360249de86110511eb7ae5f49e8237d810f5d96)
 - **时间：** `2026-08-04T16:22:49+08:00`
 - **当时状态：** 直接提交到 `main`，没有 tag 或 Release
 
@@ -51,9 +51,9 @@
 
 ## M0.8 — 区域策略自动推广
 
-- **提交：** [`6daeff6`](https://github.com/bd4rex/personal-gis/commit/6daeff6458177b6aa6b4f2ad1fe0dc4640027653)
+- **提交：** [`6daeff6`](https://github.com/bd4rex/TerraSys/commit/6daeff6458177b6aa6b4f2ad1fe0dc4640027653)
 - **时间：** `2026-08-04T07:39:54+08:00`
-- **合并：** [PR #7](https://github.com/bd4rex/personal-gis/pull/7)
+- **合并：** [PR #7](https://github.com/bd4rex/TerraSys/pull/7)
 
 ### 新增
 
@@ -89,7 +89,7 @@
 
 ## M0.7 — 存储所有权与离线地图生命周期
 
-- **提交：** [`b2a6503`](https://github.com/bd4rex/personal-gis/commit/b2a6503304fbea851a968d7cdabeddb1b7e1a81c)
+- **提交：** [`b2a6503`](https://github.com/bd4rex/TerraSys/commit/b2a6503304fbea851a968d7cdabeddb1b7e1a81c)
 - **时间：** `2026-08-03T18:13:25+08:00`
 - **当时状态：** 直接提交到 `main`，没有 tag 或 Release
 
@@ -107,23 +107,23 @@
 - 清理无用卷、镜像和可再生缓存后压缩 Docker 存储。
 - 扩展资源页面状态、任务操作、测试和真实进度显示。
 
-## M0.6 — GIS_P 品牌与默认工作区
+## M0.6 — TerraSys 品牌与默认工作区
 
-- **提交：** [`c1de372`](https://github.com/bd4rex/personal-gis/commit/c1de372c6d69cc5ddf77d409438c4a06bf012d2e)
+- **提交：** [`c1de372`](https://github.com/bd4rex/TerraSys/commit/c1de372c6d69cc5ddf77d409438c4a06bf012d2e)
 - **时间：** `2026-08-02T14:38:57+08:00`
-- **合并：** [PR #5](https://github.com/bd4rex/personal-gis/pull/5)
+- **合并：** [PR #5](https://github.com/bd4rex/TerraSys/pull/5)
 
 ### 变更
 
-- 用户界面产品名从 GISS 改为 GIS_P，同时保留兼容标识。
+- 用户界面产品名从 TerraSys 改为 TerraSys，同时保留兼容标识。
 - 地图默认收起侧栏，并统一焦点、ARIA、动画与覆盖状态。
 - 将共享索引的覆盖完整性和范围是否最新拆分显示。
 
 ## M0.5 — 产品需求基线
 
-- **提交：** [`a6309f8`](https://github.com/bd4rex/personal-gis/commit/a6309f84085b0f8bc6295c444bfd26370b933844)
+- **提交：** [`a6309f8`](https://github.com/bd4rex/TerraSys/commit/a6309f84085b0f8bc6295c444bfd26370b933844)
 - **时间：** `2026-08-02T08:07:31+08:00`
-- **合并：** [PR #4](https://github.com/bd4rex/personal-gis/pull/4)
+- **合并：** [PR #4](https://github.com/bd4rex/TerraSys/pull/4)
 
 ### 新增
 
@@ -132,9 +132,9 @@
 
 ## M0.4 — D 盘 Docker 清理记录
 
-- **提交：** [`cd28db5`](https://github.com/bd4rex/personal-gis/commit/cd28db5cde78b6dcdb78a962c3b8923de8e61491)
+- **提交：** [`cd28db5`](https://github.com/bd4rex/TerraSys/commit/cd28db5cde78b6dcdb78a962c3b8923de8e61491)
 - **时间：** `2026-08-02T07:53:13+08:00`
-- **合并：** [PR #3](https://github.com/bd4rex/personal-gis/pull/3)
+- **合并：** [PR #3](https://github.com/bd4rex/TerraSys/pull/3)
 
 ### 改进
 
@@ -143,9 +143,9 @@
 
 ## M0.3 — 地图来源控制与实时覆盖状态
 
-- **提交：** [`725ae42`](https://github.com/bd4rex/personal-gis/commit/725ae424c7cb00b86733ebdf2b025ace30d8cf0a)
+- **提交：** [`725ae42`](https://github.com/bd4rex/TerraSys/commit/725ae424c7cb00b86733ebdf2b025ace30d8cf0a)
 - **时间：** `2026-08-02T03:20:56+08:00`
-- **合并：** [PR #2](https://github.com/bd4rex/personal-gis/pull/2)
+- **合并：** [PR #2](https://github.com/bd4rex/TerraSys/pull/2)
 
 ### 新增
 
@@ -159,9 +159,9 @@
 
 ## M0.2 — 离线 GIS 平台扩展
 
-- **提交：** [`9d2ea5d`](https://github.com/bd4rex/personal-gis/commit/9d2ea5d29a1e3b7bd4cf0717e6ebe2606c11d3d6)
+- **提交：** [`9d2ea5d`](https://github.com/bd4rex/TerraSys/commit/9d2ea5d29a1e3b7bd4cf0717e6ebe2606c11d3d6)
 - **时间：** `2026-08-02T02:42:50+08:00`
-- **合并：** [PR #1](https://github.com/bd4rex/personal-gis/pull/1)
+- **合并：** [PR #1](https://github.com/bd4rex/TerraSys/pull/1)
 
 ### 新增
 
@@ -178,7 +178,7 @@
 
 ## M0.1 — 首次发布个人 GIS
 
-- **提交：** [`aa76756`](https://github.com/bd4rex/personal-gis/commit/aa76756ad887590574cdd622b4a2133f4dafc7ba)
+- **提交：** [`aa76756`](https://github.com/bd4rex/TerraSys/commit/aa76756ad887590574cdd622b4a2133f4dafc7ba)
 - **时间：** `2026-08-01T18:44:56+08:00`
 - **当时状态：** 仓库初始提交，没有 tag 或 Release
 

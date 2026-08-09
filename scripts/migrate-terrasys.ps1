@@ -11,7 +11,7 @@ function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }
 }
 
-docker exec giss-postgis psql -v ON_ERROR_STOP=1 -U gis -d personal_gis -c @"
+docker exec terrasys-postgis psql -v ON_ERROR_STOP=1 -U gis -d terrasys -c @"
 CREATE TABLE IF NOT EXISTS public.app_schema_migrations (
   version text PRIMARY KEY,
   applied_at timestamptz NOT NULL DEFAULT now()
@@ -19,9 +19,21 @@ CREATE TABLE IF NOT EXISTS public.app_schema_migrations (
 "@ | Out-Host
 Assert-NativeSuccess "Creating the migration ledger"
 
+$legacyInitialMigration = docker exec terrasys-postgis psql -U gis -d terrasys -tAc `
+  "SELECT 1 FROM public.app_schema_migrations WHERE version='001_personal_gis'"
+Assert-NativeSuccess "Checking the legacy initial migration"
+$currentInitialMigration = docker exec terrasys-postgis psql -U gis -d terrasys -tAc `
+  "SELECT 1 FROM public.app_schema_migrations WHERE version='001_terrasys'"
+Assert-NativeSuccess "Checking the TerraSys initial migration"
+if ("$legacyInitialMigration".Trim() -eq "1" -and "$currentInitialMigration".Trim() -ne "1") {
+  docker exec terrasys-postgis psql -v ON_ERROR_STOP=1 -U gis -d terrasys -c `
+    "INSERT INTO public.app_schema_migrations(version) VALUES ('001_terrasys')" | Out-Host
+  Assert-NativeSuccess "Recording the TerraSys migration alias"
+}
+
 Get-ChildItem $migrationDir -Filter "*.sql" -File | Sort-Object Name | ForEach-Object {
   $version = $_.BaseName.Replace("'", "''")
-  $alreadyApplied = docker exec giss-postgis psql -U gis -d personal_gis -tAc `
+  $alreadyApplied = docker exec terrasys-postgis psql -U gis -d terrasys -tAc `
     "SELECT 1 FROM public.app_schema_migrations WHERE version='$version'"
   Assert-NativeSuccess "Checking migration $version"
 
@@ -31,12 +43,12 @@ Get-ChildItem $migrationDir -Filter "*.sql" -File | Sort-Object Name | ForEach-O
   }
 
   Write-Host "Applying migration $version..."
-  docker exec giss-postgis psql -v ON_ERROR_STOP=1 -U gis -d personal_gis `
+  docker exec terrasys-postgis psql -v ON_ERROR_STOP=1 -U gis -d terrasys `
     -f "/migrations/$($_.Name)" | Out-Host
   if ($LASTEXITCODE -ne 0) {
     throw "Migration $version failed."
   }
-  docker exec giss-postgis psql -v ON_ERROR_STOP=1 -U gis -d personal_gis -c `
+  docker exec terrasys-postgis psql -v ON_ERROR_STOP=1 -U gis -d terrasys -c `
     "INSERT INTO public.app_schema_migrations(version) VALUES ('$version')" | Out-Host
   if ($LASTEXITCODE -ne 0) {
     throw "Could not record migration $version."

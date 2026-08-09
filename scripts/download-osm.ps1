@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$osmiumImage = "giss-osmium:1"
+$osmiumImage = "terrasys-osmium:1"
 $items = @(
   @{
     Name = "china"

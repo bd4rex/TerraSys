@@ -1,3 +1,3 @@
 $ErrorActionPreference = "Stop"
 
-& (Join-Path $PSScriptRoot "start-giss.ps1")
+& (Join-Path $PSScriptRoot "start-terrasys.ps1")

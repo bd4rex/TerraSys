@@ -32,7 +32,7 @@ The project downloads province PBF files for comparison and provenance, but the 
 Run:
 
 ```powershell
-D:\GISS\download-osm.cmd
+D:\TerraSys\download-osm.cmd
 ```
 
 The script downloads:
@@ -54,18 +54,18 @@ Some regional provider extracts report missing external node references near cut
 List and verify installed packs:
 
 ```powershell
-D:\GISS\region-pack.cmd List
-D:\GISS\region-pack.cmd Verify
+D:\TerraSys\region-pack.cmd List
+D:\TerraSys\region-pack.cmd Verify
 ```
 
 Resolve, build, update, verify, or remove one independent province:
 
 ```powershell
-D:\GISS\region-pack.cmd Plan -PackId jiangsu
-D:\GISS\region-pack.cmd Build -PackId jiangsu
-D:\GISS\region-pack.cmd Update -PackId jiangsu
-D:\GISS\region-pack.cmd Verify -PackId jiangsu
-D:\GISS\region-pack.cmd Remove -PackId jiangsu -ConfirmRemove
+D:\TerraSys\region-pack.cmd Plan -PackId jiangsu
+D:\TerraSys\region-pack.cmd Build -PackId jiangsu
+D:\TerraSys\region-pack.cmd Update -PackId jiangsu
+D:\TerraSys\region-pack.cmd Verify -PackId jiangsu
+D:\TerraSys\region-pack.cmd Remove -PackId jiangsu -ConfirmRemove
 ```
 
 `Build` uses the currently owned source snapshot. `Update` first refreshes the selected pack's trusted provider state and source, then builds from that refreshed snapshot. For mainland province packs that share `china-latest.osm.pbf`, the downloader checks the small remote replication state before fetching the large PBF. Once one queued province update has installed and validated the new China snapshot, subsequent province updates with the same sequence reuse it instead of downloading the same file again.
@@ -93,7 +93,7 @@ The upstream China snapshot currently reports two missing way-node references. T
 
 ```mermaid
 flowchart LR
-  Regional["giss-core-latest.osm.pbf"] --> Named["Osmium: named nodes"]
+  Regional["terrasys-core-latest.osm.pbf"] --> Named["Osmium: named nodes"]
   Named --> Sequence["GeoJSON sequence"]
   Sequence --> Import["FastAPI batch importer"]
   Import --> Index["PostGIS reference_places"]
@@ -103,7 +103,7 @@ flowchart LR
 Run after a successful regional map build:
 
 ```powershell
-D:\GISS\import-reference-search.cmd
+D:\TerraSys\import-reference-search.cmd
 ```
 
 The importer currently stores named point features and classifies common OSM keys including `place`, `amenity`, `shop`, `tourism`, `historic`, `leisure`, `railway`, and public transport. The current snapshot produces 126,340 deduplicated reference places. Import uses a temporary staging table and replaces the derived index in one transaction, so personal tables are never touched.
@@ -116,7 +116,7 @@ This is intentionally smaller and simpler than Nominatim. It searches names and 
 flowchart LR
   Catalog["Installed region packs"] --> Verify["Manifest sequence + SHA256 checks"]
   Verify --> Merge["Osmium merge and reference validation"]
-  Merge --> Core["giss-core-latest.osm.pbf + manifest"]
+  Merge --> Core["terrasys-core-latest.osm.pbf + manifest"]
   Core --> Nom["Nominatim address index"]
   Core --> Val["Valhalla graph"]
   Val --> HGT["58 HGT elevation grids"]
@@ -130,7 +130,7 @@ flowchart LR
 Run:
 
 ```powershell
-D:\GISS\prepare-advanced.cmd
+D:\TerraSys\prepare-advanced.cmd
 ```
 
 `build-capability-source.ps1` reads every installed physical pack, verifies each regional source hash against its PMTiles manifest, merges/deduplicates overlapping PBFs, records either one common sequence or a mixed-source sequence set, and atomically writes the shared PBF plus manifest. Compatibility-bundle inputs are expanded to province IDs when the API reports search/route coverage.
@@ -167,7 +167,7 @@ GPX parsing uses `defusedxml`. Invalid geometry, malformed coordinates, unsuppor
 Run:
 
 ```powershell
-D:\GISS\download-web-assets.cmd
+D:\TerraSys\download-web-assets.cmd
 ```
 
 This refreshes pinned browser libraries, local glyphs, the local sprite sheet, and the asset manifest. Once downloaded, normal map browsing does not require external CDN access.

@@ -1,20 +1,20 @@
 services:
   postgis:
     image: postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538
-    container_name: giss-postgis
+    container_name: terrasys-postgis
     mem_limit: 1g
     cpus: 2
     environment:
-      POSTGRES_DB: personal_gis
+      POSTGRES_DB: terrasys
       POSTGRES_USER: gis
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Create services/.env from services/.env.example}
       TZ: Asia/Shanghai
     volumes:
-      - giss_postgis_data:/var/lib/postgresql/data
+      - terrasys_postgis_data:/var/lib/postgresql/data
       - ./postgis/migrations:/docker-entrypoint-initdb.d:ro
       - ./postgis/migrations:/migrations:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gis -d personal_gis"]
+      test: ["CMD-SHELL", "pg_isready -U gis -d terrasys"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -22,14 +22,14 @@ services:
 
   martin:
     image: ghcr.io/maplibre/martin@sha256:0650e9025f5fcffdc686358114679421b5e6b0ca37b374ad8a66f14709d59d2b
-    container_name: giss-martin
+    container_name: terrasys-martin
     mem_limit: 512m
     cpus: 1
     depends_on:
       postgis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://gis:${POSTGRES_PASSWORD}@postgis:5432/personal_gis
+      DATABASE_URL: postgres://gis:${POSTGRES_PASSWORD}@postgis:5432/terrasys
       TZ: Asia/Shanghai
     command: ["--config", "/config/config.yaml"]
     volumes:
@@ -44,17 +44,17 @@ services:
     restart: unless-stopped
 
   api:
-    image: giss-api:1
+    image: terrasys-api:1
     build:
       context: ./api
-    container_name: giss-api
+    container_name: terrasys-api
     mem_limit: 1g
     cpus: 2
     depends_on:
       postgis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://gis:${POSTGRES_PASSWORD}@postgis:5432/personal_gis
+      DATABASE_URL: postgres://gis:${POSTGRES_PASSWORD}@postgis:5432/terrasys
       MEDIA_ROOT: /data/media
       EXPORT_ROOT: /data/exports
       BACKUP_ROOT: /data/backups
@@ -65,7 +65,7 @@ services:
       MAP_PACK_ROOT: /data/map-packs
       OSM_ROOT: /data/osm
       OSM_STATE_PATH: /data/china.state.txt
-      CAPABILITY_MANIFEST_PATH: /data/giss-core.manifest.json
+      CAPABILITY_MANIFEST_PATH: /data/terrasys-core.manifest.json
       NOMINATIM_URL: http://nominatim:8080
       VALHALLA_URL: http://valhalla:8002
       KIWIX_URL: http://kiwix:8080
@@ -95,7 +95,7 @@ services:
       - ../products/tiles/pmtiles:/data/map-packs:ro
       - ../raw/osm:/data/osm:ro
       - ../raw/osm/china/china.state.txt:/data/china.state.txt:ro
-      - ../raw/osm/china/giss-core.manifest.json:/data/giss-core.manifest.json:ro
+      - ../raw/osm/china/terrasys-core.manifest.json:/data/terrasys-core.manifest.json:ro
       - ../products/elevation:/data/elevation:ro
       - ../data/terrain-cache:/data/terrain-cache
       - ../tmp:/data/build-cache
@@ -121,19 +121,19 @@ services:
   nominatim:
     profiles: ["advanced"]
     image: mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8
-    container_name: giss-nominatim
+    container_name: terrasys-nominatim
     mem_limit: 3g
     cpus: 3
     shm_size: 2gb
     environment:
-      PBF_PATH: /data/giss-core-latest.osm.pbf
+      PBF_PATH: /data/terrasys-core-latest.osm.pbf
       UPDATE_MODE: none
       FREEZE: "true"
       IMPORT_STYLE: extratags
       IMPORT_WIKIPEDIA: "false"
       THREADS: "4"
       GUNICORN_WORKERS: "2"
-      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?Run start-giss.cmd to create the local Nominatim password}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?Run start-terrasys.cmd to create the local Nominatim password}
       POSTGRES_SHARED_BUFFERS: 2GB
       POSTGRES_MAINTENANCE_WORK_MEM: 3GB
       POSTGRES_AUTOVACUUM_WORK_MEM: 512MB
@@ -142,7 +142,7 @@ services:
       POSTGRES_MAX_WAL_SIZE: 2GB
       TZ: Asia/Shanghai
     volumes:
-      - giss_nominatim_data:/var/lib/postgresql/16/main
+      - terrasys_nominatim_data:/var/lib/postgresql/16/main
       - ../raw/osm/china:/data:ro
     expose:
       - "8080"
@@ -157,7 +157,7 @@ services:
   valhalla:
     profiles: ["advanced"]
     image: ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1
-    container_name: giss-valhalla
+    container_name: terrasys-valhalla
     mem_limit: 2g
     cpus: 3
     environment:
@@ -186,7 +186,7 @@ services:
   kiwix:
     profiles: ["advanced"]
     image: ghcr.io/kiwix/kiwix-serve@sha256:57baa553c46cd30770905df15a9a687258aa5471c30c8edaefe278f1784e1aa8
-    container_name: giss-kiwix
+    container_name: terrasys-kiwix
     mem_limit: 512m
     cpus: 1
     command: ["--urlRootLocation=/wiki", "--blockexternal", "wikipedia_zh_all_mini_2026-05.zim", "wikivoyage_zh_all_maxi_2026-06.zim"]
@@ -207,7 +207,7 @@ services:
   osm-carto:
     profiles: ["advanced"]
     image: overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79
-    container_name: giss-osm-carto
+    container_name: terrasys-osm-carto
     mem_limit: 3g
     cpus: 3
     shm_size: 1gb
@@ -218,7 +218,7 @@ services:
       AUTOVACUUM: "on"
       TZ: Asia/Shanghai
     volumes:
-      - giss_osm_carto_data:/data/database/
+      - terrasys_osm_carto_data:/data/database/
       - ../data/osm-carto-tiles:/data/tiles/
       - ./osm-carto-apache.conf:/etc/apache2/sites-available/000-default.conf:ro
     expose:
@@ -233,7 +233,7 @@ services:
 
   web:
     image: nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
-    container_name: giss-web
+    container_name: terrasys-web
     mem_limit: 256m
     cpus: 1
     depends_on:
@@ -255,9 +255,11 @@ services:
     restart: unless-stopped
 
 volumes:
-  giss_postgis_data:
-  giss_osm_carto_data:
+  terrasys_postgis_data:
+    name: ${POSTGIS_VOLUME_NAME:-services_terrasys_postgis_data}
+  terrasys_osm_carto_data:
     external: true
-    name: ${OSM_CARTO_VOLUME_NAME:-giss_osm_carto_data}
-  giss_nominatim_data:
-    name: ${NOMINATIM_VOLUME_NAME:-services_giss_nominatim_data}
+    name: ${OSM_CARTO_VOLUME_NAME:-terrasys_osm_carto_data}
+  terrasys_nominatim_data:
+    external: true
+    name: ${NOMINATIM_VOLUME_NAME:-services_terrasys_nominatim_data}

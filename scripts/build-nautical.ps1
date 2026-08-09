@@ -5,16 +5,16 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $directory = Join-Path $root "products\nautical"
 $cacheDirectory = Join-Path $directory "source-cache"
 $filtered = Join-Path $directory "seamarks.staged.osm.pbf"
 $staged = Join-Path $directory "seamarks.staged.geojson"
 $target = Join-Path $directory "seamarks.geojson"
 $legacyFiltered = Join-Path $directory "seamarks.osm.pbf"
-$image = "giss-osmium:1"
+$image = "terrasys-osmium:1"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
-$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "giss.maintenance-job=$MaintenanceJobId") } else { @() }
+$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "terrasys.maintenance-job=$MaintenanceJobId") } else { @() }
 
 function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }

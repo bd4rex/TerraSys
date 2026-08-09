@@ -3,14 +3,14 @@ param([switch]$Force)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
 $disabledPackIds = @()
 if (Test-Path -LiteralPath $packStatePath -PathType Leaf) {
   $packState = Get-Content -Raw -LiteralPath $packStatePath | ConvertFrom-Json
   $disabledPackIds = @($packState.disabledPackIds | ForEach-Object { [string]$_ })
 }
-$image = "giss-osmium:1"
+$image = "terrasys-osmium:1"
 $outputRoot = Join-Path $root "raw\osm\carto"
 $output = Join-Path $outputRoot "installed-regions.osm.pbf"
 $staged = Join-Path $outputRoot "installed-regions.staged.osm.pbf"

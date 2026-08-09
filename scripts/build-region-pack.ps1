@@ -7,11 +7,11 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 
-$osmiumImage = "giss-osmium:1"
+$osmiumImage = "terrasys-osmium:1"
 $planetilerImage = "ghcr.io/onthegomap/planetiler@sha256:90c9d29ef013fb30af30b8e117a7847c7ef56e9bf05f25633c7d7228d6955cf0"
 $profile = $pack.sourceProfile
 $buildMode = if ($profile.mode) { [string]$profile.mode } else { "extract" }
@@ -25,7 +25,7 @@ $sourceStaged = if ($buildMode -eq "extract") { Join-Path (Split-Path -Parent $s
 $outputRoot = Join-Path $root "products\tiles\pmtiles"
 $output = Join-Path $outputRoot "$PackId.pmtiles"
 $outputStaged = Join-Path $outputRoot "$PackId.staged.pmtiles"
-$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "giss.maintenance-job=$MaintenanceJobId") } else { @() }
+$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "terrasys.maintenance-job=$MaintenanceJobId") } else { @() }
 
 function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }

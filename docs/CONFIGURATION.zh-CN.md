@@ -22,17 +22,17 @@ PostGIS `5432`、Martin `3000`、FastAPI `8000`、Nominatim `8080`、Valhalla `8
 ```dotenv
 POSTGRES_PASSWORD=<long-random-local-password>
 NOMINATIM_PASSWORD=<independent-long-random-local-password>
-NOMINATIM_VOLUME_NAME=services_giss_nominatim_data
+NOMINATIM_VOLUME_NAME=services_terrasys_nominatim_data
 VALHALLA_DATA_PATH=../products/routing/valhalla
 ```
 
-该文件被 Git 忽略。缺失时，`scripts/start-giss.ps1` 会创建 32 字节随机密码，并同步已有 `gis` 数据库角色密码。
+该文件被 Git 忽略。缺失时，`scripts/start-terrasys.ps1` 会创建 32 字节随机密码，并同步已有 `gis` 数据库角色密码。
 
 ## Compose 服务
 
 | 服务 | 持久数据 | 宿主机暴露 |
 | --- | --- | --- |
-| `postgis` | `giss_postgis_data` | 无 |
+| `postgis` | `terrasys_postgis_data` | 无 |
 | `api` | 个人媒体、导出、缓存与维护状态 | 无 |
 | `martin` | 只读批准的 PostGIS 视图 | 无 |
 | `nominatim` | 活动命名卷及候选版本 | 无 |
@@ -74,8 +74,8 @@ PMTiles 必须返回 `206 Partial Content`。健康脚本会验证 Range 响应�
 
 ## 宿主机存储
 
-- 活动项目：`D:\GISS`
-- 兼容 Junction：`C:\Users\Administrator\Documents\个人GIS`
+- 活动项目：`D:\TerraSys`
+- 兼容 Junction：`C:\Users\Administrator\Documents\TerraSys`
 - Docker Desktop WSL：`D:\DockerData\wsl`
 
 Docker 设置使用：
@@ -84,7 +84,7 @@ Docker 设置使用：
 "CustomWslDistroDir": "D:\\DockerData\\wsl"
 ```
 
-迁移 Docker 数据时，必须在目标位置验证容器、镜像、卷、API 计数和备份，并确认目标 VHD 持续写入后，才能删除旧 VHD。`GISS`/`giss` 名称继续作为数据兼容契约。
+迁移 Docker 数据时，必须在目标位置验证容器、镜像、卷、API 计数和备份，并确认目标 VHD 持续写入后，才能删除旧 VHD。产品与运行时标识统一为 `TerraSys`；原位升级时，`services/.env` 可以继续指向已经校验的旧物理 Docker 卷，这些卷指针只是数据位置兼容设置。
 
 ## 样式与本地资源
 

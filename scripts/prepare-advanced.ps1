@@ -9,9 +9,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$source = Join-Path $root "raw\osm\china\giss-core-latest.osm.pbf"
+$source = Join-Path $root "raw\osm\china\terrasys-core-latest.osm.pbf"
 $routingDirectory = Join-Path $root "products\routing\valhalla"
-$routingSource = Join-Path $routingDirectory "giss-core-latest.osm.pbf"
+$routingSource = Join-Path $routingDirectory "terrasys-core-latest.osm.pbf"
 
 & (Join-Path $PSScriptRoot "build-capability-source.ps1")
 New-Item -ItemType Directory -Force -Path $routingDirectory, (Join-Path $root "data\terrain-cache") | Out-Null
@@ -41,5 +41,5 @@ if (-not $SkipNautical) {
   & (Join-Path $PSScriptRoot "build-nautical.ps1")
 }
 if (-not $SkipStart) {
-  & (Join-Path $PSScriptRoot "start-giss.ps1")
+  & (Join-Path $PSScriptRoot "start-terrasys.ps1")
 }

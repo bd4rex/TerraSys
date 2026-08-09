@@ -9,5 +9,5 @@ COPY tests/resource-console-smoke.cjs /work/tests/resource-console-smoke.cjs
 COPY tests/performance-smoke.cjs /work/tests/performance-smoke.cjs
 COPY tests/performance-baseline.json /work/tests/performance-baseline.json
 
-ENV GISS_UI_URL=http://giss-web
+ENV TERRASYS_UI_URL=http://terrasys-web
 CMD ["node", "/work/tests/ui-smoke.cjs"]

@@ -11,7 +11,7 @@ if (-not $KitDirectory) {
 if (-not $KitDirectory) { throw "No offline kit was found. Run create-offline-kit.cmd first." }
 
 $kit = (Resolve-Path -LiteralPath $KitDirectory).Path.TrimEnd('\')
-$payload = Join-Path $kit "payload\GISS"
+$payload = Join-Path $kit "payload\TerraSys"
 $kitInfo = Get-Content -Raw -LiteralPath (Join-Path $kit "kit-info.json") | ConvertFrom-Json
 $backup = Get-ChildItem -LiteralPath (Join-Path $payload "backups") -Directory |
   Sort-Object Name -Descending | Select-Object -First 1
@@ -22,16 +22,16 @@ docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw "Docker Desktop is not running." }
 
 $id = [guid]::NewGuid().ToString("N").Substring(0, 8)
-$network = "giss-recovery-$id"
-$volume = "giss_recovery_$id"
-$nominatimVolume = "giss_recovery_nominatim_$id"
-$postgres = "giss-recovery-postgis-$id"
-$api = "giss-recovery-api-$id"
-$martin = "giss-recovery-martin-$id"
-$web = "giss-recovery-web-$id"
-$nominatim = "giss-recovery-nominatim-$id"
-$valhalla = "giss-recovery-valhalla-$id"
-$kiwix = "giss-recovery-kiwix-$id"
+$network = "terrasys-recovery-$id"
+$volume = "terrasys_recovery_$id"
+$nominatimVolume = "terrasys_recovery_nominatim_$id"
+$postgres = "terrasys-recovery-postgis-$id"
+$api = "terrasys-recovery-api-$id"
+$martin = "terrasys-recovery-martin-$id"
+$web = "terrasys-recovery-web-$id"
+$nominatim = "terrasys-recovery-nominatim-$id"
+$valhalla = "terrasys-recovery-valhalla-$id"
+$kiwix = "terrasys-recovery-kiwix-$id"
 $auditRoot = Join-Path $root "runtime\recovery-audit"
 $work = Join-Path $auditRoot "work-$id"
 $media = Join-Path $work "media"
@@ -49,7 +49,7 @@ $bytes = New-Object byte[] 32
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
 $password = [Convert]::ToBase64String($bytes).Replace("+", "_").Replace("/", "-").TrimEnd("=")
-$databaseUrl = "postgres://gis:$password@postgis:5432/personal_gis"
+$databaseUrl = "postgres://gis:$password@postgis:5432/terrasys"
 $report = [ordered]@{
   schemaVersion = 3
   startedAt = (Get-Date).ToUniversalTime().ToString("o")
@@ -113,19 +113,19 @@ try {
     Start-Sleep -Seconds 1
   }
   if (-not $databaseReady) { throw "Isolated PostGIS did not become ready." }
-  docker exec $postgres createdb -U gis -O gis -T template_postgis personal_gis
+  docker exec $postgres createdb -U gis -O gis -T template_postgis terrasys
   Assert-NativeSuccess "Creating the isolated recovery database"
 
-  $dump = Join-Path $backup.FullName "personal_gis.dump"
-  docker cp $dump "${postgres}:/tmp/personal_gis.dump"
+  $dump = Join-Path $backup.FullName "terrasys.dump"
+  docker cp $dump "${postgres}:/tmp/terrasys.dump"
   Assert-NativeSuccess "Copying the recovery dump"
-  docker exec $postgres pg_restore -U gis -d personal_gis --clean --if-exists --no-owner /tmp/personal_gis.dump | Out-Host
+  docker exec $postgres pg_restore -U gis -d terrasys --clean --if-exists --no-owner /tmp/terrasys.dump | Out-Host
   Assert-NativeSuccess "Restoring the recovery dump"
-  docker exec $postgres rm -f /tmp/personal_gis.dump
+  docker exec $postgres rm -f /tmp/terrasys.dump
   Assert-NativeSuccess "Removing the temporary recovery dump"
 
   $countSql = "SELECT (SELECT count(*) FROM app.places),(SELECT count(*) FROM app.tracks),(SELECT count(*) FROM app.media),(SELECT count(*) FROM app.reference_places),(SELECT count(*) FROM app.collections),(SELECT count(*) FROM public.app_schema_migrations);"
-  $countText = ((docker exec $postgres psql -U gis -d personal_gis -At -F '|' -c $countSql) -join "").Trim()
+  $countText = ((docker exec $postgres psql -U gis -d terrasys -At -F '|' -c $countSql) -join "").Trim()
   Assert-NativeSuccess "Counting restored records"
   $values = $countText.Split('|')
   if ($values.Count -ne 6) { throw "Restored count query returned an unexpected result: $countText" }
@@ -153,7 +153,7 @@ try {
 
     $coreRoot = Join-Path $payload "raw\osm\china"
     docker run -d --name $nominatim --network $network --network-alias nominatim `
-      -e "PBF_PATH=/data/giss-core-latest.osm.pbf" -e "UPDATE_MODE=none" -e "FREEZE=true" `
+      -e "PBF_PATH=/data/terrasys-core-latest.osm.pbf" -e "UPDATE_MODE=none" -e "FREEZE=true" `
       -e "IMPORT_STYLE=extratags" -e "THREADS=2" -e "GUNICORN_WORKERS=2" `
       -e "NOMINATIM_PASSWORD=$password" -e "TZ=Asia/Shanghai" `
       -v "${nominatimVolume}:/var/lib/postgresql/16/main" -v "${coreRoot}:/data:ro" `
@@ -165,7 +165,7 @@ try {
     $routingWork = Join-Path $work "valhalla"
     New-Item -ItemType Directory -Force -Path $routingWork | Out-Null
     foreach ($name in @(
-      "giss-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json", "file_hashes.txt",
+      "terrasys-core-latest.osm.pbf", "valhalla_tiles.tar", "valhalla.json", "file_hashes.txt",
       "admins.sqlite", "timezones.sqlite", "default_speeds.json"
     )) {
       Copy-Item -LiteralPath (Join-Path $routingRoot $name) -Destination (Join-Path $routingWork $name) -Force
@@ -218,16 +218,16 @@ try {
   $webResources = Join-Path $payload "web"
   $advancedApiArgs = @()
   if ($kitInfo.advancedCapabilities) {
-    $capabilityManifestPath = Join-Path $payload "raw\osm\china\giss-core.manifest.json"
+    $capabilityManifestPath = Join-Path $payload "raw\osm\china\terrasys-core.manifest.json"
     $elevationRoot = Join-Path $payload "products\elevation"
     $advancedApiArgs = @(
-      "-e", "CAPABILITY_MANIFEST_PATH=/data/giss-core.manifest.json",
+      "-e", "CAPABILITY_MANIFEST_PATH=/data/terrasys-core.manifest.json",
       "-e", "NOMINATIM_URL=http://nominatim:8080",
       "-e", "VALHALLA_URL=http://valhalla:8002",
       "-e", "KIWIX_URL=http://kiwix:8080",
       "-e", "ELEVATION_ROOT=/data/elevation",
       "-e", "TERRAIN_CACHE_ROOT=/data/terrain-cache",
-      "-v", "${capabilityManifestPath}:/data/giss-core.manifest.json:ro",
+      "-v", "${capabilityManifestPath}:/data/terrasys-core.manifest.json:ro",
       "-v", "${elevationRoot}:/data/elevation:ro",
       "-v", "${terrain}:/data/terrain-cache"
     )
@@ -249,7 +249,7 @@ try {
     -v "${encyclopediaResources}:/data/encyclopedia-resources:ro" -v "${webResources}:/data/web-resources:ro" `
     -v "${weatherResources}:/data/weather-resources:ro" -v "${nauticalResources}:/data/nautical-resources:ro" `
     -v "${overviewResources}:/data/overview-resources:ro" -v "${maintenance}:/data/maintenance" `
-    -v "${tileRoot}:/data/map-packs:ro" -v "${statePath}:/data/china.state.txt:ro" giss-api:1 | Out-Null
+    -v "${tileRoot}:/data/map-packs:ro" -v "${statePath}:/data/china.state.txt:ro" terrasys-api:1 | Out-Null
   Assert-NativeSuccess "Starting isolated API"
   $apiReady = $false
   for ($attempt = 0; $attempt -lt 60; $attempt++) {

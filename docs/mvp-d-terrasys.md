@@ -1,6 +1,6 @@
-# GIS_P Jiangsu / Anhui Local Map MVP
+# TerraSys Jiangsu / Anhui Local Map MVP
 
-> English | [简体中文](mvp-d-giss.zh-CN.md) · Snapshot `2026-08-03T23:12:23+08:00`
+> English | [简体中文](mvp-d-terrasys.zh-CN.md) · Snapshot `2026-08-03T23:12:23+08:00`
 
 ## Objective
 
@@ -43,10 +43,10 @@ JSON at `/api/health` or `/martin/catalog` is expected; those are machine APIs.
 ## Run and maintain
 
 ```powershell
-D:\GISS\start-giss.cmd
-D:\GISS\health-check.cmd
-D:\GISS\smoke-test.cmd
-D:\GISS\backup-giss.cmd
+D:\TerraSys\start-terrasys.cmd
+D:\TerraSys\health-check.cmd
+D:\TerraSys\smoke-test.cmd
+D:\TerraSys\backup-terrasys.cmd
 ```
 
 Only `127.0.0.1:8080` is host-facing. Refer to the [README](../README.md), [architecture](ARCHITECTURE.md), [operations](OPERATIONS.md), and [rebuild guide](REBUILD.md) for authoritative details.

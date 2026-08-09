@@ -48,7 +48,7 @@ WORLD_REGION_CATALOG_PATH = Path(os.environ.get("WORLD_REGION_CATALOG_PATH", "/d
 MAP_PACK_ROOT = Path(os.environ.get("MAP_PACK_ROOT", "/data/map-packs"))
 OSM_ROOT = Path(os.environ.get("OSM_ROOT", "/data/osm"))
 OSM_STATE_PATH = Path(os.environ.get("OSM_STATE_PATH", "/data/china.state.txt"))
-CAPABILITY_MANIFEST_PATH = Path(os.environ.get("CAPABILITY_MANIFEST_PATH", "/data/giss-core.manifest.json"))
+CAPABILITY_MANIFEST_PATH = Path(os.environ.get("CAPABILITY_MANIFEST_PATH", "/data/terrasys-core.manifest.json"))
 NOMINATIM_URL = os.environ.get("NOMINATIM_URL", "http://nominatim:8080").rstrip("/")
 VALHALLA_URL = os.environ.get("VALHALLA_URL", "http://valhalla:8002").rstrip("/")
 KIWIX_URL = os.environ.get("KIWIX_URL", "http://kiwix:8080").rstrip("/")
@@ -128,7 +128,7 @@ MAINTENANCE_ROOT.mkdir(parents=True, exist_ok=True)
 (MAINTENANCE_ROOT / "jobs").mkdir(parents=True, exist_ok=True)
 
 pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=6, kwargs={"row_factory": dict_row})
-app = FastAPI(title="GIS_P Personal Data API", version="1.0.0", docs_url="/docs")
+app = FastAPI(title="TerraSys Personal Data API", version="1.0.0", docs_url="/docs")
 RESOURCE_INVENTORY_REFRESH_LOCK = Lock()
 
 
@@ -332,7 +332,7 @@ def upstream_json(
     request = Request(
         url,
         data=body,
-        headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "GIS_P/1.0"},
+        headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "TerraSys/1.0"},
         method="POST" if body is not None else "GET",
     )
     try:
@@ -343,7 +343,7 @@ def upstream_json(
 
 
 def upstream_available(base_url: str, path: str) -> bool:
-    request = Request(f"{base_url}{path}", headers={"User-Agent": "GIS_P/1.0"})
+    request = Request(f"{base_url}{path}", headers={"User-Agent": "TerraSys/1.0"})
     try:
         with urlopen(request, timeout=1.5) as response:
             return 200 <= response.status < 400
@@ -2510,7 +2510,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "builtAt": pack.get("generatedAt"),
             "nextCheckAt": ((datetime.fromisoformat(str(pack["lastCheckedAt"]).replace("Z", "+00:00")) + timedelta(days=7)).isoformat() if pack.get("lastCheckedAt") else None),
             "heavy": False,
-            "command": f"D:\\GISS\\region-pack.cmd Update -PackId {pack['id']}",
+            "command": f"D:\\TerraSys\\region-pack.cmd Update -PackId {pack['id']}",
         }
         for pack in installed_packs
     ]
@@ -2530,7 +2530,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "builtAt": capability.get("generatedAt"),
             "nextCheckAt": None,
             "heavy": True,
-            "command": "D:\\GISS\\rebuild-shared-indexes.cmd -ConfirmRebuild",
+            "command": "D:\\TerraSys\\rebuild-shared-indexes.cmd -ConfirmRebuild",
         }
     )
 
@@ -2563,7 +2563,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "statusKind": "refresh" if file_is_older_than(WORLD_REGION_CATALOG_PATH, 24 * 7) else "current",
             "reason": "目录已到定期刷新时间" if file_is_older_than(WORLD_REGION_CATALOG_PATH, 24 * 7) else "目录仍在刷新周期内",
             "heavy": False,
-            "command": "D:\\GISS\\sync-world-catalog.cmd",
+            "command": "D:\\TerraSys\\sync-world-catalog.cmd",
         },
         {
             "id": "overview-map",
@@ -2577,7 +2577,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "资源尚未安装" if not overview_manifest else "资源文件或清单校验失败，需要修复" if not overview_valid else "资源已安装并通过校验",
             "action": "update" if not overview_valid else None,
             "heavy": False,
-            "command": "D:\\GISS\\sync-overview-resources.cmd",
+            "command": "D:\\TerraSys\\sync-overview-resources.cmd",
         },
         {
             "id": "osm-carto",
@@ -2591,7 +2591,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "OSM 原版渲染尚未安装" if not osm_carto_manifest else "已启用地图包集合或源数据摘要已变化，需要后台重建并切换" if not osm_carto_inputs_current else "渲染服务未就绪，需要修复" if not services_available["osm-carto"] else "OSM 原版渲染与已启用地图包来源一致",
             "action": "update" if not bool(osm_carto_manifest) or not osm_carto_inputs_current or not services_available["osm-carto"] else None,
             "heavy": True,
-            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\\GISS\\scripts\\build-osm-carto.ps1",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\\TerraSys\\scripts\\build-osm-carto.ps1",
         },
         {
             "id": "weather",
@@ -2605,7 +2605,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "天气资源尚未安装" if not weather_manifest else "天气资源校验失败，需要重新获取" if not weather_state["valid"] else "已启用地图包集合或源数据摘要已变化，需要同步天气点" if not weather_inputs_current else "天气快照已到刷新时间" if manifest_is_older_than(weather_manifest, 6) else "天气快照仍在有效期内",
             "action": "update" if not weather_state["valid"] or not weather_inputs_current or manifest_is_older_than(weather_manifest, 6) else None,
             "heavy": False,
-            "command": "D:\\GISS\\sync-weather.cmd",
+            "command": "D:\\TerraSys\\sync-weather.cmd",
         },
         {
             "id": "nautical",
@@ -2619,7 +2619,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "航海资源校验失败，需要重建" if nautical_manifest and not nautical_state["valid"] else "已启用地图包集合或源数据摘要已变化，需要增量重建" if not bool(nautical_manifest) or not nautical_inputs_current else "航海参考与已启用地图包来源一致",
             "action": "update" if not nautical_state["valid"] or not nautical_inputs_current else None,
             "heavy": False,
-            "command": "D:\\GISS\\build-nautical.cmd",
+            "command": "D:\\TerraSys\\build-nautical.cmd",
         },
         {
             "id": "encyclopedia",
@@ -2633,7 +2633,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "资源尚未安装" if not encyclopedia_manifest else "本地归档校验失败，需要重新获取" if not encyclopedia_state["valid"] else "本地归档已安装；新版本需显式检查上游",
             "action": "update" if not encyclopedia_state["valid"] else None,
             "heavy": True,
-            "command": "D:\\GISS\\download-encyclopedia.cmd",
+            "command": "D:\\TerraSys\\download-encyclopedia.cmd",
         },
         {
             "id": "travel-guide",
@@ -2647,7 +2647,7 @@ def build_resource_inventory(check_upstream: bool = False) -> dict[str, Any]:
             "reason": "资源尚未安装" if not travel_manifest else "本地归档校验失败，需要重新获取" if not travel_state["valid"] else "本地归档已安装；新版本需显式检查上游",
             "action": "update" if not travel_state["valid"] else None,
             "heavy": True,
-            "command": "D:\\GISS\\download-travel-guide.cmd",
+            "command": "D:\\TerraSys\\download-travel-guide.cmd",
         },
     ]
     update_checks.extend(static_updates)
@@ -3554,7 +3554,7 @@ def export_all_gpx() -> Response:
     features = tracks_geojson(q="")["features"]
     return Response(
         content=gpx_document(features), media_type="application/gpx+xml",
-        headers={"Content-Disposition": 'attachment; filename="GIS_P-tracks.gpx"'},
+        headers={"Content-Disposition": 'attachment; filename="TerraSys-tracks.gpx"'},
     )
 
 
@@ -3572,7 +3572,7 @@ def export_geojson() -> dict[str, Any]:
 @app.get("/export/archive")
 def export_personal_archive() -> FileResponse:
     generated_at = datetime.now().astimezone()
-    archive_name = f"GIS_P-personal-{generated_at.strftime('%Y%m%d-%H%M%S')}.zip"
+    archive_name = f"TerraSys-personal-{generated_at.strftime('%Y%m%d-%H%M%S')}.zip"
     target = EXPORT_ROOT / archive_name
     geojson_bytes = json.dumps(export_geojson(), ensure_ascii=False, indent=2, default=str).encode("utf-8")
     with pool.connection() as conn:
@@ -3615,7 +3615,7 @@ def export_personal_archive() -> FileResponse:
             "files": manifest_entries,
         }
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
-    for pattern in ("GIS_P-personal-*.zip", "giss-personal-*.zip"):
+    for pattern in ("TerraSys-personal-*.zip", "terrasys-personal-*.zip"):
         for path in EXPORT_ROOT.glob(pattern):
             if path != target and generated_at.timestamp() - path.stat().st_mtime > 7 * 86400:
                 path.unlink(missing_ok=True)

@@ -16,8 +16,8 @@ Every recoverable publication retains:
 Run the read-only readiness plan:
 
 ```powershell
-D:\GISS\plan-osm-incremental-updates.cmd
-D:\GISS\plan-osm-incremental-updates.cmd -Json
+D:\TerraSys\plan-osm-incremental-updates.cmd
+D:\TerraSys\plan-osm-incremental-updates.cmd -Json
 ```
 
 ## Experimental pipeline

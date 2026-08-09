@@ -4,7 +4,7 @@ $checks = [ordered]@{}
 
 docker info *> $null
 if ($LASTEXITCODE -ne 0) {
-  throw "Docker Desktop is not running. Run D:\GISS\start-giss.cmd first."
+  throw "Docker Desktop is not running. Run D:\TerraSys\start-terrasys.cmd first."
 }
 
 $containers = docker compose -f (Join-Path $root "services\docker-compose.yml") ps --format json | ConvertFrom-Json
@@ -88,6 +88,10 @@ if ($capabilities.source) {
 }
 
 $latestBackup = Get-ChildItem (Join-Path $root "backups") -Directory -ErrorAction SilentlyContinue |
+  Where-Object {
+    (Test-Path -LiteralPath (Join-Path $_.FullName "manifest.json") -PathType Leaf) -and
+    (Test-Path -LiteralPath (Join-Path $_.FullName "terrasys.dump") -PathType Leaf)
+  } |
   Sort-Object Name -Descending | Select-Object -First 1
 $checks.LatestBackup = if ($latestBackup) { $latestBackup.Name } else { "none" }
 

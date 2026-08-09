@@ -1,12 +1,12 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $directory = Join-Path $root "products\weather"
 $locationCache = Join-Path $directory "location-cache"
 $runtime = Join-Path $root "runtime\weather-locations"
 $packStatePath = Join-Path $root "data\maintenance\map-pack-state.json"
-$image = "giss-osmium:1"
+$image = "terrasys-osmium:1"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
 
 function Assert-NativeSuccess([string]$Operation) {

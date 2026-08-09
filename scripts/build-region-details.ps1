@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
-$catalog = Get-GissExpandedCatalog -Root $root
+$catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 
@@ -18,7 +18,7 @@ $schema = Join-Path $root "config\planetiler\poi-details.yml"
 $outputRoot = Join-Path $root "products\tiles\pmtiles"
 $manifestPath = Join-Path $outputRoot "$PackId.manifest.json"
 $staged = Join-Path $outputRoot "$PackId.details.staged.pmtiles"
-$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "giss.maintenance-job=$MaintenanceJobId") } else { @() }
+$dockerJobArguments = if ($MaintenanceJobId) { @("--label", "terrasys.maintenance-job=$MaintenanceJobId") } else { @() }
 
 function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }

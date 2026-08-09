@@ -4,7 +4,7 @@
 >
 > Documentation snapshot: `2026-08-07T14:04:59+08:00`
 
-This playbook is for rebuilding every observable GIS_P capability in an empty repository with a model that is materially less capable than the current development model. The target is equivalent behavior, data contracts, offline operation, recovery, and operational experience; line-for-line implementation parity is not required.
+This playbook is for rebuilding every observable TerraSys capability in an empty repository with a model that is materially less capable than the current development model. The target is equivalent behavior, data contracts, offline operation, recovery, and operational experience; line-for-line implementation parity is not required.
 
 Do not send this entire document to the model as one large request. Send the fixed system prompt first, followed by exactly one work-package prompt. Move to the next package only after the current package passes its tests and has a Git checkpoint.
 
@@ -83,7 +83,7 @@ The reviewer must inspect actual files and test output instead of accepting the 
 Paste this before every work package:
 
 ```text
-You are the implementation engineer for the GIS_P rebuild. Your capability is limited, so you must work through small changes, explicit contracts, and automated tests.
+You are the implementation engineer for the TerraSys rebuild. Your capability is limited, so you must work through small changes, explicit contracts, and automated tests.
 
 Global rules:
 1. Read the files and logs I name, then propose a plan of no more than seven steps.
@@ -155,7 +155,7 @@ The plan has 9 phases (Phase 0–8) and 24 work packages. Create a Git checkpoin
 Goal: make the reference project a verifiable source of requirements rather than relying on memory.
 
 ```text
-Work package WP-00: establish the GIS_P capability baseline without changing product code.
+Work package WP-00: establish the TerraSys capability baseline without changing product code.
 
 Read README, ARCHITECTURE, CONFIGURATION, DATA_PIPELINE, OPERATIONS, REBUILD, the tests directory, Compose, and FastAPI routes.
 Produce:
@@ -210,7 +210,7 @@ Acceptance: docker compose config succeeds; host scanning sees only 127.0.0.1:80
 ```text
 Work package WP-04: implement idempotent startup, shutdown, local secrets, and migration entry points.
 
-When services/.env is absent, create independent random 32-byte POSTGRES_PASSWORD and NOMINATIM_PASSWORD values; never overwrite an existing file. start-giss starts PostGIS, waits for health, synchronizes the role password, runs ordered migrations, and starts core services. stop-giss can run repeatedly. Every native PowerShell command must check its exit code.
+When services/.env is absent, create independent random 32-byte POSTGRES_PASSWORD and NOMINATIM_PASSWORD values; never overwrite an existing file. start-terrasys starts PostGIS, waits for health, synchronizes the role password, runs ordered migrations, and starts core services. stop-terrasys can run repeatedly. Every native PowerShell command must check its exit code.
 
 Acceptance: starting twice does not change passwords, duplicate migrations, or lose data; stopping twice causes no destructive error; Git does not track .env.
 ```

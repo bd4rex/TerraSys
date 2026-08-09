@@ -4,7 +4,7 @@
 
 ## 当前仓库
 
-- 仓库：[bd4rex/personal-gis](https://github.com/bd4rex/personal-gis)
+- 仓库：[bd4rex/TerraSys](https://github.com/bd4rex/TerraSys)
 - 可见性：公开
 - 默认分支：`main`
 - 本地远端：`origin`
@@ -42,7 +42,7 @@
 工作区同时有运行时生成变更时，使用独立分支并显式暂存：
 
 ```powershell
-Set-Location D:\GISS
+Set-Location D:\TerraSys
 git status -sb
 git switch -c agent/<description>
 git add README.md README.zh-CN.md CHANGELOG.md CHANGELOG.zh-CN.md docs

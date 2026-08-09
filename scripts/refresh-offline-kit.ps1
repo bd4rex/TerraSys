@@ -15,7 +15,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $kit "kit-info.json") -PathType Leaf
   throw "The target is not a complete offline kit: $kit"
 }
 
-$payload = Join-Path $kit "payload\GISS"
+$payload = Join-Path $kit "payload\TerraSys"
 $utf8 = New-Object Text.UTF8Encoding($false)
 
 function Copy-PayloadFile([string]$Source, [string]$RelativePath) {
@@ -51,14 +51,14 @@ $images = @(
   "postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538",
   "ghcr.io/maplibre/martin@sha256:0650e9025f5fcffdc686358114679421b5e6b0ca37b374ad8a66f14709d59d2b",
   "nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
-  "giss-api:1", "giss-osmium:1", "ghcr.io/onthegomap/planetiler:latest", "giss-ui-test:1",
+  "terrasys-api:1", "terrasys-osmium:1", "ghcr.io/onthegomap/planetiler:latest", "terrasys-ui-test:1",
   "mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8",
   "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1",
   "ghcr.io/kiwix/kiwix-serve@sha256:57baa553c46cd30770905df15a9a687258aa5471c30c8edaefe278f1784e1aa8"
 )
 if (-not $SkipDockerImages) {
   Write-Host "Refreshing Docker image archive..."
-  docker save --output (Join-Path $kit "docker\giss-images.tar") $images
+  docker save --output (Join-Path $kit "docker\terrasys-images.tar") $images
   if ($LASTEXITCODE -ne 0) { throw "Docker image export failed." }
 }
 

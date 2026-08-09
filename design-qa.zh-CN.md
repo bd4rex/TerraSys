@@ -3,7 +3,7 @@
 > [English](design-qa.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
 
 - 参考：`C:\Users\Administrator\Desktop\屏幕截图 2026-07-22 193947.png`
-- 测试截图：`D:\GISS\runtime\ui-smoke\resource-manager.png`
+- 测试截图：`D:\TerraSys\runtime\ui-smoke\resource-manager.png`
 - 视口：1440 × 900 桌面
 
 ## 检查结果

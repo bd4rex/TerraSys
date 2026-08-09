@@ -1,6 +1,6 @@
-# GIS_P 江苏 / 安徽本地地图 MVP
+# TerraSys 江苏 / 安徽本地地图 MVP
 
-> [English](mvp-d-giss.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
+> [English](mvp-d-terrasys.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
 
 ## 目标
 
@@ -43,10 +43,10 @@ http://localhost:8080/
 ## 运行维护
 
 ```powershell
-D:\GISS\start-giss.cmd
-D:\GISS\health-check.cmd
-D:\GISS\smoke-test.cmd
-D:\GISS\backup-giss.cmd
+D:\TerraSys\start-terrasys.cmd
+D:\TerraSys\health-check.cmd
+D:\TerraSys\smoke-test.cmd
+D:\TerraSys\backup-terrasys.cmd
 ```
 
 宿主机只开放 `127.0.0.1:8080`。权威说明见 [README](../README.zh-CN.md)、[架构](ARCHITECTURE.zh-CN.md)、[运维](OPERATIONS.zh-CN.md)和[重建](REBUILD.zh-CN.md)。

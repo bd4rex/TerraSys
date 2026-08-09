@@ -1,9 +1,9 @@
-function Resolve-GissCatalogTemplate {
+function Resolve-TerraSysCatalogTemplate {
   param([string]$Template, [string]$Id)
   return $Template.Replace("{id}", $Id)
 }
 
-function Get-GissExpandedCatalog {
+function Get-TerraSysExpandedCatalog {
   param([Parameter(Mandatory = $true)][string]$Root)
 
   $mapCatalogPath = Join-Path $Root "web\config\map-catalog.json"
@@ -32,13 +32,13 @@ function Get-GissExpandedCatalog {
       [string]$profile.sourceFile
     }
     else {
-      Resolve-GissCatalogTemplate ([string]$regionCatalog.defaults.sourceFileTemplate) $id
+      Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.sourceFileTemplate) $id
     }
     $polygonUrl = if ($profile.polygonUrl) {
       [string]$profile.polygonUrl
     }
     else {
-      Resolve-GissCatalogTemplate ([string]$regionCatalog.defaults.polygonUrlTemplate) $id
+      Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.polygonUrlTemplate) $id
     }
     [void]$datasets.Add([pscustomobject][ordered]@{
       id = $id
@@ -54,8 +54,8 @@ function Get-GissExpandedCatalog {
       groupOrder = [int]$group.order
       order = [int]$unit.order
       description = "$($group.name) · 省级独立离线资源"
-      url = Resolve-GissCatalogTemplate ([string]$regionCatalog.defaults.urlTemplate) $id
-      manifestUrl = Resolve-GissCatalogTemplate ([string]$regionCatalog.defaults.manifestUrlTemplate) $id
+      url = Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.urlTemplate) $id
+      manifestUrl = Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.manifestUrlTemplate) $id
       sourceFile = $sourceFile
       sourceProfileId = [string]$unit.sourceProfileId
       sourceProfile = $profile

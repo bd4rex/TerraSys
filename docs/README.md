@@ -32,7 +32,7 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Process log | [Process log](PROCESS_LOG.md) | [过程日志](PROCESS_LOG.zh-CN.md) |
 | Original MVP plan | [MVP plan](local-mvp-plan.md) | [MVP 规划](local-mvp-plan.zh-CN.md) |
 | Local stack note | [Local stack](local-stack.md) | [本地服务栈](local-stack.zh-CN.md) |
-| Jiangsu/Anhui MVP | [Regional MVP](mvp-d-giss.md) | [区域 MVP](mvp-d-giss.zh-CN.md) |
+| Jiangsu/Anhui MVP | [Regional MVP](mvp-d-terrasys.md) | [区域 MVP](mvp-d-terrasys.zh-CN.md) |
 | OsmAnd study | [OsmAnd reference](OSMAND_REFERENCE.md) | [OsmAnd 参考](OSMAND_REFERENCE.zh-CN.md) |
 | Resource-layout QA | [QA record](../design-qa.md) | [QA 记录](../design-qa.zh-CN.md) |
 | GitHub publication note | [GitHub upload](GITHUB_UPLOAD.md) | [GitHub 上传](GITHUB_UPLOAD.zh-CN.md) |
