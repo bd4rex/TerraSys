@@ -18,3 +18,15 @@ finally {
 
 Write-Host ""
 Write-Host "Web: http://localhost:8080/"
+$lanAddresses = Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object {
+    $_.IPAddress -notlike "127.*" -and
+    $_.IPAddress -notlike "169.254.*" -and
+    $_.IPAddress -notmatch "^(172\.(1[6-9]|2[0-9]|3[0-1])|198\.18)\." -and
+    $_.PrefixOrigin -ne "WellKnown"
+  } |
+  Select-Object -ExpandProperty IPAddress
+
+foreach ($address in $lanAddresses) {
+  Write-Host "LAN: http://$address`:8080/"
+}

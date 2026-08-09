@@ -242,7 +242,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8080:80"
+      - "0.0.0.0:8080:80"
     volumes:
       - ../web:/usr/share/nginx/html:ro
       - ../products/tiles/pmtiles:/srv/pmtiles:ro

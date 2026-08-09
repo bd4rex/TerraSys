@@ -35,6 +35,22 @@
       "url": "https://tiles.openfreemap.org/planet",
       "attribution": "OpenFreeMap © OpenMapTiles Data from OpenStreetMap",
       "homepage": "https://openfreemap.org/"
+    },
+    "esriWorldImagery": {
+      "name": "Esri World Imagery 全球卫星影像",
+      "tiles": ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      "tileSize": 256,
+      "maxZoom": 19,
+      "attribution": "Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community",
+      "homepage": "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9"
+    },
+    "openTopoMap": {
+      "name": "OpenTopoMap 全球地形参考图",
+      "tiles": ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "maxZoom": 17,
+      "attribution": "Map data: © OpenStreetMap contributors | DEM: SRTM | Map style: © OpenTopoMap (CC-BY-SA)",
+      "homepage": "https://opentopomap.org/"
     }
   },
   "rootRegion": "world",
@@ -71,6 +87,6 @@
     { "id": "fonts", "name": "地图字体", "icon": "languages", "scope": "global", "support": "ready", "inventoryId": "web-assets", "delivery": "component", "action": "labels", "description": "离线中文与拉丁字形组件" },
     { "id": "styles", "name": "渲染风格", "icon": "palette", "scope": "global", "support": "ready", "inventoryId": "web-assets", "delivery": "style", "action": "styles", "description": "标准与丰富两套本地矢量样式" },
     { "id": "tts", "name": "语音提示（TTS）", "icon": "volume-2", "scope": "global", "support": "ready", "inventoryId": "tts", "delivery": "component", "action": "tts", "description": "路线步骤使用 Windows 或浏览器本地中文语音" },
-    { "id": "map-sources", "name": "地图来源", "icon": "layers-3", "scope": "global", "support": "ready", "inventoryId": "web-assets", "delivery": "component", "description": "离线、OpenStreetMap 与 OpenFreeMap 来源配置" }
+    { "id": "map-sources", "name": "地图来源", "icon": "layers-3", "scope": "global", "support": "ready", "inventoryId": "web-assets", "delivery": "component", "description": "离线、OpenStreetMap、OpenFreeMap、Esri 卫星影像与 OpenTopoMap 地形参考来源配置" }
   ]
 }

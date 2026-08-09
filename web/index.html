@@ -7,7 +7,7 @@
     <title>GIS_P 个人离线地图</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css" />
-    <link rel="stylesheet" href="/src/app.css?v=20260807-2" />
+    <link rel="stylesheet" href="/src/app.css?v=20260809-5" />
   </head>
   <body class="panel-collapsed">
     <div id="map" aria-label="个人离线地图"></div>
@@ -18,10 +18,11 @@
       </button>
       <form id="searchForm" class="search" role="search">
         <i data-lucide="search"></i>
-        <input id="searchInput" type="search" placeholder="搜索地点、兴趣点和个人记录" autocomplete="off" />
+        <input id="searchInput" type="search" placeholder="搜索地点、坐标、个人记录或区域包" autocomplete="off" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" />
         <button class="icon-button compact" type="submit" title="搜索" aria-label="搜索">
           <i data-lucide="arrow-right"></i>
         </button>
+        <div id="searchSuggestions" class="search-suggestions" role="listbox" aria-label="搜索建议" hidden></div>
       </form>
       <div class="topbar-actions">
         <button id="addPlaceButton" class="command-button primary" type="button">
@@ -44,6 +45,9 @@
         <button id="onlineMapShortcut" class="map-shortcut-button" type="button" title="地图来源" aria-label="地图来源" aria-pressed="false" aria-expanded="false" aria-controls="mapSourcePopover">
           <i data-lucide="wifi"></i>
           <span class="map-source-indicator" aria-hidden="true"></span>
+        </button>
+        <button id="layersShortcut" class="map-shortcut-button" type="button" title="图层与工具" aria-label="图层与工具" aria-expanded="false" aria-controls="layersPopover">
+          <i data-lucide="layers-3"></i>
         </button>
         <button id="contourShortcut" class="map-shortcut-button" type="button" title="等高线" aria-label="等高线" aria-pressed="false">
           <i data-lucide="mountain-snow"></i>
@@ -78,11 +82,80 @@
             <span><strong>OpenFreeMap</strong><small>开放矢量在线地图</small></span>
             <i class="map-source-check" data-lucide="check"></i>
           </button>
+          <button type="button" role="radio" data-online-provider="esri-imagery">
+            <i data-lucide="satellite"></i>
+            <span><strong>卫星影像</strong><small>Esri World Imagery · 全球在线</small></span>
+            <i class="map-source-check" data-lucide="check"></i>
+          </button>
+          <button type="button" role="radio" data-online-provider="opentopomap">
+            <i data-lucide="mountain"></i>
+            <span><strong>地形参考</strong><small>OpenTopoMap · OSM + SRTM</small></span>
+            <i class="map-source-check" data-lucide="check"></i>
+          </button>
         </div>
         <div class="map-source-coverage">
           <i data-lucide="map-pinned"></i>
           <span><small>当前位置离线覆盖</small><strong id="mapCoverageStatus">正在识别区域</strong></span>
         </div>
+      </aside>
+      <aside id="layersPopover" class="layers-popover" aria-label="图层与地图工具" hidden>
+        <header>
+          <span class="layers-heading"><strong>图层与工具</strong><small>底图、覆盖层、工具与显示设置</small></span>
+          <button id="layersCloseButton" class="icon-button compact" type="button" title="关闭图层与工具" aria-label="关闭图层与工具"><i data-lucide="x"></i></button>
+        </header>
+        <section class="layers-section">
+          <h2>底图</h2>
+          <div class="basemap-grid" role="radiogroup" aria-label="选择底图">
+            <button type="button" data-theme="osm-carto"><i data-lucide="hard-drive"></i><span>离线 OSM</span></button>
+            <button type="button" data-theme="vector"><i data-lucide="boxes"></i><span>离线矢量</span></button>
+            <button type="button" data-online-provider="osm"><i data-lucide="map"></i><span>在线 OSM</span></button>
+            <button type="button" data-online-provider="openfreemap"><i data-lucide="layers-3"></i><span>OpenFreeMap</span></button>
+            <button type="button" data-online-provider="esri-imagery"><i data-lucide="satellite"></i><span>卫星影像</span></button>
+            <button type="button" data-online-provider="opentopomap"><i data-lucide="mountain"></i><span>地形参考</span></button>
+          </div>
+        </section>
+        <section class="layers-section">
+          <h2>覆盖层</h2>
+          <div class="overlay-grid">
+            <label><input type="checkbox" data-layer-toggle="contours" /><span><i data-lucide="mountain-snow"></i>等高线</span></label>
+            <label><input type="checkbox" data-layer-toggle="terrain" /><span><i data-lucide="mountain"></i>地形阴影</span></label>
+            <label><input type="checkbox" data-layer-toggle="boundaries" checked /><span><i data-lucide="landmark"></i>行政区</span></label>
+            <label><input type="checkbox" data-layer-toggle="nautical" /><span><i data-lucide="anchor"></i>航海参考</span></label>
+            <label><input type="checkbox" data-layer-toggle="emergency" /><span><i data-lucide="shield-plus"></i>应急与补给</span></label>
+            <label><input type="checkbox" data-layer-toggle="weather" /><span><i data-lucide="cloud-sun"></i>天气</span></label>
+            <label><input type="checkbox" data-layer-toggle="personalPoints" checked /><span><i data-lucide="map-pin"></i>个人点位</span></label>
+            <label><input type="checkbox" data-layer-toggle="tracks" checked /><span><i data-lucide="route"></i>轨迹</span></label>
+            <label><input type="checkbox" data-layer-toggle="photos" checked /><span><i data-lucide="images"></i>照片</span></label>
+          </div>
+          <div id="emergencyFilters" class="emergency-filters popover-emergency-filters" hidden>
+            <label><input type="checkbox" value="medical" checked /><span>医疗</span></label>
+            <label><input type="checkbox" value="security" checked /><span>救援</span></label>
+            <label><input type="checkbox" value="shelter" checked /><span>避难</span></label>
+            <label><input type="checkbox" value="supplies" checked /><span>补给</span></label>
+            <label><input type="checkbox" value="fuel" checked /><span>燃料</span></label>
+          </div>
+        </section>
+        <section class="layers-section">
+          <h2>工具</h2>
+          <div class="tool-grid">
+            <button type="button" data-map-tool="distance"><i data-lucide="ruler"></i><span>测距</span></button>
+            <button type="button" data-map-tool="area"><i data-lucide="scan"></i><span>面积</span></button>
+            <button type="button" data-map-tool="route"><i data-lucide="navigation"></i><span>路线</span></button>
+            <button type="button" data-map-tool="coordinate"><i data-lucide="crosshair"></i><span>坐标</span></button>
+            <button type="button" data-map-tool="download"><i data-lucide="download"></i><span>下载区域</span></button>
+          </div>
+        </section>
+        <section class="layers-section display-settings">
+          <h2>显示设置</h2>
+          <label class="settings-toggle"><span>地貌、水系与用地</span><input type="checkbox" data-layer-toggle="land" checked /></label>
+          <label class="settings-toggle"><span>建筑与门牌</span><input type="checkbox" data-layer-toggle="buildings" checked /></label>
+          <label class="settings-toggle"><span>兴趣点与交通设施</span><input type="checkbox" data-layer-toggle="poi" checked /></label>
+          <label class="settings-toggle"><span>地图标签</span><input type="checkbox" data-layer-toggle="labels" checked /></label>
+          <label class="settings-toggle"><span>道路网络</span><input type="checkbox" data-layer-toggle="roads" checked /></label>
+          <div class="settings-row"><span>兴趣点密度</span><div class="mini-segmented" role="group" aria-label="兴趣点密度"><button type="button" data-poi-density="low">精简</button><button type="button" data-poi-density="standard" class="active">标准</button><button type="button" data-poi-density="high">丰富</button></div></div>
+          <div class="settings-row"><span>比例尺单位</span><div class="mini-segmented" role="group" aria-label="比例尺单位"><button type="button" data-scale-unit="metric" class="active">公制</button><button type="button" data-scale-unit="imperial">英制</button><button type="button" data-scale-unit="nautical">海里</button></div></div>
+          <div class="settings-row"><span>地图明暗</span><div class="mini-segmented" role="group" aria-label="地图明暗"><button type="button" data-map-light="day" class="active">昼间</button><button type="button" data-map-light="night">夜间</button></div></div>
+        </section>
       </aside>
       <aside id="legendPopover" class="legend-popover" aria-label="地图图例" hidden>
         <header>
@@ -126,7 +199,6 @@
 
       <nav class="tabs" aria-label="侧栏视图">
         <button type="button" class="tab active" data-tab="personal">我的地图</button>
-        <button type="button" class="tab" data-tab="layers">图层</button>
         <button type="button" class="tab" data-tab="system">系统</button>
       </nav>
 
@@ -155,45 +227,6 @@
             <strong>还没有记录</strong>
             <span>从地图上添加点位，或导入一条 GPX 轨迹。</span>
           </div>
-        </section>
-
-        <section class="tab-panel" data-tab-panel="layers">
-          <div class="section-caption">离线底图样式</div>
-          <div class="segmented" role="group" aria-label="底图样式">
-            <button class="active" type="button" data-theme="osm-carto">OSM 原版</button>
-            <button type="button" data-theme="vector">交互矢量</button>
-          </div>
-
-          <div class="section-caption spaced">在线地图来源</div>
-          <div class="segmented three-way" role="group" aria-label="在线地图来源">
-            <button type="button" data-online-provider="offline">离线概览</button>
-            <button type="button" data-online-provider="osm">OSM 标准</button>
-            <button type="button" data-online-provider="openfreemap">开放矢量</button>
-          </div>
-
-          <div class="section-caption spaced">显示内容</div>
-          <div class="layer-list">
-            <label><input type="checkbox" data-layer-toggle="land" checked /><span>地貌、水系与用地</span></label>
-            <label><input type="checkbox" data-layer-toggle="roads" checked /><span>道路、铁路与桥隧</span></label>
-            <label><input type="checkbox" data-layer-toggle="buildings" checked /><span>建筑与门牌</span></label>
-            <label><input type="checkbox" data-layer-toggle="poi" checked /><span>兴趣点与交通设施</span></label>
-            <label><input type="checkbox" data-layer-toggle="labels" checked /><span>地名与道路名</span></label>
-            <label><input type="checkbox" data-layer-toggle="personal" checked /><span>个人点位与轨迹</span></label>
-            <label><input type="checkbox" data-layer-toggle="terrain" /><span>地形阴影</span></label>
-            <label><input type="checkbox" data-layer-toggle="contours" /><span>等高线与高程标注</span></label>
-            <label><input type="checkbox" data-layer-toggle="weather" /><span>天气快照</span></label>
-            <label><input type="checkbox" data-layer-toggle="nautical" /><span>航海参考</span></label>
-            <label><input type="checkbox" data-layer-toggle="emergency" /><span>应急与补给设施</span></label>
-          </div>
-
-          <div id="emergencyFilters" class="emergency-filters" hidden>
-            <label><input type="checkbox" value="medical" checked /><span>医疗</span></label>
-            <label><input type="checkbox" value="security" checked /><span>救援</span></label>
-            <label><input type="checkbox" value="shelter" checked /><span>避难</span></label>
-            <label><input type="checkbox" value="supplies" checked /><span>补给</span></label>
-            <label><input type="checkbox" value="fuel" checked /><span>燃料</span></label>
-          </div>
-
         </section>
 
         <section class="tab-panel" data-tab-panel="system">
@@ -242,13 +275,14 @@
     <aside id="routePanel" class="route-panel" aria-label="离线路线规划" hidden>
       <header>
         <div>
-          <span>离线路线</span>
+          <span id="routeEngineMode">离线引擎</span>
           <h2>规划行程</h2>
         </div>
         <button id="routeCloseButton" class="icon-button compact" type="button" title="关闭路线" aria-label="关闭路线">
           <i data-lucide="x"></i>
         </button>
       </header>
+      <div id="routeCoverageStatus" class="route-coverage-status"><i data-lucide="shield-check"></i><span>正在检查离线路由覆盖</span></div>
       <div class="segmented route-modes" role="group" aria-label="出行方式">
         <button class="active" type="button" data-route-costing="auto"><i data-lucide="car-front"></i><span>驾车</span></button>
         <button type="button" data-route-costing="bicycle"><i data-lucide="bike"></i><span>骑行</span></button>
@@ -262,6 +296,10 @@
         <button class="command-button" id="routeSwapButton" type="button"><i data-lucide="arrow-up-down"></i><span>交换</span></button>
         <button class="command-button" id="routeLocationButton" type="button"><i data-lucide="locate-fixed"></i><span>当前位置</span></button>
       </div>
+      <section id="routeRecentSection" class="route-recent" hidden>
+        <strong>最近地点</strong>
+        <div id="routeRecentList"></div>
+      </section>
       <div id="routeEmpty" class="route-empty"><i data-lucide="navigation"></i><span>在地图上设置起点和终点</span></div>
       <section id="routeResult" class="route-result" hidden>
         <div class="route-summary">
@@ -291,7 +329,20 @@
           <i data-lucide="x"></i>
         </button>
       </header>
+      <div id="detailAvailability" class="detail-availability"><i data-lucide="hard-drive"></i><span>正在识别数据来源</span></div>
       <div id="detailProperties" class="detail-properties"></div>
+      <details id="detailTagsSection" class="detail-tags" hidden>
+        <summary>完整 OSM 标签</summary>
+        <div id="detailTags"></div>
+      </details>
+      <section id="detailKnowledgeSection" class="detail-context-section" hidden>
+        <header><strong>开放资料</strong></header>
+        <div id="detailKnowledgeLinks" class="detail-context-links"></div>
+      </section>
+      <section id="detailPersonalSection" class="detail-context-section" hidden>
+        <header><strong>我的相关记录</strong></header>
+        <div id="detailPersonalLinks" class="detail-context-links"></div>
+      </section>
       <section id="detailMediaSection" class="detail-media-section" hidden>
         <header><strong>照片</strong><button id="detailAddPhotoButton" class="icon-button compact" type="button" title="添加照片" aria-label="添加照片"><i data-lucide="image-plus"></i></button></header>
         <div id="detailMediaGrid" class="detail-media-grid"></div>
@@ -304,8 +355,11 @@
         <button id="detailNearbyButton" class="command-button" type="button">
           <i data-lucide="radar"></i><span>附近地点</span>
         </button>
+        <button id="detailRouteButton" class="command-button" type="button">
+          <i data-lucide="navigation"></i><span>到这里</span>
+        </button>
         <button id="detailSaveButton" class="command-button primary" type="button">
-          <i data-lucide="bookmark-plus"></i><span>收藏</span>
+          <i data-lucide="bookmark-plus"></i><span>保存为个人点位</span>
         </button>
       </footer>
     </aside>
@@ -473,6 +527,6 @@
     <script src="/vendor/maplibre-contour/index.min.js"></script>
     <script src="/vendor/lucide/lucide.min.js"></script>
   <script src="/src/map-style.js?v=20260803-1"></script>
-    <script type="module" src="/src/app.js?v=20260807-4"></script>
+    <script type="module" src="/src/app.js?v=20260809-5"></script>
   </body>
 </html>

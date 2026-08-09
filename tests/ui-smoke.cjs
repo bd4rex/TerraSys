@@ -36,6 +36,22 @@ fs.mkdirSync(outputDir, { recursive: true });
   page.on("request", (request) => {
     if (request.url().includes("/osm-carto/tile/")) localCartoRequestCount += 1;
   });
+  await page.addInitScript(() => {
+    window.__gissMapInstance = null;
+    Object.defineProperty(window, "maplibregl", {
+      configurable: true,
+      set(value) {
+        const MapLibreMap = value.Map;
+        value.Map = class TestMap extends MapLibreMap {
+          constructor(...args) {
+            super(...args);
+            window.__gissMapInstance = this;
+          }
+        };
+        Object.defineProperty(window, "maplibregl", { configurable: true, writable: true, value });
+      }
+    });
+  });
   await page.route("**/api/maintenance", async (route) => {
     if (route.request().method() === "POST" && route.request().url().endsWith("/jobs")) {
       const payload = route.request().postDataJSON();
@@ -91,6 +107,10 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (await canvas.count() !== 1) throw new Error("MapLibre canvas was not created.");
   const box = await canvas.boundingBox();
   if (!box || box.width < 1000 || box.height < 700) throw new Error("Map canvas has an unexpected size.");
+  const metricScales = await page.locator(".maplibregl-ctrl-scale").allTextContents();
+  if (metricScales.length !== 1 || /ft|mi|nm/.test(metricScales[0])) {
+    throw new Error(`The scale control is not metric-only: ${JSON.stringify(metricScales)}`);
+  }
 
   const attribution = page.getByRole("link", { name: "OpenStreetMap contributors" });
   if (await attribution.count() < 1) throw new Error("OpenStreetMap attribution is missing.");
@@ -100,9 +120,8 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (localCartoRequestCount < 1) {
     throw new Error("The selected local OpenStreetMap Carto layer requested no rendered tiles.");
   }
-  const styleChoices = await page.locator("[data-theme]").allTextContents();
-  if (styleChoices.length !== 2 || !styleChoices.includes("OSM 原版") || !styleChoices.includes("交互矢量")) {
-    throw new Error(`The merged base-map choices are invalid: ${JSON.stringify(styleChoices)}`);
+  if (await page.locator('#sidePanel [data-tab="layers"], #sidePanel [data-tab-panel="layers"]').count()) {
+    throw new Error("The duplicate layer panel is still present in the left sidebar.");
   }
   const cartoTile = await page.evaluate(async () => {
     const response = await fetch("/osm-carto/tile/16/54394/26600.png", { cache: "no-store" });
@@ -112,6 +131,62 @@ fs.mkdirSync(outputDir, { recursive: true });
     throw new Error(`The local OSM Carto tile endpoint is invalid: ${JSON.stringify(cartoTile)}`);
   }
   if (!(await page.locator("#modeBanner").isHidden())) throw new Error("Mode banner is visible while no tool is active.");
+
+  await page.locator("#layersShortcut").click();
+  await page.locator("#layersPopover").waitFor({ state: "visible" });
+  const layerPanelText = await page.locator("#layersPopover").innerText();
+  for (const heading of ["底图", "覆盖层", "工具", "显示设置"]) {
+    if (!layerPanelText.includes(heading)) throw new Error(`Layer panel is missing ${heading}.`);
+  }
+  if (await page.locator("#layersPopover .basemap-grid button").count() !== 6) {
+    throw new Error("Layer panel does not expose all six base-map choices.");
+  }
+  const consolidatedLayerGroups = await page.locator("#layersPopover [data-layer-toggle]").evaluateAll((inputs) => inputs.map((input) => input.dataset.layerToggle));
+  for (const group of ["land", "roads", "buildings", "poi", "labels", "boundaries", "personalPoints", "tracks", "photos", "terrain", "contours", "weather", "nautical", "emergency"]) {
+    if (!consolidatedLayerGroups.includes(group)) throw new Error(`The consolidated right-side panel is missing ${group}.`);
+  }
+  await page.locator('#layersPopover [data-layer-toggle="emergency"]').check();
+  if (!(await page.locator("#emergencyFilters").isVisible()) || await page.locator("#emergencyFilters input").count() !== 5) {
+    throw new Error("Emergency resource filters were not migrated to the right-side panel.");
+  }
+  await page.screenshot({ path: path.join(outputDir, "layers-panel.png"), fullPage: false });
+  await page.locator('#layersPopover [data-layer-toggle="emergency"]').uncheck();
+  await page.locator('#layersPopover [data-scale-unit="imperial"]').click();
+  await page.waitForFunction(() => /ft|mi/.test(document.querySelector(".maplibregl-ctrl-scale")?.textContent || ""));
+  await page.locator('#layersPopover [data-scale-unit="nautical"]').click();
+  await page.waitForFunction(() => /nm/.test(document.querySelector(".maplibregl-ctrl-scale")?.textContent || ""));
+  await page.locator('#layersPopover [data-scale-unit="metric"]').click();
+  await page.waitForFunction(() => !/ft|mi|nm/.test(document.querySelector(".maplibregl-ctrl-scale")?.textContent || ""));
+  const onlineSources = await page.evaluate(() => {
+    const map = window.__gissMapInstance;
+    return ["online-osm", "online-openfreemap", "online-esri-imagery", "online-opentopomap"]
+      .map((id) => ({ id, source: Boolean(map.getSource(id)) }));
+  });
+  if (onlineSources.some((item) => !item.source)) {
+    throw new Error(`Online base-map sources are incomplete: ${JSON.stringify(onlineSources)}`);
+  }
+  await page.getByRole("button", { name: "关闭图层与工具" }).click();
+
+  await page.locator("#searchInput").fill("118.89574, 32.05272");
+  await page.locator("#searchSuggestions").waitFor({ state: "visible" });
+  if (!(await page.locator("#searchSuggestions").innerText()).includes("坐标")) {
+    throw new Error("Unified search did not recognize a coordinate query.");
+  }
+  await page.locator("#searchInput").fill("");
+  await page.locator("#searchInput").press("Escape");
+
+  await page.getByRole("button", { name: "路线", exact: true }).first().click();
+  await page.locator("#routePanel").waitFor({ state: "visible" });
+  const routePanelText = await page.locator("#routePanel").innerText();
+  for (const label of ["起点", "终点", "交换", "当前位置", "本次使用 Valhalla 离线路由引擎"]) {
+    if (!routePanelText.includes(label)) throw new Error(`Route planner is missing ${label}.`);
+  }
+  for (const mode of ["驾车", "骑行", "步行"]) {
+    if (await page.locator(`#routePanel [data-route-costing]`).filter({ hasText: mode }).count() !== 1) {
+      throw new Error(`Route planner is missing ${mode}.`);
+    }
+  }
+  await page.getByRole("button", { name: "关闭路线" }).click();
 
   await page.screenshot({ path: path.join(outputDir, "desktop.png"), fullPage: false });
 
@@ -141,10 +216,15 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.locator("#searchInput").fill("南京");
   await page.locator("#searchInput").press("Enter");
   await page.waitForFunction(() => document.querySelectorAll('[data-search-id]').length > 0, null, { timeout: 30000 });
-  const referenceResult = page.locator('[data-search-id]').filter({ hasText: "OSM 参考" }).first();
+  const referenceResult = page.locator('[data-search-id]').filter({ hasText: "离线 OSM" }).first();
   if (await referenceResult.count() !== 1) throw new Error("Offline OSM reference search returned no result.");
   await referenceResult.click({ force: true });
   await page.getByRole("button", { name: "保存为个人点位" }).waitFor({ state: "visible" });
+  const referenceDetailText = await page.locator("#detailPanel").innerText();
+  if (!referenceDetailText.includes("开放资料") || !referenceDetailText.includes("完整 OSM 标签")
+      || !referenceDetailText.includes("附近地点") || !referenceDetailText.includes("到这里")) {
+    throw new Error(`Reference detail is missing exploration context: ${referenceDetailText}`);
+  }
   await page.waitForTimeout(3000);
   await page.screenshot({ path: path.join(outputDir, "search-results.png"), fullPage: false });
   await page.getByRole("button", { name: "保存为个人点位" }).click();
@@ -159,10 +239,10 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.waitForTimeout(500);
 
   // Raster Carto matches the OSM website; switch to the interactive vector style for feature collection.
-  await page.getByRole("button", { name: "图层", exact: true }).click();
-  await page.getByRole("button", { name: "交互矢量", exact: true }).click();
+  await page.locator("#layersShortcut").click();
+  await page.locator('#layersPopover [data-theme="vector"]').click();
   await page.waitForTimeout(1200);
-  await page.getByRole("button", { name: "我的地图", exact: true }).click();
+  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
 
   // The search leaves the map centered on Nanjing South; click a stable POI-dense area east of the station.
   await page.mouse.click(1050, 275);
@@ -265,6 +345,24 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (await contourShortcut.count() !== 1) throw new Error("Contour shortcut is missing.");
   await contourShortcut.click();
   if (await contourShortcut.getAttribute("aria-pressed") !== "true") throw new Error("Contour shortcut did not enable contours.");
+  const contourLabelStyles = await page.evaluate(() => {
+    const map = window.__gissMapInstance;
+    return {
+      minorFilter: map.getFilter("terrain-contour-labels-minor"),
+      minorSize: map.getLayoutProperty("terrain-contour-labels-minor", "text-size"),
+      minorOpacity: map.getPaintProperty("terrain-contour-labels-minor", "text-opacity"),
+      majorSize: map.getLayoutProperty("terrain-contour-labels", "text-size"),
+      minorVisibility: map.getLayoutProperty("terrain-contour-labels-minor", "visibility")
+    };
+  });
+  if (!JSON.stringify(contourLabelStyles.minorFilter).includes('"level"')
+      || !JSON.stringify(contourLabelStyles.minorFilter).includes(",0]")
+      || !Array.isArray(contourLabelStyles.minorSize)
+      || contourLabelStyles.majorSize !== 10
+      || !Array.isArray(contourLabelStyles.minorOpacity)
+      || contourLabelStyles.minorVisibility === "none") {
+    throw new Error(`Minor contour labels are not styled independently: ${JSON.stringify(contourLabelStyles)}`);
+  }
 
   const legendShortcut = page.getByRole("button", { name: "图例", exact: true });
   await legendShortcut.click();
@@ -273,7 +371,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (!vectorLegend.includes("离线交互矢量") || !vectorLegend.includes("符号可随图层开关") || !vectorLegend.includes("植被与绿地")) {
     throw new Error(`Vector legend did not reflect the rendered base map: ${vectorLegend}`);
   }
-  if (!vectorLegend.includes("已开启的独立叠加层") || !vectorLegend.includes("等高线")) {
+  if (!vectorLegend.includes("已开启的独立叠加层") || !vectorLegend.includes("主等高线") || !vectorLegend.includes("次等高线高度")) {
     throw new Error(`Legend did not separate enabled overlays from the base map: ${vectorLegend}`);
   }
   await page.locator("#legendDetails summary").click();
@@ -284,8 +382,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.getByRole("button", { name: "关闭图例", exact: true }).click();
   if (!(await page.locator("#legendPopover").isHidden())) throw new Error("Legend did not close.");
 
-  await page.getByRole("button", { name: "图层" }).click();
-  await page.getByRole("button", { name: "OSM 原版", exact: true }).click();
+  await page.locator("#layersShortcut").click();
+  await page.locator('#layersPopover [data-theme="osm-carto"]').click();
+  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
   await page.waitForTimeout(1800);
   await legendShortcut.click();
   const originalLegend = await page.locator("#legendPopover").innerText();
@@ -298,7 +397,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   }
   if (originalLegend === vectorLegend) throw new Error("Legend content stayed static after switching the base map.");
   await page.getByRole("button", { name: "关闭图例", exact: true }).click();
-  await page.getByRole("button", { name: "交互矢量", exact: true }).click();
+  await page.locator("#layersShortcut").click();
+  await page.locator('#layersPopover [data-theme="vector"]').click();
+  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
   await page.waitForTimeout(1800);
   const richDetails = await page.evaluate(async () => {
     const response = await fetch("/api/map-packs", { cache: "no-store" });

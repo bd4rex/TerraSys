@@ -287,6 +287,7 @@ def replace_place_collections(conn: Any, place_id: str, collection_ids: list[str
 
 PLACE_SELECT = """
 SELECT id, name, province, category, note, tags, rating, source,
+       (SELECT count(*) FROM app.media WHERE place_id=app.places.id) AS media_count,
        COALESCE((
          SELECT jsonb_agg(jsonb_build_object('id', collection.id, 'name', collection.name, 'color', collection.color)
                           ORDER BY collection.name)
@@ -3085,7 +3086,8 @@ def search(
                      CASE WHEN lower(name)=lower(%s) THEN 120
                           WHEN name ILIKE %s THEN 100 ELSE 80 END::double precision AS score,
                      ST_X(geom) AS longitude, ST_Y(geom) AS latitude,
-                     jsonb_build_object('rating', rating, 'note', note) AS details
+                     jsonb_build_object('rating', rating, 'note', note, 'media_count',
+                       (SELECT count(*) FROM app.media WHERE place_id=app.places.id)) AS details
               FROM app.places
               WHERE name ILIKE %s OR note ILIKE %s OR province ILIKE %s OR tags::text ILIKE %s
 

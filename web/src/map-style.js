@@ -252,7 +252,7 @@
         }
       },
       {
-        groups: ["land"],
+        groups: ["boundaries"],
         layer: {
           id: "boundary",
           type: "line",

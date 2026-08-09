@@ -2,7 +2,7 @@
 
 > English | [简体中文](README.zh-CN.md)
 >
-> Documentation snapshot: `2026-08-03T23:12:23+08:00`
+> Documentation snapshot: `2026-08-07T14:04:59+08:00`
 
 Every maintained Markdown document has an English default file and a Simplified Chinese companion. Commands, paths, identifiers, checksums, and timestamps are intentionally kept identical between languages.
 
@@ -16,6 +16,7 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Data pipeline | [Data pipeline](DATA_PIPELINE.md) | [数据流水线](DATA_PIPELINE.zh-CN.md) |
 | Operations | [Operations](OPERATIONS.md) | [运维](OPERATIONS.zh-CN.md) |
 | Test suite | [Test suite](../tests/README.md) | [测试用例集](../tests/README.zh-CN.md) |
+| Weaker-model full rebuild | [AI rebuild playbook](AI_REBUILD_EXECUTION_PLAN.md) | [重建执行手册](AI_REBUILD_EXECUTION_PLAN.zh-CN.md) |
 | Rebuild | [Rebuild from scratch](REBUILD.md) | [从零重建](REBUILD.zh-CN.md) |
 | Offline recovery | [Offline recovery](OFFLINE_RECOVERY.md) | [离线恢复](OFFLINE_RECOVERY.zh-CN.md) |
 | Resource lifecycle | [Resource and version management](RESOURCE_AND_VERSION_MANAGEMENT.md) | [资源与版本管理](RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |

@@ -1,6 +1,9 @@
 import { escapeHtml, formatBytes, formatDate, formatEstimateRange } from "./format.js";
 
-const savedOnlineMapProvider = localStorage.getItem("giss-online-provider") === "openfreemap" ? "openfreemap" : "osm";
+const onlineMapProviders = ["osm", "openfreemap", "esri-imagery", "opentopomap"];
+const savedOnlineMapProvider = onlineMapProviders.includes(localStorage.getItem("giss-online-provider"))
+  ? localStorage.getItem("giss-online-provider")
+  : "osm";
 const previousMapTheme = localStorage.getItem("giss-theme");
 const mapStyleSchema = "osm-carto-2";
 if (localStorage.getItem("giss-map-style-schema") !== mapStyleSchema) {
@@ -59,7 +62,11 @@ const state = {
     buildings: true,
     poi: true,
     labels: true,
+    boundaries: true,
     personal: true,
+    personalPoints: true,
+    tracks: true,
+    photos: true,
     terrain: false,
     contours: false,
     weather: false,
@@ -68,13 +75,21 @@ const state = {
   },
   theme: ["vector", "osm-carto"].includes(savedMapTheme) ? savedMapTheme : "osm-carto",
   mode: null,
+  measureKind: "distance",
   measureCoordinates: [],
+  poiDensity: ["low", "standard", "high"].includes(localStorage.getItem("giss-poi-density")) ? localStorage.getItem("giss-poi-density") : "standard",
+  mapLight: localStorage.getItem("giss-map-light") === "night" ? "night" : "day",
+  scaleUnit: ["metric", "imperial", "nautical"].includes(localStorage.getItem("giss-scale-unit")) ? localStorage.getItem("giss-scale-unit") : "metric",
+  scaleControl: null,
+  layerMinZoom: new Map(),
   listFilter: "all",
   collectionFilter: "all",
   searchQuery: "",
   resultMode: null,
   resultLabel: "",
   searchResults: [],
+  suggestionResults: [],
+  searchSuggestionTimer: null,
   serviceStatus: null,
   capabilities: null,
   datasetManifest: null,
@@ -100,7 +115,7 @@ function byId(id) {
 
 function cacheElements() {
   [
-    "panelToggle", "sidePanel", "searchForm", "searchInput", "addPlaceButton",
+    "panelToggle", "sidePanel", "searchForm", "searchInput", "searchSuggestions", "addPlaceButton",
     "importGpxButton", "routeButton", "measureButton", "systemState", "placeCount", "trackCount",
     "mediaCount", "searchSummary", "personalList", "emptyState", "dbState",
     "martinState", "mapSnapshot", "referenceCount", "geocoderState", "routingState", "elevationState",
@@ -111,7 +126,7 @@ function cacheElements() {
     "resourceStorageTrack", "resourceDiskUsedBar", "resourceManagedUsedBar", "resourceDiskUsed", "resourceManagedSize", "resourceSearchWrap",
     "resourceSearchInput", "resourceManagerBody", "resourceRegionBrowser", "resourceRegionList",
     "resourceManagerContent", "viewSwitcher", "mapShortcuts",
-    "contourShortcut", "legendShortcut", "legendPopover", "legendCloseButton", "legendSourceLabel",
+    "layersShortcut", "layersPopover", "layersCloseButton", "contourShortcut", "legendShortcut", "legendPopover", "legendCloseButton", "legendSourceLabel",
     "legendSourceHint", "legendBaseGrid", "legendDetailGroups", "legendOverlayGrid", "legendOverlayEmpty", "onlineMapShortcut",
     "mapSourcePopover", "mapSourceCloseButton", "mapSourceStatus", "mapCoverageStatus",
     "coveragePrompt", "coveragePromptTitle", "coveragePromptText",
@@ -121,11 +136,12 @@ function cacheElements() {
     "placeCategory", "placeProvince", "placeTags", "placeRating", "placeNote", "placeCollectionChoices",
     "longitude", "latitude", "gpxInput", "photoInput", "detailPanel",
     "detailEyebrow", "detailTitle", "detailSubtitle", "detailProperties",
-    "detailCloseButton", "detailNearbyButton", "detailSaveButton", "detailDeleteButton", "detailMediaSection",
-    "detailMediaGrid", "detailAddPhotoButton", "detailSourceText", "collectionFilter",
+    "detailCloseButton", "detailNearbyButton", "detailRouteButton", "detailSaveButton", "detailDeleteButton", "detailMediaSection",
+    "detailMediaGrid", "detailAddPhotoButton", "detailSourceText", "detailAvailability", "detailTagsSection", "detailTags",
+    "detailKnowledgeSection", "detailKnowledgeLinks", "detailPersonalSection", "detailPersonalLinks", "collectionFilter",
     "manageCollectionsButton", "collectionDialog", "collectionForm", "collectionId",
     "collectionName", "collectionColor", "collectionNote", "collectionManagerList",
-    "emergencyFilters", "routePanel", "routeCloseButton", "routeStartLabel", "routeEndLabel",
+    "emergencyFilters", "routePanel", "routeCloseButton", "routeStartLabel", "routeEndLabel", "routeEngineMode", "routeCoverageStatus", "routeRecentSection", "routeRecentList",
     "routeEmpty", "routeResult", "routeDistance", "routeDuration", "routeProfileSection",
     "routeElevationRange", "routeProfileCanvas", "routeManeuvers", "routeClearButton", "routeSpeakButton", "routeSaveButton", "routeSwapButton", "routeLocationButton",
     "trackDialog", "trackForm", "trackSummary", "trackId", "trackVersion", "trackName", "trackActivity", "trackColor", "trackTags", "trackNote"
@@ -1420,6 +1436,24 @@ function baseFeatureName(feature) {
   return properties.name_zh || properties["name:zh"] || properties.name || properties.name_en || properties["name:latin"] || "";
 }
 
+const onlineProviderMeta = {
+  osm: { label: "OSM 标准地图", sourceId: "online-osm", layerId: "online-osm-raster", icon: "map" },
+  openfreemap: { label: "OpenFreeMap", sourceId: "online-openfreemap", icon: "layers-3" },
+  "esri-imagery": { label: "Esri 全球卫星影像", sourceId: "online-esri-imagery", layerId: "online-esri-imagery-raster", icon: "satellite" },
+  opentopomap: { label: "OpenTopoMap 全球地形参考", sourceId: "online-opentopomap", layerId: "online-opentopomap-raster", icon: "mountain" }
+};
+
+function onlineProvider(provider = state.onlineMapProvider) {
+  return onlineProviderMeta[provider] || onlineProviderMeta.osm;
+}
+
+function onlineRasterCatalog(provider) {
+  if (provider === "esri-imagery") return state.resourceCatalog?.onlineMaps?.esriWorldImagery;
+  if (provider === "opentopomap") return state.resourceCatalog?.onlineMaps?.openTopoMap;
+  if (provider === "osm") return state.resourceCatalog?.onlineMaps?.osmStandard;
+  return null;
+}
+
 function baseFeatureCategory(feature) {
   const properties = feature?.properties || {};
   const sourceLayer = feature?.layer?.["source-layer"] || "";
@@ -1511,23 +1545,81 @@ function setDetailButton(button, icon, label) {
   button.innerHTML = `<i data-lucide="${icon}"></i><span>${escapeHtml(label)}</span>`;
 }
 
-async function showMapFeatureDetail(feature, coordinate) {
+function resetDetailContext() {
+  elements.detailTagsSection.hidden = true;
+  elements.detailTags.innerHTML = "";
+  elements.detailKnowledgeSection.hidden = true;
+  elements.detailKnowledgeLinks.innerHTML = "";
+  elements.detailPersonalSection.hidden = true;
+  elements.detailPersonalLinks.innerHTML = "";
+}
+
+function renderDetailContext(feature, coordinate, reference = null, sourceLabel = "离线 OSM") {
+  resetDetailContext();
+  const tags = { ...(feature?.properties || {}), ...(reference?.details?.tags || {}) };
+  const coverage = mapCoverageAt(coordinate[0], coordinate[1]);
+  const sourceDate = state.serviceStatus?.reference_dataset?.source_updated_at || state.datasetManifest?.source?.updatedAt;
+  const coverageText = coverage.installed
+    ? `${resourcePackName(coverage.installed)}已安装`
+    : coverage.available
+      ? `${resourcePackName(coverage.available)}尚未安装`
+      : "当前区域暂无独立离线包";
+  const offlineReady = Boolean(coverage.installed);
+  elements.detailAvailability.dataset.tone = offlineReady ? "ready" : "warning";
+  elements.detailAvailability.innerHTML = `<i data-lucide="${offlineReady ? "hard-drive" : "cloud"}"></i><span>${escapeHtml(`${sourceLabel} · ${coverageText}`)}</span>`;
+  elements.detailSourceText.textContent = [sourceLabel, sourceDate ? `数据 ${formatDate(sourceDate)}` : "", coverageText].filter(Boolean).join(" · ");
+
+  const tagEntries = Object.entries(tags).filter(([, value]) => value !== null && value !== undefined && String(value).trim()).sort(([left], [right]) => left.localeCompare(right));
+  if (tagEntries.length) {
+    elements.detailTagsSection.hidden = false;
+    elements.detailTags.innerHTML = tagEntries.map(([key, value]) => `<div><code>${escapeHtml(key)}</code><span>${escapeHtml(String(value))}</span></div>`).join("");
+  }
+
+  const knowledgeLinks = [];
+  const wikipedia = String(tags.wikipedia || "").trim();
+  const wikidata = String(tags.wikidata || "").trim();
+  const title = baseFeatureName(feature) || elements.detailTitle.textContent;
+  knowledgeLinks.push(`<a href="/wiki/search?pattern=${encodeURIComponent(title)}" target="_blank" rel="noreferrer"><i data-lucide="book-open"></i><span>离线百科搜索</span></a>`);
+  if (wikipedia) {
+    const [language, ...pageParts] = wikipedia.includes(":") ? wikipedia.split(":") : ["zh", wikipedia];
+    knowledgeLinks.push(`<a href="https://${encodeURIComponent(language)}.wikipedia.org/wiki/${encodeURIComponent(pageParts.join(":"))}" target="_blank" rel="noreferrer"><i data-lucide="globe-2"></i><span>Wikipedia</span></a>`);
+  }
+  if (/^Q\d+$/i.test(wikidata)) knowledgeLinks.push(`<a href="https://www.wikidata.org/wiki/${encodeURIComponent(wikidata)}" target="_blank" rel="noreferrer"><i data-lucide="database"></i><span>Wikidata</span></a>`);
+  elements.detailKnowledgeSection.hidden = knowledgeLinks.length === 0;
+  elements.detailKnowledgeLinks.innerHTML = knowledgeLinks.join("");
+
+  const relatedTracks = relatedTracksForPlace(coordinate);
+  const relatedPlaces = state.places.features
+    .map((item) => ({ feature: item, distance: haversine(coordinate, item.geometry.coordinates) }))
+    .filter((item) => item.distance <= 2000)
+    .sort((left, right) => left.distance - right.distance)
+    .slice(0, 3);
+  const personalLinks = [
+    ...relatedPlaces.map((item) => `<button type="button" data-detail-personal="place" data-detail-id="${escapeHtml(item.feature.properties.id)}"><i data-lucide="map-pin"></i><span>${escapeHtml(item.feature.properties.name)} · ${item.distance.toFixed(0)} m</span></button>`),
+    ...relatedTracks.map((item) => `<button type="button" data-detail-personal="track" data-detail-id="${escapeHtml(item.feature.properties.id)}"><i data-lucide="route"></i><span>${escapeHtml(item.feature.properties.name)} · ${(item.distance / 1000).toFixed(1)} km</span></button>`)
+  ];
+  elements.detailPersonalSection.hidden = personalLinks.length === 0;
+  elements.detailPersonalLinks.innerHTML = personalLinks.join("");
+  icons();
+}
+
+async function showMapFeatureDetail(feature, coordinate, options = {}) {
   closeRoutePanel();
   const requestId = ++state.detailRequestId;
   const name = baseFeatureName(feature);
   const category = baseFeatureCategory(feature);
-  state.selectedMapFeature = { kind: "base", feature, coordinate, reference: null, nearbyResults: [] };
-  elements.detailEyebrow.textContent = "本地矢量底图";
+  state.selectedMapFeature = { kind: "base", feature, coordinate, reference: options.reference || null, nearbyResults: [], searchResult: options.searchResult || null };
+  elements.detailEyebrow.textContent = options.eyebrow || "本地矢量底图";
   elements.detailTitle.textContent = name || category.split(" · ")[0];
   elements.detailSubtitle.textContent = `${category} · ${coordinate[0].toFixed(5)}, ${coordinate[1].toFixed(5)}`;
-  renderDetailRows(detailRows(feature));
+  renderDetailRows(detailRows(feature, options.reference || null));
   elements.detailMediaSection.hidden = true;
   elements.detailMediaGrid.innerHTML = "";
-  elements.detailSourceText.textContent = "OpenStreetMap 本地快照";
+  renderDetailContext(feature, coordinate, options.reference || null, options.sourceLabel || "离线 OSM");
   elements.detailDeleteButton.hidden = true;
   elements.detailNearbyButton.disabled = false;
   setDetailButton(elements.detailNearbyButton, "radar", "附近地点");
-  setDetailButton(elements.detailSaveButton, "bookmark-plus", "收藏");
+  setDetailButton(elements.detailSaveButton, "bookmark-plus", "保存为个人点位");
   elements.detailPanel.hidden = false;
   document.body.classList.add("detail-open");
   setSelectedFeatureMarker(coordinate);
@@ -1538,14 +1630,15 @@ async function showMapFeatureDetail(feature, coordinate) {
     const nearby = await api(`/reference/nearby?longitude=${coordinate[0]}&latitude=${coordinate[1]}&radius_m=${radius}&limit=30`);
     if (requestId !== state.detailRequestId || !state.selectedMapFeature) return;
     const normalizedName = name.trim().toLocaleLowerCase("zh-CN");
-    const reference = normalizedName
+    const reference = (normalizedName
       ? nearby.results.find((item) => item.name.trim().toLocaleLowerCase("zh-CN") === normalizedName)
-      : null;
+      : null) || options.reference || null;
     state.selectedMapFeature.reference = reference || null;
     state.selectedMapFeature.nearbyResults = nearby.results;
     if (reference) {
       elements.detailEyebrow.textContent = "OSM 参考索引匹配";
       renderDetailRows(detailRows(feature, reference));
+      renderDetailContext(feature, coordinate, reference, options.sourceLabel || "离线 OSM");
     }
   } catch {
     // Vector-tile details remain usable even if enrichment is temporarily unavailable.
@@ -1588,6 +1681,7 @@ async function showPersonalPlaceDetail(feature) {
   const collections = featureCollections(props).map((collection) => collection.name);
   const relatedTracks = relatedTracksForPlace(coordinate);
   state.selectedMapFeature = { kind: "personal", feature, coordinate, relatedTracks };
+  resetDetailContext();
   elements.detailEyebrow.textContent = "我的个人点位";
   elements.detailTitle.textContent = props.name || "未命名点位";
   elements.detailSubtitle.textContent = `${props.province || "未填写地区"} · ${coordinate[0].toFixed(5)}, ${coordinate[1].toFixed(5)}`;
@@ -1603,6 +1697,8 @@ async function showPersonalPlaceDetail(feature) {
   elements.detailMediaSection.hidden = false;
   elements.detailMediaGrid.innerHTML = '<div class="detail-media-empty">正在读取照片…</div>';
   elements.detailSourceText.textContent = "个人 PostGIS 数据库";
+  elements.detailAvailability.dataset.tone = "personal";
+  elements.detailAvailability.innerHTML = '<i data-lucide="user-round"></i><span>个人点位 · 完全保存在本地</span>';
   elements.detailDeleteButton.hidden = false;
   elements.detailNearbyButton.disabled = relatedTracks.length === 0;
   setDetailButton(elements.detailNearbyButton, "route", "轨迹");
@@ -1621,6 +1717,7 @@ async function showPersonalTrackDetail(feature) {
   const props = canonical.properties || {};
   const coordinate = featureCenter(canonical);
   state.selectedMapFeature = { kind: "track", feature: canonical, coordinate };
+  resetDetailContext();
   elements.detailEyebrow.textContent = "我的个人轨迹";
   elements.detailTitle.textContent = props.name || "未命名轨迹";
   elements.detailSubtitle.textContent = `${props.activity || "other"} · ${(Number(props.distance_m || 0) / 1000).toFixed(2)} km`;
@@ -1635,6 +1732,8 @@ async function showPersonalTrackDetail(feature) {
   elements.detailMediaSection.hidden = false;
   elements.detailMediaGrid.innerHTML = '<div class="detail-media-empty">正在读取照片…</div>';
   elements.detailSourceText.textContent = "个人 PostGIS 轨迹数据库";
+  elements.detailAvailability.dataset.tone = "personal";
+  elements.detailAvailability.innerHTML = '<i data-lucide="route"></i><span>轨迹记录 · 完全保存在本地</span>';
   elements.detailDeleteButton.hidden = false;
   elements.detailNearbyButton.disabled = false;
   setDetailButton(elements.detailNearbyButton, "download", "GPX");
@@ -1834,7 +1933,7 @@ function setMode(mode) {
   state.mode = mode;
   state.map.getCanvas().style.cursor = mode ? "crosshair" : "";
   elements.addPlaceButton.classList.toggle("primary", mode !== "add-place");
-  elements.measureButton.classList.toggle("active", mode === "measure");
+  elements.measureButton.classList.toggle("active", mode === "measure-distance");
   elements.routeButton.classList.toggle("primary", mode === "route-start" || mode === "route-end");
   document.querySelectorAll("[data-route-point]").forEach((button) => {
     button.classList.toggle("active", button.dataset.routePoint === (mode === "route-start" ? "0" : mode === "route-end" ? "1" : ""));
@@ -1845,7 +1944,8 @@ function setMode(mode) {
   }
   const messages = {
     "add-place": "在地图上点击要保存的位置",
-    measure: "依次点击地图测量距离，再次点击测距按钮清空",
+    "measure-distance": "依次点击地图测量距离，再次点击测距按钮清空",
+    "measure-area": "依次点击至少三个边界点测量面积",
     "route-start": "在地图上选择路线起点",
     "route-end": "在地图上选择路线终点"
   };
@@ -1858,12 +1958,72 @@ function routePointLabel(location) {
   return location.name || `${location.longitude.toFixed(5)}, ${location.latitude.toFixed(5)}`;
 }
 
+async function routeToSelectedFeature() {
+  const selected = state.selectedMapFeature;
+  if (!selected?.coordinate) return;
+  const coordinate = [...selected.coordinate];
+  const name = elements.detailTitle.textContent.trim();
+  closeMapFeatureDetail();
+  openRoutePanel();
+  await setRouteLocation(1, coordinate, name);
+  if (!state.route.locations[0]) setMode("route-start");
+}
+
+function routeRecentLocations() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("giss-route-recents") || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => Number.isFinite(item?.longitude) && Number.isFinite(item?.latitude)).slice(0, 6)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberRouteLocation(location) {
+  if (!location) return;
+  const recent = routeRecentLocations().filter((item) => Math.abs(item.longitude - location.longitude) > 1e-5 || Math.abs(item.latitude - location.latitude) > 1e-5);
+  recent.unshift({ longitude: location.longitude, latitude: location.latitude, name: routePointLabel(location) });
+  localStorage.setItem("giss-route-recents", JSON.stringify(recent.slice(0, 6)));
+}
+
+function updateRouteCoverageStatus() {
+  if (!elements.routeCoverageStatus) return;
+  const routing = state.capabilities?.services?.routing;
+  const locations = state.route.locations.filter(Boolean);
+  const packs = locations.map((location) => mapCoverageAt(location.longitude, location.latitude).installed);
+  const allCovered = locations.length > 0 && packs.every(Boolean);
+  const missingIndexedPack = packs.find((pack) => pack && routing?.missingPackIds?.includes(pack.id));
+  let label = "本次使用 Valhalla 离线路由引擎";
+  let tone = "ready";
+  if (!routing?.available) {
+    label = "离线路由索引尚未就绪";
+    tone = "warning";
+  } else if (missingIndexedPack) {
+    label = `${resourcePackName(missingIndexedPack)}尚未进入路由索引`;
+    tone = "warning";
+  } else if (locations.length && !allCovered) {
+    label = "端点超出已安装区域，离线路线可能不可用";
+    tone = "warning";
+  } else if (locations.length === 2) {
+    label = `离线路由覆盖：${[...new Set(packs.map(resourcePackName))].join("、")}`;
+  }
+  elements.routeEngineMode.textContent = "离线引擎";
+  elements.routeCoverageStatus.dataset.tone = tone;
+  elements.routeCoverageStatus.innerHTML = `<i data-lucide="${tone === "ready" ? "shield-check" : "triangle-alert"}"></i><span>${escapeHtml(label)}</span>`;
+  const recent = routeRecentLocations();
+  elements.routeRecentSection.hidden = recent.length === 0;
+  elements.routeRecentList.innerHTML = recent.map((item, index) => `<button type="button" data-route-recent="${index}"><i data-lucide="history"></i><span>${escapeHtml(item.name)}</span></button>`).join("");
+  icons();
+}
+
 function updateRoutePanel() {
   if (document.activeElement !== elements.routeStartLabel) elements.routeStartLabel.value = state.route.locations[0] ? routePointLabel(state.route.locations[0]) : "";
   if (document.activeElement !== elements.routeEndLabel) elements.routeEndLabel.value = state.route.locations[1] ? routePointLabel(state.route.locations[1]) : "";
   document.querySelectorAll("[data-route-costing]").forEach((button) => {
     button.classList.toggle("active", button.dataset.routeCosting === state.route.costing);
   });
+  updateRouteCoverageStatus();
 }
 
 function updateRouteSource() {
@@ -1939,6 +2099,9 @@ async function setRouteLocation(index, coordinate, name = "") {
     // Coordinates remain a valid offline route endpoint while the address index is rebuilding.
   }
 
+  rememberRouteLocation(location);
+  updateRouteCoverageStatus();
+
   if (index === 0 && !state.route.locations[1]) {
     return;
   }
@@ -1967,7 +2130,7 @@ async function searchRouteLocation(index) {
     const score = (item) => {
       const name = String(item.name || "").toLocaleLowerCase("zh-CN").replace(/\s+/g, "");
       const exactPenalty = name === normalizedQuery ? -100 : name.startsWith(normalizedQuery) ? -60 : name.includes(normalizedQuery) ? -25 : 0;
-      const sourcePenalty = ["place", "track"].includes(item.kind) ? -50 : item.kind === "geocoder" ? -25 : 0;
+      const sourcePenalty = ["personal_place", "personal_track"].includes(item.kind) ? -50 : item.kind === "geocoder" ? -25 : 0;
       const longitude = Number(item.longitude);
       const latitude = Number(item.latitude);
       const distance = Math.hypot((longitude - center.lng) * Math.cos(center.lat * Math.PI / 180), latitude - center.lat);
@@ -2314,14 +2477,13 @@ function mapSourcePresentation() {
   }
   if (state.onlineMapStatus === "degraded") return { label: "在线不可用，已由离线概览补齐", icon: "wifi-off", tone: "degraded" };
   if (["loading", "fallback-loading"].includes(state.onlineMapStatus)) {
-    const provider = state.onlineMapProvider === "openfreemap" ? "OpenFreeMap" : "OSM 标准地图";
-    return { label: `正在连接 ${provider}`, icon: "wifi", tone: "loading" };
+    return { label: `正在连接 ${onlineProvider().label}`, icon: onlineProvider().icon, tone: "loading" };
   }
   if (state.onlineMapProvider === "openfreemap") {
     const suffix = state.onlinePreferredProvider === "osm" ? "（备用源）" : "";
     return { label: `OpenFreeMap 已连接${suffix}`, icon: "wifi", tone: "online" };
   }
-  return { label: "OSM 标准地图已连接", icon: "wifi", tone: "online" };
+  return { label: `${onlineProvider().label}已连接`, icon: onlineProvider().icon, tone: "online" };
 }
 
 const legendBaseStyles = {
@@ -2407,13 +2569,25 @@ const legendBaseStyles = {
       ] }
     ],
     note: "全球概览只包含低缩放骨架数据；建筑、街巷和普通兴趣点并不存在于这一底图中。"
+  },
+  imagery: {
+    hint: "Esri World Imagery 全球在线卫星与航空影像；清晰度随地区和数据年份变化。",
+    items: [["imagery", "卫星 / 航空影像"], ["world-country", "道路与地名需通过覆盖层补充"]],
+    groups: [{ title: "影像说明", items: [["imagery", "全球卫星与航空影像"], ["label-sample", "影像本身不保证包含地名标注"]] }],
+    note: "影像仅按当前视口在线加载，不会写入离线区域包。"
+  },
+  "online-terrain": {
+    hint: "OpenTopoMap 全球在线地形参考图，基于 OpenStreetMap 与 SRTM 高程数据。",
+    items: [["terrain", "地形与晕渲"], ["world-water", "水系"], ["world-road", "道路"], ["world-country", "行政边界"]],
+    groups: [{ title: "地形参考", items: [["terrain", "地貌与阴影"], ["world-water", "水域与河流"], ["world-road", "交通骨架"], ["label-sample", "主要地名"]] }],
+    note: "在线地形参考与本地动态等高线是两套独立数据，可同时显示。"
   }
 };
 
 const legendOverlayItems = [
   { group: "personal", items: [["personal", "个人点位"], ["track", "个人轨迹"]] },
   { group: "terrain", items: [["terrain", "地形阴影"]] },
-  { group: "contours", items: [["contours", "等高线"]] },
+  { group: "contours", items: [["contours", "主等高线"], ["contours-minor", "次等高线高度"]] },
   { group: "weather", items: [["weather", "天气快照"]] },
   { group: "nautical", items: [["nautical", "航海参考"]] },
   { group: "emergency", items: [["emergency", "应急设施"]] }
@@ -2428,6 +2602,8 @@ function currentLegendPresentation() {
     if (state.onlineMapProvider === "openfreemap") {
       return { key: "vector", label: source.label };
     }
+    if (state.onlineMapProvider === "esri-imagery") return { key: "imagery", label: source.label };
+    if (state.onlineMapProvider === "opentopomap") return { key: "online-terrain", label: source.label };
     return { key: "osm-carto", label: source.label };
   }
   if (state.theme === "vector" || state.localBaseMapMode === "vector-fallback") {
@@ -2558,16 +2734,31 @@ function setMapSourceOpen(open) {
   elements.onlineMapShortcut.setAttribute("aria-expanded", String(open));
   if (open) {
     setLegendOpen(false);
+    setLayersOpen(false);
     syncMapSourceControl();
+  }
+}
+
+function setLayersOpen(open) {
+  if (!elements.layersPopover) return;
+  elements.layersPopover.hidden = !open;
+  elements.layersShortcut.setAttribute("aria-expanded", String(open));
+  elements.layersShortcut.classList.toggle("active", open);
+  if (open) {
+    setMapSourceOpen(false);
+    setLegendOpen(false);
+    syncDisplaySettings();
   }
 }
 
 function setOnlineMapStatus(status) {
   state.onlineMapStatus = status;
-  if (state.map?.getLayer("online-osm-raster")) {
-    const visible = state.onlineMapEnabled && state.onlineMapProvider === "osm" && status !== "degraded";
-    state.map.setLayoutProperty("online-osm-raster", "visibility", visible ? "visible" : "none");
-  }
+  ["osm", "esri-imagery", "opentopomap"].forEach((provider) => {
+    const layerId = onlineProvider(provider).layerId;
+    if (!state.map?.getLayer(layerId)) return;
+    const visible = state.onlineMapEnabled && state.onlineMapProvider === provider && status !== "degraded";
+    state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+  });
   state.onlineVectorLayerIds.forEach((layerId) => {
     if (!state.map?.getLayer(layerId)) return;
     const visible = state.onlineMapEnabled && state.onlineMapProvider === "openfreemap" && status !== "degraded";
@@ -2592,11 +2783,11 @@ function watchOnlineMapConnection(provider = "osm") {
     setOnlineMapStatus("idle");
     return;
   }
-  setOnlineMapStatus(provider === "osm" ? "loading" : "fallback-loading");
+  setOnlineMapStatus(provider === "openfreemap" ? "fallback-loading" : "loading");
   state.onlineStatusTimer = setTimeout(() => {
     if (!state.onlineMapEnabled) return;
     if (provider === "osm" && state.onlineMapProvider === "osm" && state.onlineMapStatus !== "ready") activateOnlineFallback();
-    if (provider === "openfreemap" && state.onlineMapProvider === "openfreemap" && state.onlineMapStatus !== "fallback") setOnlineMapStatus("degraded");
+    if (provider !== "osm" && state.onlineMapProvider === provider && !["ready", "fallback"].includes(state.onlineMapStatus)) setOnlineMapStatus("degraded");
   }, 8000);
 }
 
@@ -2620,7 +2811,7 @@ function setOnlineMapEnabled(enabled, announce = true) {
   syncMapShortcuts();
   updateCoveragePrompt();
   if (announce) {
-    const providerName = state.onlinePreferredProvider === "openfreemap" ? "OpenFreeMap 开放矢量" : "OSM 标准地图";
+    const providerName = onlineProvider(state.onlinePreferredProvider).label;
     showToast(state.onlineMapEnabled ? `${providerName}已开启，仅加载当前视口` : "已返回本地离线概览");
   }
 }
@@ -2630,7 +2821,7 @@ function setOnlineMapProvider(provider, announce = true) {
     setOnlineMapEnabled(false, announce);
     return;
   }
-  if (!["osm", "openfreemap"].includes(provider)) return;
+  if (!onlineMapProviders.includes(provider)) return;
   state.onlinePreferredProvider = provider;
   state.onlineMapProvider = provider;
   state.onlineMapEnabled = true;
@@ -2640,7 +2831,7 @@ function setOnlineMapProvider(provider, announce = true) {
   watchOnlineMapConnection(provider);
   updateCoveragePrompt();
   if (announce) {
-    showToast(provider === "openfreemap" ? "已切换到 OpenFreeMap 开放矢量" : "已切换到 OSM 标准地图");
+    showToast(`已切换到${onlineProvider(provider).label}，仅加载当前视口`);
   }
 }
 
@@ -2863,6 +3054,86 @@ function setLegendOpen(open) {
     elements.mapSourcePopover.hidden = true;
     elements.onlineMapShortcut.setAttribute("aria-expanded", "false");
   }
+  if (open) setLayersOpen(false);
+}
+
+function applyPoiDensity() {
+  if (!state.map?.isStyleLoaded()) return;
+  for (const [layerId, groups] of state.layerGroups.entries()) {
+    if (!groups.includes("poi") || !state.map.getLayer(layerId)) continue;
+    const layer = state.map.getLayer(layerId);
+    if (!state.layerMinZoom.has(layerId)) state.layerMinZoom.set(layerId, Number(layer.minzoom) || 0);
+    const base = state.layerMinZoom.get(layerId);
+    const minzoom = state.poiDensity === "low" ? Math.max(base, 14) : state.poiDensity === "high" ? Math.max(0, base - 1.5) : base;
+    state.map.setLayerZoomRange(layerId, minzoom, Number(layer.maxzoom) || 24);
+  }
+}
+
+function syncDisplaySettings() {
+  document.querySelectorAll("[data-poi-density]").forEach((button) => button.classList.toggle("active", button.dataset.poiDensity === state.poiDensity));
+  document.querySelectorAll("[data-map-light]").forEach((button) => button.classList.toggle("active", button.dataset.mapLight === state.mapLight));
+  document.querySelectorAll("[data-scale-unit]").forEach((button) => button.classList.toggle("active", button.dataset.scaleUnit === state.scaleUnit));
+  document.body.classList.toggle("map-night", state.mapLight === "night");
+}
+
+function setPoiDensity(density) {
+  if (!["low", "standard", "high"].includes(density)) return;
+  state.poiDensity = density;
+  localStorage.setItem("giss-poi-density", density);
+  applyPoiDensity();
+  syncDisplaySettings();
+  showToast(`兴趣点密度已切换为${density === "low" ? "精简" : density === "high" ? "丰富" : "标准"}`);
+}
+
+function setMapLight(mode) {
+  state.mapLight = mode === "night" ? "night" : "day";
+  localStorage.setItem("giss-map-light", state.mapLight);
+  syncDisplaySettings();
+  showToast(state.mapLight === "night" ? "已启用夜间浏览" : "已恢复昼间浏览");
+}
+
+function setScaleUnit(unit) {
+  if (!["metric", "imperial", "nautical"].includes(unit)) return;
+  state.scaleUnit = unit;
+  localStorage.setItem("giss-scale-unit", unit);
+  state.scaleControl?.setUnit(unit);
+  syncDisplaySettings();
+  showToast(`比例尺已切换为${{ metric: "公制", imperial: "英制", nautical: "海里" }[unit]}`);
+}
+
+function startMeasure(kind) {
+  const nextMode = kind === "area" ? "measure-area" : "measure-distance";
+  if (state.mode === nextMode) {
+    state.measureCoordinates = [];
+    updateMeasure();
+    setMode(null);
+    return;
+  }
+  state.measureKind = kind === "area" ? "area" : "distance";
+  state.measureCoordinates = [];
+  setMode(nextMode);
+  updateMeasure();
+}
+
+function downloadCurrentRegion() {
+  const center = mapFocusCoordinate();
+  const pack = center ? mapCoverageAt(Number(center.lng), Number(center.lat)).available : null;
+  if (pack) {
+    window.location.href = `/resources.html?pack=${encodeURIComponent(pack.id)}`;
+    return;
+  }
+  showToast("当前区域还没有可下载的独立区域包", true);
+}
+
+function useMapTool(tool) {
+  setLayersOpen(false);
+  if (tool === "distance" || tool === "area") startMeasure(tool);
+  if (tool === "route") openRoutePanel();
+  if (tool === "coordinate") {
+    const center = mapFocusCoordinate();
+    if (center) copyText(`${Number(center.lng).toFixed(5)}, ${Number(center.lat).toFixed(5)}`, "中心坐标已复制");
+  }
+  if (tool === "download") downloadCurrentRegion();
 }
 
 function addWorldVectorOverviewLayers(map, beforeLayerId = undefined) {
@@ -3022,23 +3293,26 @@ function addOfflineReferenceLayers() {
       paint: { "raster-opacity": 1, "raster-fade-duration": 0 }
     });
   }
-  const onlineMap = state.resourceCatalog?.onlineMaps?.osmStandard;
-  if (onlineMap?.tiles?.length) {
-    map.addSource("online-osm", {
+  ["osm", "esri-imagery", "opentopomap"].forEach((provider) => {
+    const onlineMap = onlineRasterCatalog(provider);
+    const providerMeta = onlineProvider(provider);
+    if (!onlineMap?.tiles?.length) return;
+    const attributionUrl = onlineMap.copyrightUrl || onlineMap.homepage || "https://www.esri.com/";
+    map.addSource(providerMeta.sourceId, {
       type: "raster",
       tiles: onlineMap.tiles,
       tileSize: Number(onlineMap.tileSize) || 256,
       maxzoom: Number(onlineMap.maxZoom) || 19,
-      attribution: `<a href="${escapeHtml(onlineMap.copyrightUrl || "https://www.openstreetmap.org/copyright")}" target="_blank" rel="noreferrer">${escapeHtml(onlineMap.attribution || "© OpenStreetMap contributors")}</a>`
+      attribution: `<a href="${escapeHtml(attributionUrl)}" target="_blank" rel="noreferrer">${escapeHtml(onlineMap.attribution || providerMeta.label)}</a>`
     });
     map.addLayer({
-      id: "online-osm-raster",
+      id: providerMeta.layerId,
       type: "raster",
-      source: "online-osm",
-      layout: { visibility: state.onlineMapEnabled && state.onlineMapProvider === "osm" ? "visible" : "none" },
-      paint: { "raster-opacity": 1, "raster-fade-duration": 0 }
+      source: providerMeta.sourceId,
+      layout: { visibility: state.onlineMapEnabled && state.onlineMapProvider === provider ? "visible" : "none" },
+      paint: { "raster-opacity": 1, "raster-fade-duration": provider === "osm" ? 0 : 180 }
     });
-  }
+  });
   map.addSource("world-countries", {
     type: "geojson",
     data: "/assets/overview/countries.geojson",
@@ -3156,25 +3430,29 @@ function addOfflineReferenceLayers() {
     paint: { "text-color": "#14536e", "text-halo-color": "rgba(255,255,255,0.96)", "text-halo-width": 1.2 }
   });
 
-  if (map.getLayer("online-osm-raster") && map.getLayer("weather-point")) {
-    map.moveLayer("online-osm-raster", "weather-point");
-  }
+  const onlineRasterLayerIds = ["osm", "esri-imagery", "opentopomap"]
+    .map((provider) => onlineProvider(provider).layerId)
+    .filter((layerId) => map.getLayer(layerId));
+  onlineRasterLayerIds.forEach((layerId) => {
+    if (map.getLayer("weather-point")) map.moveLayer(layerId, "weather-point");
+  });
   if (map.getLayer("local-osm-carto-raster")) {
     const onlineLayer = state.onlineVectorLayerIds.find((layerId) => map.getLayer(layerId))
-      || (map.getLayer("online-osm-raster") ? "online-osm-raster" : null);
+      || onlineRasterLayerIds[0];
     map.moveLayer("local-osm-carto-raster", onlineLayer || "weather-point");
   }
   const worldVectorBaseLayerIds = new Set(["world-vector-landcover", "world-vector-park", "world-vector-water"]);
   const worldVectorOverlayLayerIds = worldVectorLayerIds.filter((layerId) => !worldVectorBaseLayerIds.has(layerId));
   const onlineLayerIds = new Set([
     ...state.onlineVectorLayerIds.filter((layerId) => map.getLayer(layerId)),
-    ...(map.getLayer("online-osm-raster") ? ["online-osm-raster"] : [])
+    ...onlineRasterLayerIds
   ]);
   const worldVectorOverlayAnchor = map.getStyle().layers.find((layer) => onlineLayerIds.has(layer.id))?.id
     || (map.getLayer("weather-point") ? "weather-point" : undefined);
   worldVectorOverlayLayerIds.forEach((layerId) => map.moveLayer(layerId, worldVectorOverlayAnchor));
-  ["world-overview-raster", "world-country-fill", "world-country-boundaries", "world-place-labels", ...worldVectorLayerIds]
+  ["world-overview-raster", "world-country-fill", "world-place-labels", ...worldVectorLayerIds]
     .forEach((id) => state.layerGroups.set(id, ["overview"]));
+  state.layerGroups.set("world-country-boundaries", ["overview", "boundaries"]);
   ["weather-point", "weather-label"].forEach((id) => state.layerGroups.set(id, ["weather"]));
   ["nautical-line", "nautical-point", "nautical-label"].forEach((id) => state.layerGroups.set(id, ["nautical"]));
   watchOnlineMapConnection(state.onlinePreferredProvider);
@@ -3271,6 +3549,32 @@ function addPersonalLayers() {
     }
   });
   map.addLayer({
+    id: "terrain-contour-labels-minor",
+    type: "symbol",
+    source: "terrain-contours",
+    "source-layer": "contours",
+    minzoom: 9,
+    filter: ["==", ["get", "level"], 0],
+    layout: {
+      "symbol-placement": "line",
+      "symbol-spacing": ["interpolate", ["linear"], ["zoom"], 9, 520, 12, 420],
+      "symbol-sort-key": 1,
+      "text-field": ["concat", ["number-format", ["get", "elevation"], { "max-fraction-digits": 0 }], " m"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 9, 7.5, 12, 8.5, 16, 9],
+      "text-letter-spacing": 0.02,
+      "text-keep-upright": true,
+      "text-max-angle": 20,
+      "text-padding": 7
+    },
+    paint: {
+      "text-color": "#88755f",
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.52, 12, 0.68],
+      "text-halo-color": "rgba(248,246,239,0.78)",
+      "text-halo-width": 1
+    }
+  });
+  map.addLayer({
     id: "terrain-contour-labels",
     type: "symbol",
     source: "terrain-contours",
@@ -3280,6 +3584,7 @@ function addPersonalLayers() {
     layout: {
       "symbol-placement": "line",
       "symbol-spacing": 320,
+      "symbol-sort-key": 0,
       "text-field": ["concat", ["number-format", ["get", "elevation"], { "max-fraction-digits": 0 }], " m"],
       "text-font": ["Noto Sans Regular"],
       "text-size": 10,
@@ -3331,6 +3636,18 @@ function addPersonalLayers() {
       "circle-color": ["match", ["get", "category"], "field", "#267352", "favorite", "#d18b23", "todo", "#c94532", "#2a6f9e"],
       "circle-stroke-width": 2,
       "circle-stroke-color": "#ffffff"
+    }
+  });
+  map.addLayer({
+    id: "personal-photo",
+    type: "circle",
+    source: "personal-places",
+    filter: [">", ["to-number", ["coalesce", ["get", "media_count"], 0]], 0],
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 5],
+      "circle-color": "#ffffff",
+      "circle-stroke-width": 2,
+      "circle-stroke-color": "#266f9d"
     }
   });
   map.addLayer({
@@ -3534,9 +3851,17 @@ function addPersonalLayers() {
     data: { type: "FeatureCollection", features: [] }
   });
   map.addLayer({
+    id: "measure-fill",
+    type: "fill",
+    source: "measure",
+    filter: ["==", ["geometry-type"], "Polygon"],
+    paint: { "fill-color": "#267352", "fill-opacity": 0.18 }
+  });
+  map.addLayer({
     id: "measure-line",
     type: "line",
     source: "measure",
+    filter: ["in", ["geometry-type"], ["literal", ["LineString", "Polygon"]]],
     paint: { "line-color": "#17211c", "line-width": 3, "line-dasharray": [2, 1.5] }
   });
   map.addLayer({
@@ -3548,17 +3873,91 @@ function addPersonalLayers() {
 
   state.layerGroups.set("terrain-hillshade", ["terrain"]);
   state.layerGroups.set("terrain-contour-lines", ["contours"]);
+  state.layerGroups.set("terrain-contour-labels-minor", ["contours"]);
   state.layerGroups.set("terrain-contour-labels", ["contours"]);
   ["emergency-cluster", "emergency-cluster-count", "emergency-point", "emergency-label"].forEach((id) => {
     state.layerGroups.set(id, ["emergency"]);
   });
-  ["personal-track-halo", "personal-track", "personal-halo", "personal-point", "personal-label",
-    "search-result-cluster", "search-result-cluster-count", "search-result-halo",
-    "search-result-point", "search-result-label"].forEach((id) => {
-    state.layerGroups.set(id, ["personal"]);
-  });
+  ["personal-track-halo", "personal-track"].forEach((id) => state.layerGroups.set(id, ["personal", "tracks"]));
+  ["personal-halo", "personal-point", "personal-label"].forEach((id) => state.layerGroups.set(id, ["personal", "personalPoints"]));
+  state.layerGroups.set("personal-photo", ["personal", "photos"]);
+  ["search-result-cluster", "search-result-cluster-count", "search-result-halo", "search-result-point", "search-result-label"]
+    .forEach((id) => state.layerGroups.set(id, ["personal"]));
   applyLayerVisibility();
+  applyPoiDensity();
   syncLocalBaseMapForViewport();
+}
+
+function coordinateSearchResult(query) {
+  const match = query.trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*[,，\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (!match) return null;
+  let first = Number(match[1]);
+  let second = Number(match[2]);
+  if (Math.abs(first) <= 90 && Math.abs(second) > 90 && Math.abs(second) <= 180) [first, second] = [second, first];
+  if (Math.abs(first) > 180 || Math.abs(second) > 90) return null;
+  return { id: `coordinate:${first.toFixed(6)},${second.toFixed(6)}`, kind: "coordinate", name: `${first.toFixed(5)}, ${second.toFixed(5)}`, subtitle: "经纬度坐标", category: "coordinate", subtype: "", longitude: first, latitude: second, details: {} };
+}
+
+function localSearchExtras(query) {
+  const normalized = query.trim().toLocaleLowerCase("zh-CN");
+  if (!normalized) return [];
+  const coordinate = coordinateSearchResult(query);
+  const packs = state.mapPacks
+    .filter((pack) => [pack.id, resourcePackName(pack), pack.name, pack.regionName].filter(Boolean).some((value) => String(value).toLocaleLowerCase("zh-CN").includes(normalized)))
+    .slice(0, 6)
+    .map((pack) => ({
+      id: `region:${pack.id}`,
+      kind: "region_pack",
+      packId: pack.id,
+      name: resourcePackName(pack),
+      subtitle: pack.installed && pack.enabled !== false ? "区域包已安装并启用" : pack.installed ? "区域包已安装但已停用" : "可在资源管理中安装",
+      category: "region",
+      subtype: pack.installed ? "installed" : "available",
+      longitude: (Number(pack.bounds?.[0]) + Number(pack.bounds?.[2])) / 2,
+      latitude: (Number(pack.bounds?.[1]) + Number(pack.bounds?.[3])) / 2,
+      details: { installed: Boolean(pack.installed), enabled: pack.enabled !== false }
+    }))
+    .filter((item) => Number.isFinite(item.longitude) && Number.isFinite(item.latitude));
+  return [...(coordinate ? [coordinate] : []), ...packs];
+}
+
+async function unifiedSearch(query, limit = 30) {
+  const extras = localSearchExtras(query);
+  const response = await api(`/search?q=${encodeURIComponent(query)}&limit=${Math.max(1, limit - extras.length)}`);
+  const seen = new Set(extras.map((item) => `${item.kind}:${item.id}`));
+  return [...extras, ...(response.results || []).filter((item) => !seen.has(`${item.kind}:${item.id}`))].slice(0, limit);
+}
+
+function searchResultSource(result) {
+  if (result.kind === "personal_place") return { label: "个人点位", icon: "map-pin", tone: "personal" };
+  if (result.kind === "personal_track") return { label: "轨迹记录", icon: "route", tone: "personal" };
+  if (result.kind === "region_pack") return { label: result.details?.installed ? "区域包已安装" : "尚未安装该区域", icon: result.details?.installed ? "hard-drive" : "download", tone: result.details?.installed ? "offline" : "warning" };
+  if (result.kind === "coordinate") return { label: "坐标", icon: "crosshair", tone: "neutral" };
+  if (result.kind === "online") return { label: "在线补充", icon: "cloud", tone: "online" };
+  const coverage = mapCoverageAt(Number(result.longitude), Number(result.latitude));
+  if (!coverage.installed && coverage.available) return { label: "尚未安装该区域", icon: "download", tone: "warning" };
+  if (result.kind === "geocoder") return { label: "离线地址", icon: "locate-fixed", tone: "offline" };
+  return { label: "离线 OSM", icon: "hard-drive", tone: "offline" };
+}
+
+function closeSearchSuggestions() {
+  elements.searchSuggestions.hidden = true;
+  elements.searchInput.setAttribute("aria-expanded", "false");
+}
+
+function renderSearchSuggestions(results) {
+  state.suggestionResults = results;
+  elements.searchSuggestions.innerHTML = results.map((result) => {
+    const source = searchResultSource(result);
+    return `<button type="button" role="option" data-suggestion-id="${escapeHtml(result.id)}">
+      <i data-lucide="${source.icon}"></i>
+      <span><strong>${escapeHtml(result.name)}</strong><small>${escapeHtml(result.subtitle || categoryLabel(result.category, result.subtype))}</small></span>
+      <em data-tone="${source.tone}">${escapeHtml(source.label)}</em>
+    </button>`;
+  }).join("");
+  elements.searchSuggestions.hidden = results.length === 0;
+  elements.searchInput.setAttribute("aria-expanded", String(results.length > 0));
+  icons();
 }
 
 async function refreshData(query = state.searchQuery) {
@@ -3566,7 +3965,7 @@ async function refreshData(query = state.searchQuery) {
     api("/places.geojson"),
     api("/tracks.geojson"),
     api("/status"),
-    query ? api(`/search?q=${encodeURIComponent(query)}&limit=30`) : Promise.resolve({ results: [] }),
+    query ? unifiedSearch(query, 30).then((results) => ({ results })) : Promise.resolve({ results: [] }),
     api("/collections")
   ]);
   state.places = places;
@@ -3655,25 +4054,21 @@ function updateCapabilities(capabilities) {
   setService(elements.encyclopediaState, services.encyclopedia);
   elements.encyclopediaLink.classList.toggle("disabled", !services.encyclopedia?.available);
   elements.encyclopediaLink.setAttribute("aria-disabled", String(!services.encyclopedia?.available));
+  updateRouteCoverageStatus();
 }
 
 function renderPersonalList() {
   if (state.searchQuery || state.resultMode) {
     elements.personalList.innerHTML = state.searchResults.map((result) => {
-      const isReference = result.kind === "reference";
-      const isGeocoder = result.kind === "geocoder";
-      const isTrack = result.kind === "personal_track";
-      const subtitle = isGeocoder
-        ? result.subtitle || categoryLabel(result.category, result.subtype)
-        : isReference ? categoryLabel(result.category, result.subtype)
-        : result.subtitle || (isTrack ? "个人轨迹" : "个人点位");
+      const source = searchResultSource(result);
+      const subtitle = result.subtitle || categoryLabel(result.category, result.subtype);
       return `
         <button class="personal-item search-result" type="button" data-search-id="${escapeHtml(result.id)}">
-          <span class="personal-icon ${isTrack ? "track" : ""} ${isReference || isGeocoder ? "reference" : ""}">
-            <i data-lucide="${isTrack ? "route" : isGeocoder ? "locate-fixed" : isReference ? "landmark" : "map-pin"}"></i>
+          <span class="personal-icon ${source.tone === "personal" ? "track" : "reference"}">
+            <i data-lucide="${source.icon}"></i>
           </span>
           <span class="personal-copy">
-            <span class="result-title"><strong>${escapeHtml(result.name)}</strong><small>${isGeocoder ? "地址" : isReference ? "OSM 参考" : "我的"}</small></span>
+            <span class="result-title"><strong>${escapeHtml(result.name)}</strong><small data-tone="${source.tone}">${escapeHtml(source.label)}</small></span>
             <span>${escapeHtml(subtitle)}</span>
           </span>
           <i data-lucide="chevron-right"></i>
@@ -3755,37 +4150,42 @@ function showSearchResult(id) {
     return;
   }
 
+  if (result.kind === "region_pack") {
+    const pack = state.mapPacks.find((item) => item.id === result.packId);
+    if (!pack) return;
+    state.map.fitBounds([[Number(pack.bounds[0]), Number(pack.bounds[1])], [Number(pack.bounds[2]), Number(pack.bounds[3])]], { padding: 72, duration: 650 });
+    showToast(pack.installed ? `${resourcePackName(pack)}已安装${pack.enabled === false ? "但当前停用" : "并可离线使用"}` : `${resourcePackName(pack)}尚未安装，可从资源管理下载`);
+    closeSearchSuggestions();
+    return;
+  }
+
   closeRoutePanel();
   const center = [Number(result.longitude), Number(result.latitude)];
-  const isGeocoder = result.kind === "geocoder";
   state.map.flyTo({ center, zoom: 15, duration: 650 });
-  const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "320px" })
-    .setLngLat(center)
-    .setHTML(`
-      <div class="popup-title">${escapeHtml(result.name)}</div>
-      <div class="popup-meta">${escapeHtml(categoryLabel(result.category, result.subtype))}</div>
-      <div class="popup-note">${escapeHtml(isGeocoder ? result.subtitle || "Nominatim 本地地址索引" : "OpenStreetMap 离线参考地点")}</div>
-      <div class="popup-actions">
-        <button type="button" data-popup-action="save-reference">保存为个人点位</button>
-        <a href="/wiki/search?pattern=${encodeURIComponent(result.name)}" target="_blank" rel="noreferrer">百科</a>
-      </div>`)
-    .addTo(state.map);
-  popup.getElement().querySelector('[data-popup-action="save-reference"]').addEventListener("click", () => {
-    const tags = result.details?.tags || {};
-    const address = result.details?.address || {};
-    openPlaceDialog({
-      type: "Feature",
-      properties: {
-        name: result.name,
-        category: "reference",
-        province: address.province || address.state || tags["addr:province"] || "",
-        tags: [result.category, result.subtype].filter(Boolean),
-        note: `来源：${isGeocoder ? "Nominatim 本地地址索引" : "OpenStreetMap 离线参考索引"}（${categoryLabel(result.category, result.subtype)}）`
-      },
-      geometry: { type: "Point", coordinates: center }
-    }, { copyAsNew: true, collectionIds: ["default-favorites"] });
-    popup.remove();
+  const tags = result.details?.tags || {};
+  const address = result.details?.address || {};
+  const feature = {
+    type: "Feature",
+    properties: {
+      ...tags,
+      name: result.name,
+      class: result.category,
+      subclass: result.subtype,
+      addr_full: result.subtitle,
+      addr_province: address.province || address.state || tags["addr:province"],
+      addr_city: address.city || address.town || tags["addr:city"]
+    },
+    layer: { "source-layer": result.kind === "coordinate" ? "place" : "poi_detail" },
+    geometry: { type: "Point", coordinates: center }
+  };
+  const source = searchResultSource(result);
+  showMapFeatureDetail(feature, center, {
+    reference: result.kind === "coordinate" ? null : result,
+    searchResult: result,
+    eyebrow: source.label,
+    sourceLabel: result.kind === "geocoder" ? "离线地址索引" : result.kind === "coordinate" ? "坐标定位" : source.label
   });
+  closeSearchSuggestions();
 }
 
 function showPlacePopup(feature, lngLat) {
@@ -3987,6 +4387,18 @@ function haversine(a, b) {
   return 2 * radius * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 }
 
+function polygonArea(coordinates) {
+  if (coordinates.length < 3) return 0;
+  const radius = 6371008.8;
+  const radians = (degrees) => degrees * Math.PI / 180;
+  let area = 0;
+  coordinates.forEach((coordinate, index) => {
+    const next = coordinates[(index + 1) % coordinates.length];
+    area += radians(next[0] - coordinate[0]) * (2 + Math.sin(radians(coordinate[1])) + Math.sin(radians(next[1])));
+  });
+  return Math.abs(area * radius * radius / 2);
+}
+
 function createTerrainDemSource() {
   const source = new mlcontour.DemSource({
     url: `${window.location.origin}/api/terrain/{z}/{x}/{y}.png`,
@@ -4006,7 +4418,11 @@ function updateMeasure() {
   const features = state.measureCoordinates.map((coordinate) => ({
     type: "Feature", properties: {}, geometry: { type: "Point", coordinates: coordinate }
   }));
-  if (state.measureCoordinates.length > 1) {
+  if (state.measureKind === "area" && state.measureCoordinates.length > 2) {
+    features.unshift({
+      type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[...state.measureCoordinates, state.measureCoordinates[0]]] }
+    });
+  } else if (state.measureCoordinates.length > 1) {
     features.unshift({
       type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: state.measureCoordinates }
     });
@@ -4015,10 +4431,15 @@ function updateMeasure() {
   const distance = state.measureCoordinates.slice(1).reduce(
     (total, coordinate, index) => total + haversine(state.measureCoordinates[index], coordinate), 0
   );
-  if (state.mode === "measure") {
-    elements.modeText.textContent = state.measureCoordinates.length
-      ? `测量距离：${distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(0)} m`}`
-      : "依次点击地图测量距离，再次点击测距按钮清空";
+  if (state.mode === "measure-distance" || state.mode === "measure-area") {
+    const area = polygonArea(state.measureCoordinates);
+    elements.modeText.textContent = state.measureKind === "area"
+      ? state.measureCoordinates.length > 2
+        ? `测量面积：${area >= 1_000_000 ? `${(area / 1_000_000).toFixed(2)} km²` : `${area.toFixed(0)} m²`}`
+        : "依次点击至少三个边界点测量面积"
+      : state.measureCoordinates.length
+        ? `测量距离：${distance >= 1000 ? `${(distance / 1000).toFixed(2)} km` : `${distance.toFixed(0)} m`}`
+        : "依次点击地图测量距离，再次点击测距按钮清空";
   }
 }
 
@@ -4120,6 +4541,8 @@ function wireUi() {
 
   elements.onlineMapShortcut.addEventListener("click", () => setMapSourceOpen(elements.mapSourcePopover.hidden));
   elements.mapSourceCloseButton.addEventListener("click", () => setMapSourceOpen(false));
+  elements.layersShortcut.addEventListener("click", () => setLayersOpen(elements.layersPopover.hidden));
+  elements.layersCloseButton.addEventListener("click", () => setLayersOpen(false));
   elements.contourShortcut.addEventListener("click", () => {
     setLayerGroupVisibility("contours", state.layerVisibility.contours === false);
   });
@@ -4148,9 +4571,17 @@ function wireUi() {
     if (!elements.mapSourcePopover.hidden && !elements.mapShortcuts.contains(event.target)) {
       setMapSourceOpen(false);
     }
+    if (!elements.layersPopover.hidden && !elements.mapShortcuts.contains(event.target)) {
+      setLayersOpen(false);
+    }
+    if (!elements.searchSuggestions.hidden && !elements.searchForm.contains(event.target)) closeSearchSuggestions();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setMapSourceOpen(false);
+    if (event.key === "Escape") {
+      setMapSourceOpen(false);
+      setLayersOpen(false);
+      closeSearchSuggestions();
+    }
   });
 
   elements.availablePacksButton.addEventListener("click", () => {
@@ -4319,12 +4750,39 @@ function wireUi() {
     state.searchQuery = elements.searchInput.value.trim();
     state.resultMode = null;
     state.resultLabel = "";
+    closeSearchSuggestions();
     try {
       await refreshData();
       document.querySelector('[data-tab="personal"]').click();
     } catch (error) {
       showToast(error.message, true);
     }
+  });
+
+  elements.searchInput.addEventListener("input", () => {
+    clearTimeout(state.searchSuggestionTimer);
+    const query = elements.searchInput.value.trim();
+    if (!query) {
+      closeSearchSuggestions();
+      return;
+    }
+    state.searchSuggestionTimer = setTimeout(async () => {
+      try {
+        renderSearchSuggestions(await unifiedSearch(query, 9));
+      } catch {
+        renderSearchSuggestions(localSearchExtras(query));
+      }
+    }, 220);
+  });
+  elements.searchSuggestions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-suggestion-id]");
+    if (!button) return;
+    state.searchQuery = elements.searchInput.value.trim();
+    state.resultMode = null;
+    state.searchResults = state.suggestionResults;
+    updateSearchMap();
+    renderPersonalList();
+    showSearchResult(button.dataset.suggestionId);
   });
 
   elements.searchInput.addEventListener("search", async () => {
@@ -4345,17 +4803,7 @@ function wireUi() {
     if (elements.routePanel.hidden) openRoutePanel();
     else closeRoutePanel();
   });
-  elements.measureButton.addEventListener("click", () => {
-    if (state.mode === "measure") {
-      state.measureCoordinates = [];
-      updateMeasure();
-      setMode(null);
-    } else {
-      state.measureCoordinates = [];
-      setMode("measure");
-      updateMeasure();
-    }
-  });
+  elements.measureButton.addEventListener("click", () => startMeasure("distance"));
   elements.cancelModeButton.addEventListener("click", () => setMode(null));
   elements.routeCloseButton.addEventListener("click", closeRoutePanel);
   elements.routeClearButton.addEventListener("click", clearRoute);
@@ -4363,6 +4811,14 @@ function wireUi() {
   elements.routeSaveButton.addEventListener("click", saveRouteTrack);
   elements.routeSwapButton.addEventListener("click", swapRouteLocations);
   elements.routeLocationButton.addEventListener("click", useCurrentRouteLocation);
+  elements.routeRecentList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-route-recent]");
+    if (!button) return;
+    const recent = routeRecentLocations()[Number(button.dataset.routeRecent)];
+    if (!recent) return;
+    const targetIndex = state.route.locations[0] ? 1 : 0;
+    setRouteLocation(targetIndex, [recent.longitude, recent.latitude], recent.name);
+  });
   document.querySelectorAll("[data-route-search]").forEach((button) => {
     button.addEventListener("click", () => searchRouteLocation(Number(button.dataset.routeSearch)));
   });
@@ -4413,6 +4869,7 @@ function wireUi() {
   });
   elements.detailCloseButton.addEventListener("click", closeMapFeatureDetail);
   elements.detailNearbyButton.addEventListener("click", showNearbyResults);
+  elements.detailRouteButton.addEventListener("click", routeToSelectedFeature);
   elements.detailSaveButton.addEventListener("click", saveSelectedMapFeature);
   elements.detailDeleteButton.addEventListener("click", deleteSelectedPersonalRecord);
   elements.detailAddPhotoButton.addEventListener("click", () => {
@@ -4421,6 +4878,10 @@ function wireUi() {
     elements.photoInput.click();
   });
   elements.detailMediaGrid.addEventListener("click", handleDetailMediaClick);
+  elements.detailPersonalLinks.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-detail-personal]");
+    if (button) showListFeature(button.dataset.detailPersonal, button.dataset.detailId);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !elements.legendPopover.hidden) {
       setLegendOpen(false);
@@ -4475,6 +4936,10 @@ function wireUi() {
       setLayerGroupVisibility(input.dataset.layerToggle, input.checked);
     });
   });
+  document.querySelectorAll("[data-map-tool]").forEach((button) => button.addEventListener("click", () => useMapTool(button.dataset.mapTool)));
+  document.querySelectorAll("[data-poi-density]").forEach((button) => button.addEventListener("click", () => setPoiDensity(button.dataset.poiDensity)));
+  document.querySelectorAll("[data-map-light]").forEach((button) => button.addEventListener("click", () => setMapLight(button.dataset.mapLight)));
+  document.querySelectorAll("[data-scale-unit]").forEach((button) => button.addEventListener("click", () => setScaleUnit(button.dataset.scaleUnit)));
   elements.emergencyFilters.addEventListener("change", updateEmergencyLayer);
 
   document.querySelectorAll("[data-theme]").forEach((button) => {
@@ -4575,7 +5040,7 @@ function wireMap() {
       openPlaceDialog([event.lngLat.lng, event.lngLat.lat]);
       return;
     }
-    if (state.mode === "measure") {
+    if (state.mode === "measure-distance" || state.mode === "measure-area") {
       state.measureCoordinates.push([event.lngLat.lng, event.lngLat.lat]);
       updateMeasure();
       return;
@@ -4586,6 +5051,10 @@ function wireMap() {
   });
 
   map.on("click", "personal-point", (event) => {
+    if (state.mode) return;
+    showPersonalPlaceDetail(event.features[0]);
+  });
+  map.on("click", "personal-photo", (event) => {
     if (state.mode) return;
     showPersonalPlaceDetail(event.features[0]);
   });
@@ -4634,7 +5103,7 @@ function wireMap() {
     }
   });
 
-  ["personal-point", "personal-track", "search-result-point", "search-result-cluster", "emergency-point", "emergency-cluster", "weather-point", "nautical-point", "nautical-line"].forEach((layerId) => {
+  ["personal-point", "personal-photo", "personal-track", "search-result-point", "search-result-cluster", "emergency-point", "emergency-cluster", "weather-point", "nautical-point", "nautical-line"].forEach((layerId) => {
     map.on("mouseenter", layerId, () => {
       if (!state.mode) map.getCanvas().style.cursor = "pointer";
     });
@@ -4646,11 +5115,14 @@ function wireMap() {
   map.on("error", (event) => {
     const message = event?.error?.message || "";
     if (message.includes("pmtiles")) showToast("本地瓦片加载失败，请运行健康检查", true);
-    const failedProvider = event?.sourceId === "online-osm" || message.includes("tile.openstreetmap.org")
-      ? "osm"
-      : event?.sourceId === "online-openfreemap" || message.includes("tiles.openfreemap.org")
-        ? "openfreemap"
-        : null;
+    const failedProvider = onlineMapProviders.find((provider) => {
+      const sourceId = onlineProvider(provider).sourceId;
+      if (event?.sourceId === sourceId) return true;
+      if (provider === "osm") return message.includes("tile.openstreetmap.org");
+      if (provider === "openfreemap") return message.includes("tiles.openfreemap.org");
+      if (provider === "esri-imagery") return message.includes("services.arcgisonline.com");
+      return provider === "opentopomap" && message.includes("tile.opentopomap.org");
+    }) || null;
     if (state.onlineMapEnabled && failedProvider === state.onlineMapProvider) {
       state.onlineTileErrors += 1;
       if (state.onlineTileErrors >= 3) {
@@ -4667,7 +5139,7 @@ function wireMap() {
     }
   });
   map.on("sourcedata", (event) => {
-    const expectedSource = state.onlineMapProvider === "openfreemap" ? "online-openfreemap" : "online-osm";
+    const expectedSource = onlineProvider().sourceId;
     if (event.sourceId !== expectedSource || !state.onlineMapEnabled || !event.isSourceLoaded) return;
     clearTimeout(state.onlineStatusTimer);
     state.onlineTileErrors = 0;
@@ -4685,6 +5157,7 @@ async function init() {
   cacheElements();
   setSidePanelCollapsed(document.body.classList.contains("panel-collapsed"), false);
   icons();
+  syncDisplaySettings();
   const requestParameters = new URLSearchParams(window.location.search);
   const worldCatalogPromise = fetch("/config/world-region-catalog.json", { cache: "no-cache" })
     .then((response) => response.json())
@@ -4781,7 +5254,8 @@ async function init() {
   }), "bottom-right");
   state.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
   state.map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false }), "bottom-right");
-  state.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+  state.scaleControl = new maplibregl.ScaleControl({ maxWidth: 120, unit: state.scaleUnit });
+  state.map.addControl(state.scaleControl, "bottom-left");
 
   wireUi();
   wireMap();
