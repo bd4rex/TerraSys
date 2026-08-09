@@ -47,6 +47,12 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (!brandAsset.complete || brandAsset.naturalWidth < 1 || brandAsset.naturalHeight < 1) {
     throw new Error("The TerraSys resource-console mark did not load.");
   }
+  if (await page.locator(".header-brand-mark").evaluate((image) => getComputedStyle(image).backgroundColor) !== "rgb(255, 255, 255)") {
+    throw new Error("The resource-console mark does not have a high-contrast white background.");
+  }
+  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-app-icon.png")) {
+    throw new Error("The TerraSys resource-console browser icon is missing.");
+  }
   if (!(await page.locator(".storage-key").innerText()).includes("TerraSys 占用")) {
     throw new Error("The resource-console storage label still uses the legacy product name.");
   }

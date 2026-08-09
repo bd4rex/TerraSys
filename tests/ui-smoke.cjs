@@ -105,7 +105,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (!brandAsset.complete || brandAsset.naturalWidth < 1 || brandAsset.naturalHeight < 1) {
     throw new Error("The TerraSys application mark did not load.");
   }
-  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-mark.png")) {
+  if (!(await page.locator('link[rel="icon"]').getAttribute("href"))?.includes("terrasys-app-icon.png")) {
     throw new Error("The TerraSys browser icon is missing.");
   }
   const storageMigration = await page.evaluate(() => ({
@@ -154,11 +154,11 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.locator("#layersShortcut").click();
   await page.locator("#layersPopover").waitFor({ state: "visible" });
   const layerPanelText = await page.locator("#layersPopover").innerText();
-  for (const heading of ["底图", "覆盖层", "工具", "显示设置"]) {
+  for (const heading of ["覆盖层", "显示设置"]) {
     if (!layerPanelText.includes(heading)) throw new Error(`Layer panel is missing ${heading}.`);
   }
-  if (await page.locator("#layersPopover .basemap-grid button").count() !== 6) {
-    throw new Error("Layer panel does not expose all six base-map choices.");
+  if (layerPanelText.includes("底图") || layerPanelText.includes("工具")) {
+    throw new Error("The layer panel still contains source or tool controls.");
   }
   const consolidatedLayerGroups = await page.locator("#layersPopover [data-layer-toggle]").evaluateAll((inputs) => inputs.map((input) => input.dataset.layerToggle));
   for (const group of ["land", "roads", "buildings", "poi", "labels", "boundaries", "personalPoints", "tracks", "photos", "terrain", "contours", "weather", "nautical", "emergency"]) {
@@ -184,7 +184,20 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (onlineSources.some((item) => !item.source)) {
     throw new Error(`Online base-map sources are incomplete: ${JSON.stringify(onlineSources)}`);
   }
-  await page.getByRole("button", { name: "关闭图层与工具" }).click();
+  if (await page.locator("#layersPopover [data-theme], #layersPopover [data-online-provider]").count()) {
+    throw new Error("The layer panel still duplicates base-map source controls.");
+  }
+  await page.getByRole("button", { name: "关闭图层" }).click();
+  if (await page.locator("#mapShortcuts [data-map-tool], #layersPopover [data-map-tool]").count()) {
+    throw new Error("The redundant map-tool menu is still present.");
+  }
+  await page.locator("#onlineMapShortcut").click();
+  if (await page.locator("#mapSourcePopover .map-source-options > button").count() !== 6
+      || await page.locator("#mapSourcePopover [data-theme]").count() !== 2
+      || await page.locator("#mapSourcePopover [data-online-provider]").count() !== 4) {
+    throw new Error("The source menu does not contain the two offline and four online base maps.");
+  }
+  await page.locator("#mapSourceCloseButton").click();
 
   await page.locator("#searchInput").fill("118.89574, 32.05272");
   await page.locator("#searchSuggestions").waitFor({ state: "visible" });
@@ -258,10 +271,9 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.waitForTimeout(500);
 
   // Raster Carto matches the OSM website; switch to the interactive vector style for feature collection.
-  await page.locator("#layersShortcut").click();
-  await page.locator('#layersPopover [data-theme="vector"]').click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-theme="vector"]').click();
   await page.waitForTimeout(1200);
-  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
 
   // The search leaves the map centered on Nanjing South; click a stable POI-dense area east of the station.
   await page.mouse.click(1050, 275);
@@ -401,9 +413,8 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.getByRole("button", { name: "关闭图例", exact: true }).click();
   if (!(await page.locator("#legendPopover").isHidden())) throw new Error("Legend did not close.");
 
-  await page.locator("#layersShortcut").click();
-  await page.locator('#layersPopover [data-theme="osm-carto"]').click();
-  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-theme="osm-carto"]').click();
   await page.waitForTimeout(1800);
   await legendShortcut.click();
   const originalLegend = await page.locator("#legendPopover").innerText();
@@ -416,9 +427,8 @@ fs.mkdirSync(outputDir, { recursive: true });
   }
   if (originalLegend === vectorLegend) throw new Error("Legend content stayed static after switching the base map.");
   await page.getByRole("button", { name: "关闭图例", exact: true }).click();
-  await page.locator("#layersShortcut").click();
-  await page.locator('#layersPopover [data-theme="vector"]').click();
-  await page.getByRole("button", { name: "关闭图层与工具", exact: true }).click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-theme="vector"]').click();
   await page.waitForTimeout(1800);
   const richDetails = await page.evaluate(async () => {
     const response = await fetch("/api/map-packs", { cache: "no-store" });

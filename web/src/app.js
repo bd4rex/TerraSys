@@ -2414,6 +2414,7 @@ function syncMapShortcuts() {
     const active = !state.onlineMapEnabled && button.dataset.theme === state.theme;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
+    if (button.getAttribute("role") === "radio") button.setAttribute("aria-checked", String(active));
   });
   document.querySelectorAll("[data-online-provider]").forEach((button) => {
     const provider = button.dataset.onlineProvider;
@@ -3126,27 +3127,6 @@ function startMeasure(kind) {
   state.measureCoordinates = [];
   setMode(nextMode);
   updateMeasure();
-}
-
-function downloadCurrentRegion() {
-  const center = mapFocusCoordinate();
-  const pack = center ? mapCoverageAt(Number(center.lng), Number(center.lat)).available : null;
-  if (pack) {
-    window.location.href = `/resources.html?pack=${encodeURIComponent(pack.id)}`;
-    return;
-  }
-  showToast("当前区域还没有可下载的独立区域包", true);
-}
-
-function useMapTool(tool) {
-  setLayersOpen(false);
-  if (tool === "distance" || tool === "area") startMeasure(tool);
-  if (tool === "route") openRoutePanel();
-  if (tool === "coordinate") {
-    const center = mapFocusCoordinate();
-    if (center) copyText(`${Number(center.lng).toFixed(5)}, ${Number(center.lat).toFixed(5)}`, "中心坐标已复制");
-  }
-  if (tool === "download") downloadCurrentRegion();
 }
 
 function addWorldVectorOverviewLayers(map, beforeLayerId = undefined) {
@@ -4495,6 +4475,7 @@ async function switchTheme(theme) {
     state.map.setLayerZoomRange(layer.id, layer.minzoom ?? 0, layer.maxzoom ?? 24);
   });
   const localBase = syncLocalBaseMapForViewport();
+  syncMapShortcuts();
   showToast(normalizedTheme === "osm-carto"
     ? localBase.mode === "vector-fallback"
       ? `${resourcePackName(localBase.pack)}的 OSM 原版正在后台同步，当前继续使用交互矢量`
@@ -4949,7 +4930,6 @@ function wireUi() {
       setLayerGroupVisibility(input.dataset.layerToggle, input.checked);
     });
   });
-  document.querySelectorAll("[data-map-tool]").forEach((button) => button.addEventListener("click", () => useMapTool(button.dataset.mapTool)));
   document.querySelectorAll("[data-poi-density]").forEach((button) => button.addEventListener("click", () => setPoiDensity(button.dataset.poiDensity)));
   document.querySelectorAll("[data-map-light]").forEach((button) => button.addEventListener("click", () => setMapLight(button.dataset.mapLight)));
   document.querySelectorAll("[data-scale-unit]").forEach((button) => button.addEventListener("click", () => setScaleUnit(button.dataset.scaleUnit)));
@@ -4958,6 +4938,7 @@ function wireUi() {
   document.querySelectorAll("[data-theme]").forEach((button) => {
     button.addEventListener("click", () => {
       switchTheme(button.dataset.theme).catch((error) => showToast(error.message, true));
+      if (elements.mapSourcePopover.contains(button)) setMapSourceOpen(false);
     });
   });
   document.querySelectorAll("[data-online-provider]").forEach((button) => {

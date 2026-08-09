@@ -91,10 +91,10 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.locator("#legendCloseButton").click();
   await page.screenshot({ path: path.join(outputDir, "world-region-online.png") });
 
-  await page.locator("#layersShortcut").click();
-  await page.locator('#layersPopover [data-online-provider="openfreemap"]').click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-online-provider="openfreemap"]').click();
   await page.waitForFunction(() => document.querySelector("#onlineMapShortcut")?.title.includes("OpenFreeMap") && document.querySelector('[data-online-provider="openfreemap"]')?.classList.contains("active"), null, { timeout: 25000 });
-  if (await page.locator('#layersPopover [data-theme].active').count() !== 0) {
+  if (await page.locator('#mapSourcePopover [data-theme].active').count() !== 0) {
     throw new Error("An offline base-map style still appears active while OpenFreeMap is rendering.");
   }
   await page.locator("#legendShortcut").click();
@@ -104,18 +104,16 @@ fs.mkdirSync(outputDir, { recursive: true });
   }
   await page.locator("#legendCloseButton").click();
   await page.screenshot({ path: path.join(outputDir, "world-region-openfreemap.png") });
-  await page.locator("#layersShortcut").click();
-  await page.locator('#layersPopover [data-theme="osm-carto"]').click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-theme="osm-carto"]').click();
   if (await page.locator("#onlineMapShortcut").getAttribute("aria-pressed") !== "false") {
     throw new Error("Selecting local OSM Original did not remove the online layer covering it.");
   }
-  if (!(await page.locator('#mapSourcePopover [data-online-provider="offline"]').evaluate((button) => button.classList.contains("active")))) {
-    throw new Error("Selecting local OSM Original did not synchronize the offline source control.");
-  }
-  if (!(await page.locator('#layersPopover [data-theme="osm-carto"]').evaluate((button) => button.classList.contains("active")))) {
+  if (!(await page.locator('#mapSourcePopover [data-theme="osm-carto"]').evaluate((button) => button.classList.contains("active")))) {
     throw new Error("Local OSM Original did not become the visibly active base-map style.");
   }
-  await page.locator('#layersPopover [data-online-provider="osm"]').click();
+  await page.locator("#onlineMapShortcut").click();
+  await page.locator('#mapSourcePopover [data-online-provider="osm"]').click();
   await page.waitForFunction(() => document.querySelector("#onlineMapShortcut")?.title.includes("OSM 标准地图已连接"), null, { timeout: 15000 });
 
   await page.locator("#coverageDownloadButton").click();
@@ -129,7 +127,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.waitForFunction(() => document.querySelector("#systemState")?.textContent === "本地在线", null, { timeout: 30000 });
   await page.waitForFunction(() => document.querySelector("#mapCoverageStatus")?.textContent.includes("江苏省已安装并启用"), null, { timeout: 15000 });
   await page.locator("#onlineMapShortcut").click();
-  await page.locator('#mapSourcePopover [data-online-provider="offline"]').click();
+  await page.locator('#mapSourcePopover [data-theme="osm-carto"]').click();
   if (await page.locator("#onlineMapShortcut").getAttribute("aria-pressed") !== "false") {
     throw new Error("Online OSM view did not turn off.");
   }

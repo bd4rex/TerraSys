@@ -246,19 +246,11 @@ body.map-night #map canvas { filter: brightness(0.58) saturate(0.72) contrast(1.
 .layers-section { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .layers-section:last-child { border-bottom: 0; padding-bottom: 2px; }
 .layers-section h2 { margin: 0 0 9px; color: var(--muted); font-size: 11px; }
-.basemap-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.basemap-grid button, .tool-grid button { display: grid; place-items: center; gap: 5px; min-width: 0; min-height: 58px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer; }
-.basemap-grid button:hover, .tool-grid button:hover { background: var(--surface-soft); }
-.basemap-grid button.active { border-color: rgba(38,115,82,0.48); background: #edf5ef; color: #205e42; }
-.basemap-grid svg, .tool-grid svg { width: 18px; height: 18px; }
-.basemap-grid span, .tool-grid span { max-width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .overlay-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
 .overlay-grid label, .settings-toggle { display: flex; align-items: center; min-width: 0; min-height: 34px; gap: 7px; cursor: pointer; }
 .overlay-grid input, .settings-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
 .overlay-grid label > span { display: flex; align-items: center; min-width: 0; gap: 6px; font-size: 11px; }
 .overlay-grid svg { width: 14px; height: 14px; color: var(--muted); }
-.tool-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
-.tool-grid button { min-height: 54px; }
 .display-settings { display: grid; gap: 6px; }
 .settings-toggle { justify-content: space-between; font-size: 11px; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; font-size: 11px; }
@@ -896,8 +888,6 @@ body.detail-open .map-shortcuts, body.route-open .map-shortcuts { right: 354px; 
   .legend-popover { width: min(316px, calc(100vw - 78px)); }
   .map-source-popover { width: min(304px, calc(100vw - 78px)); }
   .layers-popover { width: min(354px, calc(100vw - 78px)); }
-  .basemap-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .search-suggestions { width: calc(100vw - 28px); }
   .editor-dialog.resource-manager-dialog { width: calc(100vw - 16px); height: calc(100vh - 16px); }
   .resource-manager-header { padding-right: 12px; padding-left: 14px; }

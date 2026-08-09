@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f6f2" />
     <title>TerraSys 个人离线地图</title>
-    <link rel="icon" type="image/png" href="/assets/brand/terrasys-mark.png" />
-    <link rel="apple-touch-icon" href="/assets/brand/terrasys-mark.png" />
+    <link rel="icon" type="image/png" href="/assets/brand/terrasys-app-icon.png" />
+    <link rel="apple-touch-icon" href="/assets/brand/terrasys-app-icon.png" />
     <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css" />
-    <link rel="stylesheet" href="/src/app.css?v=20260809-7" />
+    <link rel="stylesheet" href="/src/app.css?v=20260809-10" />
   </head>
   <body class="panel-collapsed">
     <div id="map" aria-label="个人离线地图"></div>
@@ -47,7 +47,7 @@
           <i data-lucide="wifi"></i>
           <span class="map-source-indicator" aria-hidden="true"></span>
         </button>
-        <button id="layersShortcut" class="map-shortcut-button" type="button" title="图层与工具" aria-label="图层与工具" aria-expanded="false" aria-controls="layersPopover">
+        <button id="layersShortcut" class="map-shortcut-button" type="button" title="图层" aria-label="图层" aria-expanded="false" aria-controls="layersPopover">
           <i data-lucide="layers-3"></i>
         </button>
         <button id="contourShortcut" class="map-shortcut-button" type="button" title="等高线" aria-label="等高线" aria-pressed="false">
@@ -68,9 +68,14 @@
           </button>
         </header>
         <div class="map-source-options" role="radiogroup" aria-label="选择地图来源">
-          <button type="button" role="radio" data-online-provider="offline">
+          <button type="button" role="radio" data-theme="osm-carto">
             <i data-lucide="hard-drive"></i>
-            <span><strong>仅离线</strong><small>已安装区域包与全球概览</small></span>
+            <span><strong>离线 OSM 原版</strong><small>已安装区域包的 OSM Carto 渲染</small></span>
+            <i class="map-source-check" data-lucide="check"></i>
+          </button>
+          <button type="button" role="radio" data-theme="vector">
+            <i data-lucide="boxes"></i>
+            <span><strong>离线矢量</strong><small>已安装区域包与全球概览</small></span>
             <i class="map-source-check" data-lucide="check"></i>
           </button>
           <button type="button" role="radio" data-online-provider="osm">
@@ -99,22 +104,11 @@
           <span><small>当前位置离线覆盖</small><strong id="mapCoverageStatus">正在识别区域</strong></span>
         </div>
       </aside>
-      <aside id="layersPopover" class="layers-popover" aria-label="图层与地图工具" hidden>
+      <aside id="layersPopover" class="layers-popover" aria-label="图层" hidden>
         <header>
-          <span class="layers-heading"><strong>图层与工具</strong><small>底图、覆盖层、工具与显示设置</small></span>
-          <button id="layersCloseButton" class="icon-button compact" type="button" title="关闭图层与工具" aria-label="关闭图层与工具"><i data-lucide="x"></i></button>
+          <span class="layers-heading"><strong>图层</strong><small>覆盖层与显示设置</small></span>
+          <button id="layersCloseButton" class="icon-button compact" type="button" title="关闭图层" aria-label="关闭图层"><i data-lucide="x"></i></button>
         </header>
-        <section class="layers-section">
-          <h2>底图</h2>
-          <div class="basemap-grid" role="radiogroup" aria-label="选择底图">
-            <button type="button" data-theme="osm-carto"><i data-lucide="hard-drive"></i><span>离线 OSM</span></button>
-            <button type="button" data-theme="vector"><i data-lucide="boxes"></i><span>离线矢量</span></button>
-            <button type="button" data-online-provider="osm"><i data-lucide="map"></i><span>在线 OSM</span></button>
-            <button type="button" data-online-provider="openfreemap"><i data-lucide="layers-3"></i><span>OpenFreeMap</span></button>
-            <button type="button" data-online-provider="esri-imagery"><i data-lucide="satellite"></i><span>卫星影像</span></button>
-            <button type="button" data-online-provider="opentopomap"><i data-lucide="mountain"></i><span>地形参考</span></button>
-          </div>
-        </section>
         <section class="layers-section">
           <h2>覆盖层</h2>
           <div class="overlay-grid">
@@ -134,16 +128,6 @@
             <label><input type="checkbox" value="shelter" checked /><span>避难</span></label>
             <label><input type="checkbox" value="supplies" checked /><span>补给</span></label>
             <label><input type="checkbox" value="fuel" checked /><span>燃料</span></label>
-          </div>
-        </section>
-        <section class="layers-section">
-          <h2>工具</h2>
-          <div class="tool-grid">
-            <button type="button" data-map-tool="distance"><i data-lucide="ruler"></i><span>测距</span></button>
-            <button type="button" data-map-tool="area"><i data-lucide="scan"></i><span>面积</span></button>
-            <button type="button" data-map-tool="route"><i data-lucide="navigation"></i><span>路线</span></button>
-            <button type="button" data-map-tool="coordinate"><i data-lucide="crosshair"></i><span>坐标</span></button>
-            <button type="button" data-map-tool="download"><i data-lucide="download"></i><span>下载区域</span></button>
           </div>
         </section>
         <section class="layers-section display-settings">
@@ -531,6 +515,6 @@
     <script src="/vendor/maplibre-contour/index.min.js"></script>
     <script src="/vendor/lucide/lucide.min.js"></script>
   <script src="/src/map-style.js?v=20260803-1"></script>
-    <script type="module" src="/src/app.js?v=20260809-6"></script>
+    <script type="module" src="/src/app.js?v=20260809-9"></script>
   </body>
 </html>
