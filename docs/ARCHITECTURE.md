@@ -13,7 +13,7 @@
 
 ```mermaid
 flowchart LR
-  Browser["Browser / MapLibre"] -->|"127.0.0.1:8080"| Nginx["nginx"]
+  Browser["Browser / MapLibre"] -->|"host/LAN :8080"| Nginx["nginx"]
   Nginx --> Web["Static UI, glyphs, sprites"]
   Nginx --> Carto["Local OSM Carto raster"]
   Nginx --> PM["Selected regional PMTiles"]
@@ -35,7 +35,7 @@ flowchart LR
   Views --> PG
 ```
 
-Only nginx publishes a host port. The other services use Docker DNS and are not directly reachable from the LAN or host network.
+Only nginx publishes host port `8080`. The other services use Docker DNS and are not directly reachable from the LAN or host network.
 
 ## Data ownership boundaries
 
@@ -119,14 +119,14 @@ The route panel is a separate task surface with mode controls, start/end selecti
 ## Security posture
 
 - Images are pinned by digest.
-- Only `127.0.0.1:8080` is published.
+- Only nginx publishes host port `8080`; direct API, PostGIS, Martin, Nominatim, Valhalla, Kiwix, and OSM Carto ports are not published.
 - `.env` is ignored; `.env.example` contains no secret.
 - nginx mounts only the web directory and PMTiles product directory.
 - dotfiles are denied and internal Compose/database files are not web-accessible.
 - Martin explicitly publishes only `places_web` and `tracks_web`.
 - API uploads have a 64MB proxy limit and image decoding validation.
 
-This is a single-user local application, not an authenticated internet service. Do not change the bind address to `0.0.0.0` without adding authentication, TLS, rate limits, and a stricter upload policy.
+This is a single-user local/LAN application, not an authenticated internet service. Do not expose it outside a trusted network without adding authentication, TLS, rate limits, and a stricter upload policy.
 
 ## Growth path
 

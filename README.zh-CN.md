@@ -10,11 +10,13 @@
 
 TerraSys 是一套本地优先的个人地理信息系统，用于拥有、浏览和恢复离线地图数据。系统组合了 OpenStreetMap 风格本地渲染、可移植区域矢量地图、个人点位与轨迹、地址搜索、路线规划、地形、天气、航海参考、中文百科与旅行指南、资源生命周期管理、备份和断网恢复。
 
-项目面向一台受信任计算机上的单用户，唯一对宿主机开放的入口是：
+项目面向一台受信任计算机或可信局域网中的单用户，唯一对宿主机开放的入口是：
 
 ```text
 http://localhost:8080/
 ```
+
+在可信局域网中启动 Web 服务时，`scripts/start-web.ps1` 也会打印可访问的局域网 URL。内部数据库和引擎仍位于 nginx 后面，不直接发布。
 
 资源和地图版本管理页面：
 
@@ -65,7 +67,7 @@ flowchart LR
   API --> LocalData["地形、天气、航海、媒体"]
 ```
 
-当前 Compose 高级配置包含八个服务：`web`、`api`、`postgis`、`martin`、`nominatim`、`valhalla`、`kiwix` 和 `osm-carto`。只有 nginx 绑定 `127.0.0.1`，内部数据库与引擎不向局域网开放。
+当前 Compose 高级配置包含八个服务：`web`、`api`、`postgis`、`martin`、`nominatim`、`valhalla`、`kiwix` 和 `osm-carto`。只有 nginx 发布宿主机端口 `8080`，内部数据库与引擎不直接发布。
 
 ## 启动与验证
 
@@ -136,6 +138,7 @@ D:\TerraSys\stop-terrasys.cmd
 | 配置 | [English](docs/CONFIGURATION.md) | [中文](docs/CONFIGURATION.zh-CN.md) |
 | 数据流水线 | [English](docs/DATA_PIPELINE.md) | [中文](docs/DATA_PIPELINE.zh-CN.md) |
 | 运维 | [English](docs/OPERATIONS.md) | [中文](docs/OPERATIONS.zh-CN.md) |
+| MCP 适配器 | [English](mcp/README.md) | [中文](mcp/README.zh-CN.md) |
 | 从零重建 | [English](docs/REBUILD.md) | [中文](docs/REBUILD.zh-CN.md) |
 | 离线恢复 | [English](docs/OFFLINE_RECOVERY.md) | [中文](docs/OFFLINE_RECOVERY.zh-CN.md) |
 | 资源生命周期 | [English](docs/RESOURCE_AND_VERSION_MANAGEMENT.md) | [中文](docs/RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
@@ -149,7 +152,7 @@ D:\TerraSys\stop-terrasys.cmd
 
 ## 安全边界
 
-TerraSys 是受信任环境中的单用户 localhost 应用。没有加入身份认证、TLS、限流和更严格的上传策略前，不应绑定 `0.0.0.0` 或直接暴露到互联网。
+TerraSys 是受信任环境中的单用户本地/局域网应用。没有加入身份认证、TLS、限流和更严格的上传策略前，不应直接暴露到互联网。[mcp/](mcp/README.zh-CN.md) 中的 MCP 适配器默认刻意保持只读，并通过现有 HTTP API 工作，不接收数据库凭据。
 
 ## 项目状态
 

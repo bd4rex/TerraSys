@@ -10,11 +10,13 @@
 
 TerraSys is a local-first personal geographic information system for owning, exploring, and recovering offline map data. It combines an OpenStreetMap-style local renderer, portable regional vector maps, private places and tracks, address search, routing, terrain, weather, nautical references, a Chinese encyclopedia and travel guide, resource lifecycle management, backups, and disconnected recovery.
 
-The project is designed for one trusted user on a local computer. Its only host-facing endpoint is:
+The project is designed for one trusted user on a trusted local computer or LAN. Its only host-facing endpoint is:
 
 ```text
 http://localhost:8080/
 ```
+
+When the web service is started on a trusted LAN, `scripts/start-web.ps1` also prints the reachable LAN URL. Internal databases and engines remain behind nginx and are not published directly.
 
 The resource and map-version console is available at:
 
@@ -65,7 +67,7 @@ flowchart LR
   API --> LocalData["Terrain, weather, nautical, media"]
 ```
 
-The active Compose profile contains eight services: `web`, `api`, `postgis`, `martin`, `nominatim`, `valhalla`, `kiwix`, and `osm-carto`. Only nginx binds to `127.0.0.1`; internal databases and engines are not published to the LAN.
+The active Compose profile contains eight services: `web`, `api`, `postgis`, `martin`, `nominatim`, `valhalla`, `kiwix`, and `osm-carto`. Only nginx publishes host port `8080`; internal databases and engines are not published directly.
 
 ## Start and verify
 
@@ -136,6 +138,7 @@ The [documentation index](docs/README.md) provides every guide in English and Si
 | Configuration | [English](docs/CONFIGURATION.md) | [中文](docs/CONFIGURATION.zh-CN.md) |
 | Data pipeline | [English](docs/DATA_PIPELINE.md) | [中文](docs/DATA_PIPELINE.zh-CN.md) |
 | Operations | [English](docs/OPERATIONS.md) | [中文](docs/OPERATIONS.zh-CN.md) |
+| MCP adapter | [English](mcp/README.md) | [中文](mcp/README.zh-CN.md) |
 | Rebuild | [English](docs/REBUILD.md) | [中文](docs/REBUILD.zh-CN.md) |
 | Offline recovery | [English](docs/OFFLINE_RECOVERY.md) | [中文](docs/OFFLINE_RECOVERY.zh-CN.md) |
 | Resource lifecycle | [English](docs/RESOURCE_AND_VERSION_MANAGEMENT.md) | [中文](docs/RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
@@ -149,7 +152,7 @@ The repository had no Git tags or GitHub Releases before this documentation snap
 
 ## Security scope
 
-TerraSys is a trusted, single-user localhost application. Do not bind it to `0.0.0.0` or expose it to the internet without authentication, TLS, rate limits, and a stricter upload policy.
+TerraSys is a trusted, single-user local/LAN application. Do not expose it to the internet without authentication, TLS, rate limits, and a stricter upload policy. The MCP adapter in [mcp/](mcp/README.md) is intentionally read-only by default and talks to the existing HTTP API instead of receiving database credentials.
 
 ## Project status
 

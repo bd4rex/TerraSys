@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart LR
-  Browser["浏览器 / MapLibre"] -->|"127.0.0.1:8080"| Nginx["nginx"]
+  Browser["浏览器 / MapLibre"] -->|"宿主机/局域网 :8080"| Nginx["nginx"]
   Nginx --> Web["静态界面、字形、图标"]
   Nginx --> Carto["本地 OSM Carto 栅格"]
   Nginx --> PM["区域 PMTiles"]
@@ -30,7 +30,7 @@ flowchart LR
   Views --> PG
 ```
 
-只有 nginx 发布宿主机端口。其他容器通过 Docker DNS 通信，不能从局域网直接访问。
+只有 nginx 发布宿主机端口 `8080`。其他容器通过 Docker DNS 通信，不能从局域网或宿主机网络直接访问。
 
 ## 数据所有权边界
 
@@ -97,13 +97,13 @@ HGT 文件同时用于 Valhalla 海拔、FastAPI 点/路线采样和 Terrarium �
 ## 安全边界
 
 - 第三方镜像固定到 digest；Python 依赖固定版本。
-- 只发布 `127.0.0.1:8080`。
+- 只有 nginx 发布宿主机端口 `8080`；API、PostGIS、Martin、Nominatim、Valhalla、Kiwix 和 OSM Carto 端口都不直接发布。
 - `.env` 不进入 Git，示例文件不含密钥。
 - nginx 拒绝 dotfile，并只挂载所需目录。
 - Martin 禁止自动发布全部表。
 - 上传限制为 64MB，并执行图片解码验证。
 
-这是单用户本地应用，不具备公网身份认证。加入认证、TLS、限流和更严格上传策略前，不得改成 `0.0.0.0`。
+这是单用户本地/局域网应用，不具备公网身份认证。加入认证、TLS、限流和更严格上传策略前，不得暴露到可信网络之外。
 
 ## 扩展方向
 

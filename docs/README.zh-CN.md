@@ -15,6 +15,7 @@
 | 配置 | [Configuration](CONFIGURATION.md) | [配置](CONFIGURATION.zh-CN.md) |
 | 数据流水线 | [Data pipeline](DATA_PIPELINE.md) | [数据流水线](DATA_PIPELINE.zh-CN.md) |
 | 运维 | [Operations](OPERATIONS.md) | [运维](OPERATIONS.zh-CN.md) |
+| MCP 适配器 | [MCP adapter](../mcp/README.md) | [MCP 适配器](../mcp/README.zh-CN.md) |
 | 测试用例集 | [Test suite](../tests/README.md) | [测试用例集](../tests/README.zh-CN.md) |
 | 弱模型全能力重建 | [AI rebuild playbook](AI_REBUILD_EXECUTION_PLAN.md) | [重建执行手册](AI_REBUILD_EXECUTION_PLAN.zh-CN.md) |
 | 从零重建 | [Rebuild from scratch](REBUILD.md) | [从零重建](REBUILD.zh-CN.md) |
