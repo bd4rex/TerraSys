@@ -222,6 +222,13 @@ if ($dockerfile -notmatch [regex]::Escape("tests/performance-baseline.json")) {
 }
 $summary.BrowserTests = $browserTests.Count
 
+# Compose can replace the image user with a host UID/GID on Linux. Image code
+# must therefore stay readable even when a strict checkout umask reached COPY.
+$apiDockerfile = Get-Content -Raw -LiteralPath (Join-Path $root "services\api\Dockerfile")
+if ($apiDockerfile -notmatch [regex]::Escape("chmod -R u=rwX,go=rX /app")) {
+  Add-ContractFailure "The API image does not normalize application read permissions for a host UID/GID."
+}
+
 if ($failures.Count) {
   $message = "Repository contract tests failed:`n - " + ($failures -join "`n - ")
   throw $message

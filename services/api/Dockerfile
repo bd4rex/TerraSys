@@ -11,7 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 
 RUN useradd --create-home --uid 10001 terrasys \
-    && chown -R terrasys:terrasys /app
+    && chown -R terrasys:terrasys /app \
+    && chmod -R u=rwX,go=rX /app
 
 USER terrasys
 
