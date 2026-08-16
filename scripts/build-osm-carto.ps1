@@ -234,6 +234,13 @@ $importContents = (Get-Content -Raw -LiteralPath $localImportScript).Replace("`r
 & (Join-Path $PSScriptRoot "build-osm-carto-source.ps1")
 if ($LASTEXITCODE -ne 0) { throw "Preparing the OSM Carto source failed." }
 New-Item -ItemType Directory -Force -Path $productRoot, $tileCache, $candidateCache, (Split-Path -Parent $statePath) | Out-Null
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+  # renderd writes as its internal renderer user while Apache reads as www-data.
+  # PowerShell creates directories as 0700 on Linux, which makes rendered
+  # metatiles look like 404s even though rendering itself succeeded.
+  & chmod 0755 -- $candidateCache $tileCache
+  Assert-NativeSuccess "Setting OSM Carto cache permissions"
+}
 $sourceState = Get-Content -Raw -LiteralPath $sourceManifest | ConvertFrom-Json
 $source = Join-Path $root ([string]$sourceState.product.file).Replace('/', '\')
 $sourceHash = [string]$sourceState.product.sha256

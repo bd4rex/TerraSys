@@ -122,6 +122,7 @@ if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-
     $osmCartoBuildSource -notmatch [regex]::Escape($osmCartoDigest) -or
     $osmCartoBuildSource -notmatch [regex]::Escape('EndsWith("@$imageDigest"') -or
     $osmCartoBuildSource -notmatch '(?s)foreach \(\$candidate in \$candidates\).*?Test-LocalDockerImage.*?foreach \(\$candidate in \$candidates\).*?docker pull' -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('chmod 0755 -- $candidateCache $tileCache') -or
     $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or
     $composeSource -notmatch [regex]::Escape('${OSM_CARTO_IMAGE:-overv/openstreetmap-tile-server@' + $osmCartoDigest + '}')) {
   Add-ContractFailure "OSM Carto does not provide a digest-verified configurable registry fallback."
