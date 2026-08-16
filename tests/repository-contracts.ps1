@@ -146,6 +146,11 @@ if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nomina
 if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s*5g.*?server_threads:\s*"3"') {
   Add-ContractFailure "Valhalla initial builds do not retain the validated 4 GiB / 5 GiB swap resource envelope."
 }
+if ($startSource -notmatch [regex]::Escape('& find $Path -xdev -user $numericUid -exec chmod "u=rwX,go=rX"') -or
+    $startSource -notmatch [regex]::Escape('[IO.File]::GetUnixFileMode($item.FullName)') -or
+    $startSource -notmatch '(?s)foreach \(\$publicRoot.*?Join-Path \$root "web".*?Join-Path \$root "products\\tiles\\pmtiles".*?Join-Path \$root "products\\encyclopedia".*?Set-PublicBindTreeReadable') {
+  Add-ContractFailure "Linux startup does not normalize and verify every container-served public bind mount."
+}
 foreach ($knowledgeSource in @($encyclopediaDownloadSource, $travelGuideDownloadSource)) {
   if ($knowledgeSource -notmatch [regex]::Escape('Set-ContainerReadableFile @($target, $manifestPath)') -or
       $knowledgeSource -notmatch [regex]::Escape('& chmod 0644 -- $path')) {

@@ -127,6 +127,8 @@ Nominatim 也支持通过 `NOMINATIM_IMAGE` 更换 registry 前缀，并同样�
 
 百科资源下载命令会在 Linux 上把完成的 ZIM 文件及其清单统一设为 `0644`，因此即使主机使用严格 umask，非文件所有者身份运行的 Kiwix 容器也能读取这些 bind mount 文件。
 
+每次启动时，TerraSys 还会把三个明确用于公开服务的 bind mount 根目录（`web`、区域 PMTiles、百科资源）中属于当前用户的条目统一为 `u=rwX,go=rX`，随后拒绝任何容器仍无法读取或遍历的条目。私有数据、备份、数据库和服务密码不在此操作范围内。
+
 Nominatim、Valhalla、Planetiler 和 OSM Carto 都会大量占用资源。16 GiB 主机应按顺序构建，并保留充足磁盘空间；Valhalla 首次构建使用 4 GiB 内存上限和最多 5 GiB memory+swap 上限，完成后的常驻使用量会明显降低。
 
 ## 7. 安装开机启动与每日备份

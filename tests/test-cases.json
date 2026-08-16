@@ -49,6 +49,19 @@
       "evidence": "Nominatim image-reference assertions in the static repository-contract run."
     },
     {
+      "id": "TC-STATIC-004",
+      "title": "Linux public bind mounts remain container-readable",
+      "area": "runtime",
+      "risk": "A restrictive host umask can make web, map-pack, or knowledge assets return 403 inside non-owner containers.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/repository-contracts.ps1"],
+      "assertions": [
+        "Startup normalizes owner-controlled files under only the three public bind roots.",
+        "Startup rejects any remaining file or directory that lacks the required other-read or traversal permission."
+      ],
+      "evidence": "Public bind-mount permission assertions in the static repository-contract run."
+    },
+    {
       "id": "TC-DOC-001",
       "title": "Maintained documentation keeps English and Chinese pairs",
       "area": "documentation",

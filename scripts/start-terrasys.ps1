@@ -52,6 +52,38 @@ function Test-LocalDockerImage {
   }
 }
 
+function Set-PublicBindTreeReadable {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  if ($isWindowsHost) { return }
+  if (-not (Get-Command find -ErrorAction SilentlyContinue) -or
+      -not (Get-Command chmod -ErrorAction SilentlyContinue)) {
+    throw "The Linux 'find' and 'chmod' commands are required to normalize public bind mounts."
+  }
+  $numericUid = ((& id -u) -join "").Trim()
+  if ($LASTEXITCODE -ne 0 -or $numericUid -notmatch '^\d+$') {
+    throw "Could not determine the Linux UID for public bind-mount permissions."
+  }
+  & find $Path -xdev -user $numericUid -exec chmod "u=rwX,go=rX" -- "{}" "+"
+  if ($LASTEXITCODE -ne 0) { throw "Could not normalize public bind-mount permissions: $Path" }
+
+  $unreadable = New-Object System.Collections.Generic.List[string]
+  foreach ($item in @((Get-Item -LiteralPath $Path), @(Get-ChildItem -LiteralPath $Path -Force -Recurse))) {
+    $mode = [IO.File]::GetUnixFileMode($item.FullName)
+    $required = if ($item.PSIsContainer) {
+      [IO.UnixFileMode]::OtherRead -bor [IO.UnixFileMode]::OtherExecute
+    }
+    else { [IO.UnixFileMode]::OtherRead }
+    if (([int]$mode -band [int]$required) -ne [int]$required) {
+      $unreadable.Add($item.FullName)
+      if ($unreadable.Count -ge 5) { break }
+    }
+  }
+  if ($unreadable.Count) {
+    throw "Public bind mount contains files the container cannot read: $($unreadable -join ', ')"
+  }
+}
+
 if (-not (Test-DockerEngine)) {
   if (-not $isWindowsHost) {
     throw "Docker Engine is not running or the current user cannot access it. Start docker.service and verify Docker-group membership."
@@ -194,6 +226,13 @@ foreach ($directory in @(
   (Join-Path $root "data\osm-carto-tiles")
 )) {
   New-Item -ItemType Directory -Force -Path $directory | Out-Null
+}
+foreach ($publicRoot in @(
+  (Join-Path $root "web"),
+  (Join-Path $root "products\tiles\pmtiles"),
+  (Join-Path $root "products\encyclopedia")
+)) {
+  Set-PublicBindTreeReadable $publicRoot
 }
 
 $utf8NoBom = New-Object Text.UTF8Encoding($false)

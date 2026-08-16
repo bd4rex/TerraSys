@@ -127,6 +127,8 @@ Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` 
 
 The encyclopedia download commands normalize completed ZIM archives and their manifests to mode `0644` on Linux so the non-owner Kiwix container user can read bind-mounted files even under a restrictive host umask.
 
+At every start, TerraSys also normalizes owner-controlled entries beneath the three intentionally public bind roots (`web`, regional PMTiles, and encyclopedia assets) to `u=rwX,go=rX`, then rejects any entry that remains unreadable or untraversable by a container. Private data, backups, databases, and service secrets are outside this operation.
+
 Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space. Valhalla's initial build uses a 4 GiB memory limit and a 5 GiB memory-plus-swap limit; its steady-state use is substantially lower after the build.
 
 ## 7. Install boot startup and daily backups
