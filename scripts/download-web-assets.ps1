@@ -17,7 +17,7 @@ function Invoke-Download {
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
   $part = "$OutFile.part"
   try {
-    curl.exe -L --fail --retry 3 --retry-delay 3 -o $part $Url
+    curl.exe -L --fail --connect-timeout 20 --max-time 300 --retry 3 --retry-delay 3 --retry-all-errors -o $part $Url
     if ($LASTEXITCODE -ne 0) {
       throw "Downloading asset failed with exit code $LASTEXITCODE`: $Url"
     }
@@ -83,7 +83,16 @@ foreach ($font in $fonts) {
     if ((Test-Path $dest) -and ((Get-Item $dest).Length -eq [int64]$file.size)) {
       continue
     }
-    Invoke-WebRequest -Uri $file.download_url -OutFile $dest
+    # raw.githubusercontent.com is unreliable on some server networks. jsDelivr
+    # distributes the same immutable branch content; retain the GitHub API size
+    # as an independent post-download check.
+    $encodedFile = [uri]::EscapeDataString([string]$file.name)
+    Invoke-Download `
+      -Url "https://cdn.jsdelivr.net/gh/maplibre/demotiles@gh-pages/font/$encoded/$encodedFile" `
+      -OutFile $dest
+    if ((Get-Item $dest).Length -ne [int64]$file.size) {
+      throw "Glyph size mismatch for $font/$($file.name)."
+    }
     if ($i % 50 -eq 0) {
       Write-Host "$font $i / $($files.Count)"
     }
@@ -91,7 +100,7 @@ foreach ($font in $fonts) {
 }
 
 Invoke-Download `
-  -Url "https://raw.githubusercontent.com/unvt/nsft/main/fonts/SIL%20Open%20Font%20License%20FOR%20NotoSans.txt" `
+  -Url "https://cdn.jsdelivr.net/gh/unvt/nsft@main/fonts/SIL%20Open%20Font%20License%20FOR%20NotoSans.txt" `
   -OutFile (Join-Path $fontRoot "SIL Open Font License FOR MapLibre Noto Sans.txt")
 
 Get-ChildItem $fontRoot -Directory | ForEach-Object {
