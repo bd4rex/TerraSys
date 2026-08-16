@@ -108,16 +108,43 @@ $advancedReady = (Test-Path -LiteralPath (Join-Path $root "raw\osm\china\terrasy
   (Test-Path -LiteralPath (Join-Path $root "products\encyclopedia\wikipedia_zh_all_mini_2026-05.zim") -PathType Leaf)
 $profileArguments = if ($advancedReady) { @("--profile", "advanced") } else { @() }
 
-# Bind-mounted writable paths must exist before Docker starts. Otherwise Docker
-# creates them as root on Linux and the non-root API cannot initialize them.
+# Every host-side bind target must exist before Docker starts. Otherwise Docker
+# creates missing paths as root on Linux, which blocks later non-root data builds.
 foreach ($directory in @(
   (Join-Path $root "data\media"),
   (Join-Path $root "data\exports"),
+  (Join-Path $root "backups"),
+  (Join-Path $root "offline-kit"),
+  (Join-Path $root "products\tiles\pmtiles"),
+  (Join-Path $root "raw\osm\china"),
+  (Join-Path $root "products\elevation"),
   (Join-Path $root "data\terrain-cache"),
   (Join-Path $root "data\maintenance"),
-  (Join-Path $root "tmp")
+  (Join-Path $root "tmp"),
+  $valhallaDataPath,
+  (Join-Path $root "products\encyclopedia"),
+  (Join-Path $root "products\weather"),
+  (Join-Path $root "products\nautical"),
+  (Join-Path $root "web\assets\overview"),
+  (Join-Path $root "products\osm-carto"),
+  (Join-Path $root "data\osm-carto-tiles")
 )) {
   New-Item -ItemType Directory -Force -Path $directory | Out-Null
+}
+
+$utf8NoBom = New-Object Text.UTF8Encoding($false)
+foreach ($file in @(
+  @{ Path = (Join-Path $root "raw\osm\china\china.state.txt"); Content = "" },
+  @{ Path = (Join-Path $root "raw\osm\china\terrasys-core.manifest.json"); Content = "{}`n" }
+)) {
+  if (Test-Path -LiteralPath $file.Path) {
+    if (-not (Test-Path -LiteralPath $file.Path -PathType Leaf)) {
+      throw "Bind-mounted file path is not a regular file: $($file.Path)"
+    }
+  }
+  else {
+    [IO.File]::WriteAllText($file.Path, [string]$file.Content, $utf8NoBom)
+  }
 }
 
 Push-Location $services

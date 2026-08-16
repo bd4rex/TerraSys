@@ -85,7 +85,7 @@ Use the server's actual trusted LAN/VPN address. TerraSys is a single-user trust
 chmod 0600 services/.env
 ```
 
-On Linux, the start command also records the invoking user's numeric UID and GID in that file. The API runs with that identity so its bind-mounted media, export, cache, and maintenance directories remain writable without granting broad filesystem permissions.
+On Linux, the start command also records the invoking user's numeric UID and GID in that file. It creates every host-side directory and placeholder file before Compose can create a root-owned bind target. The API runs with the invoking identity so media, export, cache, maintenance, and public-data build paths remain writable without granting broad filesystem permissions.
 
 ## 5. Restore private data
 
