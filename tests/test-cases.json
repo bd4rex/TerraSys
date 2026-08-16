@@ -79,7 +79,8 @@
       "profiles": ["full", "recovery"],
       "automation": ["scripts/smoke-test.ps1"],
       "assertions": [
-        "The 34 province units and global Geofabrik catalog are complete.",
+        "The 34 province units, global provider catalog, and bounded source overrides are complete.",
+        "North/South Korea direct sources are fully validated and recorded by SHA256 when no upstream state file exists.",
         "Installed packages verify through the maintenance queue.",
         "Package manifests expose source, rich-detail, checksum, and recovery metadata.",
         "Protected removal is rejected without its confirmation token."

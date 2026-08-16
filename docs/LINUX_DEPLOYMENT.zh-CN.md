@@ -104,6 +104,7 @@ Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件。A
 ```bash
 ./terrasys.sh download-web-assets
 ./terrasys.sh sync-world-catalog
+./terrasys.sh download-osm
 ./terrasys.sh region-pack Build -PackId jiangsu
 ./terrasys.sh region-pack Build -PackId anhui
 ./terrasys.sh region-pack Build -PackId shandong
@@ -115,7 +116,9 @@ Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件。A
 ./terrasys.sh start --no-build
 ```
 
-围绕已校验产品可续建，但 Nominatim、Valhalla、Planetiler 和 OSM Carto 都会大量占用资源。16 GiB 主机应按顺序构建，并保留充足磁盘空间。
+中国快照与区域源使用可断点续传的暂存文件，只有通过格式/完整性校验后才会启用。如果 Geofabrik 暂时不可达，目录刷新会保留仓库内已校验的快照。朝鲜和韩国地图包使用 OpenStreetMap Korea 的公开非军事要素提取文件，完整扫描 PBF 后把 SHA256 写入产品清单。
+
+Nominatim、Valhalla、Planetiler 和 OSM Carto 都会大量占用资源。16 GiB 主机应按顺序构建，并保留充足磁盘空间。
 
 ## 7. 安装开机启动与每日备份
 

@@ -144,13 +144,23 @@ if ($Action -in @("Build", "Update")) {
   }
   $completedManifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
   $manifestSequence = ([string]$completedManifest.source.sequenceNumber).Trim()
-  if ($Action -eq "Update" -and -not $expectedSequence) {
+  if ($Action -eq "Update" -and $selected.sourceProfile.stateUrl -and -not $expectedSequence) {
     throw "$PackId update completed without a trusted source sequence."
   }
   if ($expectedSequence -and $manifestSequence -ne $expectedSequence) {
     throw "$PackId manifest sequence $manifestSequence does not match source state $expectedSequence."
   }
-  Write-Host "$PackId lifecycle verified at source sequence $manifestSequence."
+  if ($expectedSequence) {
+    Write-Host "$PackId lifecycle verified at source sequence $manifestSequence."
+  }
+  else {
+    $sourcePath = Join-Path $root ([string]$selected.sourceProfile.snapshotFile).Replace('/', '\')
+    $sourceSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $sourcePath).Hash.ToLowerInvariant()
+    if (([string]$completedManifest.source.sha256).ToLowerInvariant() -ne $sourceSha256) {
+      throw "$PackId manifest source hash does not match its verified source snapshot."
+    }
+    Write-Host "$PackId lifecycle verified at source SHA256 $sourceSha256."
+  }
   exit 0
 }
 

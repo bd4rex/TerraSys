@@ -63,6 +63,7 @@ services:
       MAP_CATALOG_PATH: /data/map-catalog.json
       REGION_CATALOG_PATH: /data/region-catalog.json
       WORLD_REGION_CATALOG_PATH: /data/world-region-catalog.json
+      WORLD_REGION_SOURCE_OVERRIDES_PATH: /data/world-region-source-overrides.json
       MAP_PACK_ROOT: /data/map-packs
       OSM_ROOT: /data/osm
       OSM_STATE_PATH: /data/china.state.txt
@@ -97,6 +98,7 @@ services:
       - ../web/config/map-catalog.json:/data/map-catalog.json:ro
       - ../web/config/region-catalog.json:/data/region-catalog.json:ro
       - ../web/config/world-region-catalog.json:/data/world-region-catalog.json:ro
+      - ../web/config/world-region-source-overrides.json:/data/world-region-source-overrides.json:ro
       - ../products/tiles/pmtiles:/data/map-packs:ro
       - ../raw/osm:/data/osm:ro
       - ../raw/osm/china/china.state.txt:/data/china.state.txt:ro

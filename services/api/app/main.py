@@ -46,6 +46,9 @@ OFFLINE_KIT_ROOT = Path(os.environ.get("OFFLINE_KIT_ROOT", "/data/offline-kit"))
 MAP_CATALOG_PATH = Path(os.environ.get("MAP_CATALOG_PATH", "/data/map-catalog.json"))
 REGION_CATALOG_PATH = Path(os.environ.get("REGION_CATALOG_PATH", "/data/region-catalog.json"))
 WORLD_REGION_CATALOG_PATH = Path(os.environ.get("WORLD_REGION_CATALOG_PATH", "/data/world-region-catalog.json"))
+WORLD_REGION_SOURCE_OVERRIDES_PATH = Path(
+    os.environ.get("WORLD_REGION_SOURCE_OVERRIDES_PATH", "/data/world-region-source-overrides.json")
+)
 MAP_PACK_ROOT = Path(os.environ.get("MAP_PACK_ROOT", "/data/map-packs"))
 OSM_ROOT = Path(os.environ.get("OSM_ROOT", "/data/osm"))
 OSM_STATE_PATH = Path(os.environ.get("OSM_STATE_PATH", "/data/china.state.txt"))
@@ -1453,14 +1456,44 @@ def expand_region_dataset(
     }
 
 
+def apply_world_source_overrides(
+    world_catalog: dict[str, Any], overrides: dict[str, Any]
+) -> dict[str, Any]:
+    dataset_overrides = overrides.get("datasets", {})
+    if not dataset_overrides:
+        return world_catalog
+    if overrides.get("schemaVersion") != 1 or not isinstance(dataset_overrides, dict):
+        raise HTTPException(status_code=503, detail="World source override catalog is invalid")
+    datasets = world_catalog.get("datasets", [])
+    known_ids = {str(item.get("id")) for item in datasets if isinstance(item, dict)}
+    unknown_ids = sorted(set(dataset_overrides) - known_ids)
+    if unknown_ids:
+        raise HTTPException(status_code=503, detail="World source override references an unknown map pack")
+    return {
+        **world_catalog,
+        "datasets": [
+            {**item, **dataset_overrides.get(str(item.get("id")), {})}
+            if isinstance(item, dict)
+            else item
+            for item in datasets
+        ],
+    }
+
+
 @lru_cache(maxsize=4)
 def cached_map_catalog(_revision: tuple[tuple[int, int], ...]) -> dict[str, Any]:
     try:
         catalog = json.loads(MAP_CATALOG_PATH.read_text(encoding="utf-8"))
         region_catalog = json.loads(REGION_CATALOG_PATH.read_text(encoding="utf-8"))
         world_catalog = json.loads(WORLD_REGION_CATALOG_PATH.read_text(encoding="utf-8"))
+        source_overrides = (
+            json.loads(WORLD_REGION_SOURCE_OVERRIDES_PATH.read_text(encoding="utf-8"))
+            if WORLD_REGION_SOURCE_OVERRIDES_PATH.is_file()
+            else {}
+        )
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Map pack catalog is unavailable") from exc
+    world_catalog = apply_world_source_overrides(world_catalog, source_overrides)
     if (
         not isinstance(catalog.get("datasets"), list)
         or not isinstance(region_catalog.get("datasets"), list)
@@ -1497,7 +1530,12 @@ def cached_map_catalog(_revision: tuple[tuple[int, int], ...]) -> dict[str, Any]
 
 def map_catalog() -> dict[str, Any]:
     revision: list[tuple[int, int]] = []
-    for path in (MAP_CATALOG_PATH, REGION_CATALOG_PATH, WORLD_REGION_CATALOG_PATH):
+    for path in (
+        MAP_CATALOG_PATH,
+        REGION_CATALOG_PATH,
+        WORLD_REGION_CATALOG_PATH,
+        WORLD_REGION_SOURCE_OVERRIDES_PATH,
+    ):
         try:
             stat = path.stat()
             revision.append((stat.st_size, stat.st_mtime_ns))
@@ -1999,7 +2037,15 @@ def file_revision(path: Path) -> tuple[int, int]:
 def map_pack_payload_revision() -> tuple[Any, ...]:
     return (
         resource_inventory_revision(),
-        *(file_revision(path) for path in (MAP_CATALOG_PATH, REGION_CATALOG_PATH, WORLD_REGION_CATALOG_PATH)),
+        *(
+            file_revision(path)
+            for path in (
+                MAP_CATALOG_PATH,
+                REGION_CATALOG_PATH,
+                WORLD_REGION_CATALOG_PATH,
+                WORLD_REGION_SOURCE_OVERRIDES_PATH,
+            )
+        ),
         file_revision(MAINTENANCE_ROOT / "upstream-state.json"),
         file_revision(OSM_CARTO_MANIFEST_PATH),
     )

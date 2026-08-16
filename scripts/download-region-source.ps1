@@ -56,6 +56,16 @@ function Get-PbfHeaderSequence([string]$Path) {
   return ""
 }
 
+function Test-CompletePbf([string]$Path) {
+  $relativePath = $Path.Substring($root.Length).TrimStart('\').Replace('\', '/')
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  docker run --rm -v "${root}:/data" $osmiumImage fileinfo -e "/data/$relativePath" *> $null
+  $complete = $LASTEXITCODE -eq 0
+  $ErrorActionPreference = $previousPreference
+  return $complete
+}
+
 try {
   $osmiumImage = "terrasys-osmium:1"
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -64,6 +74,14 @@ try {
   if (-not (docker image ls -q $osmiumImage)) {
     docker build -t $osmiumImage (Join-Path $root "services\tools\osmium")
     if ($LASTEXITCODE -ne 0) { throw "Building the Osmium validation image failed." }
+  }
+
+  $expectedChecksum = ""
+  if ($profile.checksumUrl) {
+    curl.exe --fail --location --connect-timeout 20 --max-time 120 --retry 5 --retry-delay 5 --retry-all-errors `
+      --output $checksumFile ([string]$profile.checksumUrl)
+    if ($LASTEXITCODE -ne 0) { throw "Downloading $($pack.name) checksum failed." }
+    $expectedChecksum = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
   }
 
   $remoteSequence = ""
@@ -92,32 +110,49 @@ try {
   }
   $reuseStaged = $false
   if (Test-Path -LiteralPath $staged -PathType Leaf) {
-    $stagedSequence = Get-PbfHeaderSequence -Path $staged
-    if ($remoteSequence -and $stagedSequence -eq $remoteSequence) {
+    $stagedComplete = Test-CompletePbf -Path $staged
+    $stagedSequence = if ($stagedComplete) { Get-PbfHeaderSequence -Path $staged } else { "" }
+    $stagedChecksum = if ($stagedComplete -and $expectedChecksum) {
+      (Get-FileHash -Algorithm MD5 -LiteralPath $staged).Hash.ToLowerInvariant()
+    } else { "" }
+    if ($stagedComplete -and $remoteSequence -and $stagedSequence -eq $remoteSequence) {
       Write-Host "Reusing the complete staged source at sequence $stagedSequence."
       $reuseStaged = $true
     }
-    elseif ($profile.checksumUrl) {
-      Write-Host "A staged direct source is present; its provider checksum will decide whether it can be reused."
+    elseif ($stagedComplete -and $expectedChecksum -and $stagedChecksum -eq $expectedChecksum) {
+      Write-Host "Reusing the complete staged source that matches the provider checksum."
       $reuseStaged = $true
     }
-    else {
-      Write-Warning "Discarding a staged source whose sequence '$stagedSequence' does not match '$remoteSequence'."
+    elseif ($stagedComplete -and -not $remoteSequence -and -not $expectedChecksum) {
+      Write-Host "Reusing the complete validated staged source."
+      $reuseStaged = $true
+    }
+    elseif ($stagedComplete) {
+      Write-Warning "Discarding a complete staged source that no longer matches the current upstream version."
       Remove-Item -LiteralPath $staged -Force
+    }
+    else {
+      Write-Host "Resuming the partial staged source."
     }
   }
   if (-not $reuseStaged) {
     Write-Host "Downloading source for $($pack.name)..."
-    curl.exe -L --fail --retry 3 --retry-delay 5 -o $staged ([string]$profile.snapshotUrl)
-    if ($LASTEXITCODE -ne 0) { throw "Downloading $($pack.name) source failed." }
+    curl.exe --fail --location --continue-at - --connect-timeout 20 --retry 8 --retry-delay 5 --retry-all-errors `
+      --speed-limit 1024 --speed-time 120 --output $staged ([string]$profile.snapshotUrl)
+    $downloadExitCode = $LASTEXITCODE
+    if ($downloadExitCode -eq 33 -and (Test-Path -LiteralPath $staged -PathType Leaf)) {
+      Write-Warning "The source server rejected the saved byte range; restarting this staging download once."
+      Remove-Item -LiteralPath $staged -Force
+      curl.exe --fail --location --connect-timeout 20 --retry 8 --retry-delay 5 --retry-all-errors `
+        --speed-limit 1024 --speed-time 120 --output $staged ([string]$profile.snapshotUrl)
+      $downloadExitCode = $LASTEXITCODE
+    }
+    if ($downloadExitCode -ne 0) { throw "Downloading $($pack.name) source failed with exit code $downloadExitCode." }
   }
   if ((Get-Item -LiteralPath $staged).Length -lt 64KB) { throw "$($pack.name) source is unexpectedly small." }
   if ($profile.checksumUrl) {
-    curl.exe -L --fail --retry 3 --retry-delay 5 -o $checksumFile ([string]$profile.checksumUrl)
-    if ($LASTEXITCODE -ne 0) { throw "Downloading $($pack.name) checksum failed." }
-    $expected = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
     $actual = (Get-FileHash -Algorithm MD5 -LiteralPath $staged).Hash.ToLowerInvariant()
-    if ($expected -ne $actual) { throw "$($pack.name) source MD5 verification failed." }
+    if ($expectedChecksum -ne $actual) { throw "$($pack.name) source MD5 verification failed." }
   }
   else {
     $relativeStaged = $staged.Substring($root.Length).TrimStart('\').Replace('\', '/')

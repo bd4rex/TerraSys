@@ -1,6 +1,6 @@
 # Sources and Licenses
 
-> English | [简体中文](SOURCES_AND_LICENSES.zh-CN.md) · Snapshot `2026-08-03T23:12:23+08:00`
+> English | [简体中文](SOURCES_AND_LICENSES.zh-CN.md) · Snapshot `2026-08-17T00:26:42+08:00`
 
 This project combines open data and open-source software. Keep attribution visible and review upstream licenses before redistributing a data pack or bundled browser assets.
 
@@ -11,9 +11,10 @@ Source mirror:
 - `https://download.openstreetmap.fr/extracts/asia/china/`
 - `https://download.openstreetmap.fr/polygons/asia/china/`
 - `https://download.geofabrik.de/asia/taiwan.html`
-- `https://download.geofabrik.de/index-v1-nogeom.json` (global region catalog)
+- `https://download.geofabrik.de/index-v1.json` (global region catalog)
+- `https://tiles.osm.kr/download/` (North/South Korea non-military extracts)
 
-The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
+The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. The North/South Korea packs use OpenStreetMap Korea's public non-military extracts; TerraSys performs a complete PBF validation and records a local SHA256 because that download directory does not publish a sidecar checksum or replication state. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
 
 Project and license information: `https://www.openstreetmap.org/copyright`
 

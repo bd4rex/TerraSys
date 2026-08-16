@@ -38,6 +38,33 @@ foreach ($file in $jsonFiles) {
 }
 $summary.JsonFiles = $jsonFiles.Count
 
+# Source overrides must be explicit, bounded to known packs, and reflected by the shared catalog loader.
+$worldCatalog = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-catalog.json") | ConvertFrom-Json
+$sourceOverrides = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-source-overrides.json") | ConvertFrom-Json
+$worldIds = @($worldCatalog.datasets | ForEach-Object { [string]$_.id })
+if ([int]$sourceOverrides.schemaVersion -ne 1) {
+  Add-ContractFailure "World source overrides use an unsupported schema."
+}
+foreach ($property in $sourceOverrides.datasets.PSObject.Properties) {
+  $profile = $property.Value.sourceProfile
+  if ($worldIds -notcontains [string]$property.Name) {
+    Add-ContractFailure "World source override references an unknown pack: $($property.Name)"
+  }
+  if (-not $profile -or [string]$profile.mode -ne "direct" -or [Uri]$profile.snapshotUrl -isnot [Uri] -or
+      ([Uri]$profile.snapshotUrl).Scheme -ne "https" -or ([Uri]$profile.snapshotUrl).Host -ne "tiles.osm.kr") {
+    Add-ContractFailure "World source override is not a trusted direct OSM Korea source: $($property.Name)"
+  }
+}
+. (Join-Path $root "scripts\catalog-utils.ps1")
+$effectiveCatalog = Get-TerraSysExpandedCatalog -Root $root
+foreach ($packId in @("gf-north-korea", "gf-south-korea")) {
+  $pack = @($effectiveCatalog.datasets | Where-Object { $_.id -eq $packId }) | Select-Object -First 1
+  if (-not $pack -or [string]$pack.sourceProfile.provider -ne "OpenStreetMap Korea") {
+    Add-ContractFailure "Effective catalog did not apply the source override for $packId."
+  }
+}
+$summary.WorldSourceOverrides = @($sourceOverrides.datasets.PSObject.Properties).Count
+
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
 $powerShellFiles = @(
   Get-ChildItem -LiteralPath (Join-Path $root "scripts") -Recurse -File -Filter "*.ps1"

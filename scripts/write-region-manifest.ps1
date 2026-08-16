@@ -11,7 +11,9 @@ $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Objec
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 
 $source = Join-Path $root ([string]$pack.sourceFile).Replace('/', '\')
-$stateFile = Join-Path $root ([string]$pack.sourceProfile.stateFile).Replace('/', '\')
+$stateFile = if ($pack.sourceProfile.stateFile) {
+  Join-Path $root ([string]$pack.sourceProfile.stateFile).Replace('/', '\')
+} else { $null }
 $product = Join-Path $root "products\tiles\pmtiles\$PackId.pmtiles"
 $manifestPath = Join-Path $root "products\tiles\pmtiles\$PackId.manifest.json"
 if (-not (Test-Path -LiteralPath $source) -or -not (Test-Path -LiteralPath $product)) {
@@ -19,7 +21,7 @@ if (-not (Test-Path -LiteralPath $source) -or -not (Test-Path -LiteralPath $prod
 }
 
 $state = @{}
-if (Test-Path -LiteralPath $stateFile) {
+if ($stateFile -and (Test-Path -LiteralPath $stateFile -PathType Leaf)) {
   Get-Content -LiteralPath $stateFile | ForEach-Object {
     if ($_ -match '^([^=]+)=(.*)$') { $state[$matches[1]] = $matches[2].Replace('\:', ':') }
   }

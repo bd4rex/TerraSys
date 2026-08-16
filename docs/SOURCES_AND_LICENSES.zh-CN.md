@@ -1,6 +1,6 @@
 # 来源与许可
 
-> [English](SOURCES_AND_LICENSES.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
+> [English](SOURCES_AND_LICENSES.md) | 简体中文 · 快照 `2026-08-17T00:26:42+08:00`
 
 本项目组合开放数据与开源软件。重新分发地图包或浏览器资源前，应保留署名并重新核对上游许可和服务条款。
 
@@ -11,9 +11,10 @@
 - `https://download.openstreetmap.fr/extracts/asia/china/`
 - `https://download.openstreetmap.fr/polygons/asia/china/`
 - `https://download.geofabrik.de/asia/taiwan.html`
-- `https://download.geofabrik.de/index-v1-nogeom.json`
+- `https://download.geofabrik.de/index-v1.json`
+- `https://tiles.osm.kr/download/`（朝鲜/韩国非军事要素提取文件）
 
-大陆省级地图从同一份中国快照和省级边界派生；台湾使用独立校验的 Geofabrik PBF 与边界。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
+大陆省级地图从同一份中国快照和省级边界派生；台湾使用独立校验的 Geofabrik PBF 与边界。朝鲜/韩国包使用 OpenStreetMap Korea 的公开非军事要素提取文件；由于下载目录不提供旁路校验和或复制序列，TerraSys 会完整扫描 PBF 并在本地清单记录 SHA256。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
 
 版权与许可：`https://www.openstreetmap.org/copyright`
 

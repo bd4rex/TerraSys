@@ -4,7 +4,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "catalog-utils.ps1")
 $target = Join-Path $root "web\config\world-region-catalog.json"
+$indexPart = Join-Path $root "tmp\geofabrik-index-v1.json.part"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
 
 $rootMap = @{
@@ -69,9 +71,26 @@ function Get-CleanDisplayName {
 }
 
 Write-Host "Refreshing the local Geofabrik catalog snapshot..."
-$client = New-Object Net.WebClient
-$client.Headers['User-Agent'] = 'TerraSys/1.0 offline-map-catalog'
-$indexBytes = $client.DownloadData($IndexUrl)
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $indexPart) | Out-Null
+try {
+  curl.exe --fail --location --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 3 --retry-all-errors `
+    --user-agent "TerraSys/1.0 offline-map-catalog" --output $indexPart $IndexUrl
+  if ($LASTEXITCODE -ne 0) { throw "Downloading the Geofabrik catalog failed with exit code $LASTEXITCODE." }
+  $indexBytes = [IO.File]::ReadAllBytes($indexPart)
+}
+catch {
+  if (Test-Path -LiteralPath $target -PathType Leaf) {
+    $existing = Get-Content -Raw -LiteralPath $target | ConvertFrom-Json
+    if ([int]$existing.schemaVersion -eq 1 -and @($existing.datasets).Count -ge 500) {
+      Write-Warning "Geofabrik is unavailable; preserving the checked-in catalog snapshot at version $($existing.version)."
+      return
+    }
+  }
+  throw
+}
+finally {
+  if (Test-Path -LiteralPath $indexPart -PathType Leaf) { Remove-Item -LiteralPath $indexPart -Force }
+}
 $index = [Text.Encoding]::UTF8.GetString($indexBytes) | ConvertFrom-Json
 $features = @($index.features | Where-Object { $_.properties.id -and $_.properties.urls.pbf })
 $featuresById = @{}
@@ -191,6 +210,7 @@ $payload = [ordered]@{
   regions = @($regions | Sort-Object parent, name)
   datasets = @($datasets | Sort-Object groupId, name)
 }
+$payload = Merge-TerraSysWorldSourceOverrides -WorldCatalog $payload -Root $root
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
 [IO.File]::WriteAllText($target, ($payload | ConvertTo-Json -Depth 12 -Compress), $utf8NoBom)
 Write-Host "World catalog written: $target"

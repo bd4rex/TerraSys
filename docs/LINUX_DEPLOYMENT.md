@@ -104,6 +104,7 @@ The server should obtain large reproducible assets from their public upstream so
 ```bash
 ./terrasys.sh download-web-assets
 ./terrasys.sh sync-world-catalog
+./terrasys.sh download-osm
 ./terrasys.sh region-pack Build -PackId jiangsu
 ./terrasys.sh region-pack Build -PackId anhui
 ./terrasys.sh region-pack Build -PackId shandong
@@ -115,7 +116,9 @@ The server should obtain large reproducible assets from their public upstream so
 ./terrasys.sh start --no-build
 ```
 
-These builds are resumable around verified products, but Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
+The China snapshot and regional source downloads use resumable staging files and are activated only after format/integrity validation. If Geofabrik cannot be reached, catalog refresh preserves the checked-in snapshot. The two Korea packs use the public non-military extracts from OpenStreetMap Korea, validate the complete PBF, and record its SHA256 in the product manifest.
+
+Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
 
 ## 7. Install boot startup and daily backups
 

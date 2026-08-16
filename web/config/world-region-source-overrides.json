@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-08-16-korea-direct-1",
+  "datasets": {
+    "gf-north-korea": {
+      "sourceProfileId": "osm-korea-north-korea-non-military",
+      "description": "OpenStreetMap Korea 提供的非军事要素离线区域",
+      "sourceProfile": {
+        "mode": "direct",
+        "provider": "OpenStreetMap Korea",
+        "snapshotFile": "raw/osm/world/north-korea-latest.osm.pbf",
+        "snapshotUrl": "https://tiles.osm.kr/download/north-korea-latest-non-military.osm.pbf"
+      }
+    },
+    "gf-south-korea": {
+      "sourceProfileId": "osm-korea-south-korea-non-military",
+      "description": "OpenStreetMap Korea 提供的非军事要素离线区域",
+      "sourceProfile": {
+        "mode": "direct",
+        "provider": "OpenStreetMap Korea",
+        "snapshotFile": "raw/osm/world/south-korea-latest.osm.pbf",
+        "snapshotUrl": "https://tiles.osm.kr/download/south-korea-latest-non-military.osm.pbf"
+      }
+    }
+  }
+}

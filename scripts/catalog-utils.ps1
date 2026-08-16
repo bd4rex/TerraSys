@@ -3,6 +3,35 @@ function Resolve-TerraSysCatalogTemplate {
   return $Template.Replace("{id}", $Id)
 }
 
+function Merge-TerraSysWorldSourceOverrides {
+  param(
+    [Parameter(Mandatory = $true)]$WorldCatalog,
+    [Parameter(Mandatory = $true)][string]$Root
+  )
+
+  $overridePath = Join-Path $Root "web\config\world-region-source-overrides.json"
+  if (-not (Test-Path -LiteralPath $overridePath -PathType Leaf)) { return $WorldCatalog }
+  $overrides = Get-Content -Raw -LiteralPath $overridePath | ConvertFrom-Json
+  if ([int]$overrides.schemaVersion -ne 1 -or -not $overrides.datasets) {
+    throw "World source override catalog is invalid."
+  }
+  $packsById = @{}
+  foreach ($pack in @($WorldCatalog.datasets)) { $packsById[[string]$pack.id] = $pack }
+  foreach ($property in $overrides.datasets.PSObject.Properties) {
+    $pack = $packsById[[string]$property.Name]
+    if (-not $pack) { throw "World source override references an unknown map pack: $($property.Name)" }
+    foreach ($field in $property.Value.PSObject.Properties) {
+      if ($pack.PSObject.Properties.Name -contains $field.Name) {
+        $pack.($field.Name) = $field.Value
+      }
+      else {
+        $pack | Add-Member -NotePropertyName $field.Name -NotePropertyValue $field.Value
+      }
+    }
+  }
+  return $WorldCatalog
+}
+
 function Get-TerraSysExpandedCatalog {
   param([Parameter(Mandatory = $true)][string]$Root)
 
@@ -12,6 +41,7 @@ function Get-TerraSysExpandedCatalog {
   $mapCatalog = Get-Content -Raw -LiteralPath $mapCatalogPath | ConvertFrom-Json
   $regionCatalog = Get-Content -Raw -LiteralPath $regionCatalogPath | ConvertFrom-Json
   $worldCatalog = Get-Content -Raw -LiteralPath $worldCatalogPath | ConvertFrom-Json
+  $worldCatalog = Merge-TerraSysWorldSourceOverrides -WorldCatalog $worldCatalog -Root $Root
   $profiles = @{}
   foreach ($property in $regionCatalog.sourceProfiles.PSObject.Properties) {
     $profiles[$property.Name] = $property.Value
@@ -28,14 +58,16 @@ function Get-TerraSysExpandedCatalog {
     if (-not $profile) { throw "Region $id references an unknown source profile." }
     $group = $groups[[string]$unit.groupId]
     if (-not $group) { throw "Region $id references an unknown group." }
-    $sourceFile = if ($profile.sourceFile) {
-      [string]$profile.sourceFile
+    $profileSourceFile = $profile.PSObject.Properties["sourceFile"]
+    $sourceFile = if ($profileSourceFile -and $profileSourceFile.Value) {
+      [string]$profileSourceFile.Value
     }
     else {
       Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.sourceFileTemplate) $id
     }
-    $polygonUrl = if ($profile.polygonUrl) {
-      [string]$profile.polygonUrl
+    $profilePolygonUrl = $profile.PSObject.Properties["polygonUrl"]
+    $polygonUrl = if ($profilePolygonUrl -and $profilePolygonUrl.Value) {
+      [string]$profilePolygonUrl.Value
     }
     else {
       Resolve-TerraSysCatalogTemplate ([string]$regionCatalog.defaults.polygonUrlTemplate) $id
