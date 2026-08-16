@@ -66,6 +66,30 @@ function Test-CompletePbf([string]$Path) {
   return $complete
 }
 
+function Assert-PbfReferences([string]$Path, [int64]$MaximumMissingReferences) {
+  $relativePath = $Path.Substring($root.Length).TrimStart('\').Replace('\', '/')
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $referenceCheck = docker run --rm -v "${root}:/data" $osmiumImage check-refs "/data/$relativePath" 2>&1
+  $referenceExitCode = $LASTEXITCODE
+  $ErrorActionPreference = $previousPreference
+  $referenceLines = @($referenceCheck | ForEach-Object { "$_" })
+  $referenceLines | ForEach-Object { Write-Host $_ }
+  $referenceText = $referenceLines -join "`n"
+  $missingWayNodes = if ($referenceText -match 'Nodes in ways missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingRelationMembers = if ($referenceText -match 'Members in relations missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingTotal = $missingWayNodes + $missingRelationMembers
+  $recognizedFailure = $referenceText -match '(?:Nodes in ways|Members in relations) missing:\s+\d+'
+  if ($referenceExitCode -ne 0) {
+    if ($recognizedFailure -and $missingTotal -le $MaximumMissingReferences) {
+      Write-Warning "$($pack.name) contains $missingTotal references omitted by $($profile.provider); the configured limit is $MaximumMissingReferences."
+    }
+    else {
+      throw "$($pack.name) source reference validation failed with exit code $referenceExitCode."
+    }
+  }
+}
+
 try {
   $osmiumImage = "terrasys-osmium:1"
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -164,6 +188,10 @@ try {
       throw "$($pack.name) staged PBF sequence $stagedSequence does not match remote state $remoteSequence."
     }
   }
+  $maximumMissingReferences = if ($null -ne $profile.maxMissingReferences) {
+    [int64]$profile.maxMissingReferences
+  } elseif ([string]$profile.mode -eq "extract") { [int64]100 } else { [int64]0 }
+  Assert-PbfReferences -Path $staged -MaximumMissingReferences $maximumMissingReferences
   if ($profile.stateUrl -and $profile.stateFile -and -not (Test-Path -LiteralPath $statePreflight -PathType Leaf)) {
     curl.exe -L --fail --retry 3 --retry-delay 5 -o $statePreflight ([string]$profile.stateUrl)
     if ($LASTEXITCODE -ne 0) { throw "Downloading $($pack.name) state failed." }

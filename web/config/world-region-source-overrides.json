@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-08-16-korea-direct-1",
+  "version": "2026-08-17-korea-direct-2",
   "datasets": {
     "gf-north-korea": {
       "sourceProfileId": "osm-korea-north-korea-non-military",
@@ -9,7 +9,8 @@
         "mode": "direct",
         "provider": "OpenStreetMap Korea",
         "snapshotFile": "raw/osm/world/north-korea-latest.osm.pbf",
-        "snapshotUrl": "https://tiles.osm.kr/download/north-korea-latest-non-military.osm.pbf"
+        "snapshotUrl": "https://tiles.osm.kr/download/north-korea-latest-non-military.osm.pbf",
+        "maxMissingReferences": 20000
       }
     },
     "gf-south-korea": {
@@ -19,7 +20,8 @@
         "mode": "direct",
         "provider": "OpenStreetMap Korea",
         "snapshotFile": "raw/osm/world/south-korea-latest.osm.pbf",
-        "snapshotUrl": "https://tiles.osm.kr/download/south-korea-latest-non-military.osm.pbf"
+        "snapshotUrl": "https://tiles.osm.kr/download/south-korea-latest-non-military.osm.pbf",
+        "maxMissingReferences": 0
       }
     }
   }

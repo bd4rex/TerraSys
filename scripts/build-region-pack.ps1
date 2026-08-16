@@ -31,6 +31,41 @@ function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }
 }
 
+function Get-ReferenceIntegrity {
+  param(
+    [Parameter(Mandatory = $true)][string]$ContainerPath,
+    [Parameter(Mandatory = $true)][int64]$MaximumMissingReferences,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+
+  $checkErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $referenceCheck = docker run --rm @dockerJobArguments -v "${root}:/data" $osmiumImage check-refs $ContainerPath 2>&1
+  $referenceExitCode = $LASTEXITCODE
+  $ErrorActionPreference = $checkErrorAction
+  $referenceLines = @($referenceCheck | ForEach-Object { "$_" })
+  $referenceLines | ForEach-Object { Write-Host $_ }
+  $referenceText = $referenceLines -join "`n"
+  $missingWayNodes = if ($referenceText -match 'Nodes in ways missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingRelationMembers = if ($referenceText -match 'Members in relations missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingTotal = $missingWayNodes + $missingRelationMembers
+  $recognizedFailure = $referenceText -match '(?:Nodes in ways|Members in relations) missing:\s+\d+'
+  if ($referenceExitCode -ne 0) {
+    if ($recognizedFailure -and $missingTotal -le $MaximumMissingReferences) {
+      Write-Warning "$Label contains $missingTotal references omitted by its public provider; the configured limit is $MaximumMissingReferences."
+    }
+    else {
+      throw "Checking $Label references failed with exit code $referenceExitCode."
+    }
+  }
+  return [pscustomobject][ordered]@{
+    missingWayNodes = $missingWayNodes
+    missingRelationMembers = $missingRelationMembers
+    missingTotal = $missingTotal
+    maximumMissingReferences = $MaximumMissingReferences
+  }
+}
+
 if (-not (Test-Path -LiteralPath $snapshotHost)) {
   if ($buildMode -eq "direct") {
     & (Join-Path $PSScriptRoot "download-region-source.ps1") -PackId $PackId
@@ -55,6 +90,10 @@ foreach ($member in @($pack.members)) {
 New-Item -ItemType Directory -Force -Path $workHost, $outputRoot, (Split-Path -Parent $sourceHost) | Out-Null
 $containerExtracts = New-Object System.Collections.Generic.List[string]
 $hostExtracts = New-Object System.Collections.Generic.List[string]
+$maximumMissingReferences = if ($null -ne $profile.maxMissingReferences) {
+  [int64]$profile.maxMissingReferences
+} elseif ($buildMode -eq "extract") { [int64]100 } else { [int64]0 }
+$sourceReferenceIntegrity = $null
 
 try {
   if ($buildMode -eq "extract") {
@@ -77,26 +116,18 @@ try {
     Assert-NativeSuccess "Merging $PackId extracts"
     docker run --rm @dockerJobArguments -v "${root}:/data" $osmiumImage fileinfo -e $stagedContainer | Out-Host
     Assert-NativeSuccess "Reading $PackId metadata"
-    $checkErrorAction = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $referenceCheck = docker run --rm @dockerJobArguments -v "${root}:/data" $osmiumImage check-refs $stagedContainer 2>&1
-    $referenceExitCode = $LASTEXITCODE
-    $ErrorActionPreference = $checkErrorAction
-    $referenceLines = @($referenceCheck | ForEach-Object { "$_" })
-    $referenceLines | ForEach-Object { Write-Host $_ }
-    if ($referenceExitCode -ne 0) {
-      $referenceText = $referenceLines -join "`n"
-      if ($referenceText -match 'Nodes in ways missing:\s+(\d+)' -and [int]$matches[1] -le 100) {
-        Write-Warning "$PackId inherited $($matches[1]) missing way nodes from the upstream extract."
-      }
-      else {
-        throw "Checking $PackId references failed with exit code $referenceExitCode."
-      }
-    }
+    $sourceReferenceIntegrity = Get-ReferenceIntegrity `
+      -ContainerPath $stagedContainer `
+      -MaximumMissingReferences $maximumMissingReferences `
+      -Label $PackId
     Move-Item -LiteralPath $sourceStaged -Destination $sourceHost -Force
   }
   else {
     Write-Host "Using verified direct source for $($pack.name): $sourceRelative"
+    $sourceReferenceIntegrity = Get-ReferenceIntegrity `
+      -ContainerPath "/data/$($sourceRelative.Replace('\', '/'))" `
+      -MaximumMissingReferences $maximumMissingReferences `
+      -Label $PackId
   }
 
   & (Join-Path $PSScriptRoot "download-planetiler-sources.ps1")
@@ -153,7 +184,10 @@ try {
   if ($sameProduct) {
     Write-Host "$PackId generated product is byte-identical; keeping one copy and refreshing its manifest."
     Remove-Item -LiteralPath $outputStaged -Force
-    & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId
+    & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId `
+      -MissingWayNodes $sourceReferenceIntegrity.missingWayNodes `
+      -MissingRelationMembers $sourceReferenceIntegrity.missingRelationMembers `
+      -MaxMissingReferences $sourceReferenceIntegrity.maximumMissingReferences
     & (Join-Path $PSScriptRoot "build-region-details.ps1") -PackId $PackId -MaintenanceJobId $MaintenanceJobId
   }
   else {
@@ -161,7 +195,10 @@ try {
     if (Test-Path -LiteralPath $manifestPath) { Move-Item -LiteralPath $manifestPath -Destination $previousManifestPath -Force }
     try {
       Move-Item -LiteralPath $outputStaged -Destination $output -Force
-      & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId
+      & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId `
+        -MissingWayNodes $sourceReferenceIntegrity.missingWayNodes `
+        -MissingRelationMembers $sourceReferenceIntegrity.missingRelationMembers `
+        -MaxMissingReferences $sourceReferenceIntegrity.maximumMissingReferences
       & (Join-Path $PSScriptRoot "build-region-details.ps1") -PackId $PackId -MaintenanceJobId $MaintenanceJobId
     }
     catch {

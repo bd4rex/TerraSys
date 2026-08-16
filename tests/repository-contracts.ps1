@@ -42,6 +42,10 @@ $summary.JsonFiles = $jsonFiles.Count
 $worldCatalog = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-catalog.json") | ConvertFrom-Json
 $sourceOverrides = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-source-overrides.json") | ConvertFrom-Json
 $worldIds = @($worldCatalog.datasets | ForEach-Object { [string]$_.id })
+$expectedKoreaMissingReferenceLimits = @{
+  "gf-north-korea" = 20000
+  "gf-south-korea" = 0
+}
 if ([int]$sourceOverrides.schemaVersion -ne 1) {
   Add-ContractFailure "World source overrides use an unsupported schema."
 }
@@ -53,6 +57,9 @@ foreach ($property in $sourceOverrides.datasets.PSObject.Properties) {
   if (-not $profile -or [string]$profile.mode -ne "direct" -or [Uri]$profile.snapshotUrl -isnot [Uri] -or
       ([Uri]$profile.snapshotUrl).Scheme -ne "https" -or ([Uri]$profile.snapshotUrl).Host -ne "tiles.osm.kr") {
     Add-ContractFailure "World source override is not a trusted direct OSM Korea source: $($property.Name)"
+  }
+  if ([int64]$profile.maxMissingReferences -ne [int64]$expectedKoreaMissingReferenceLimits[[string]$property.Name]) {
+    Add-ContractFailure "World source override has an unexpected missing-reference limit: $($property.Name)"
   }
 }
 . (Join-Path $root "scripts\catalog-utils.ps1")
@@ -66,6 +73,8 @@ foreach ($packId in @("gf-north-korea", "gf-south-korea")) {
 $summary.WorldSourceOverrides = @($sourceOverrides.datasets.PSObject.Properties).Count
 
 $regionBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-region-pack.ps1")
+$regionDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-region-source.ps1")
+$capabilityBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-capability-source.ps1")
 $planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
@@ -77,6 +86,12 @@ if ($regionBuildSource -notmatch [regex]::Escape("download-planetiler-sources.ps
     $planetilerDownloadSource -notmatch [regex]::Escape("6c900507c88fc9f5b5a386f90fd0a42d0495e8755a03d075538fb9a6801a3192") -or
     $planetilerDownloadSource -notmatch [regex]::Escape('raw/planetiler-sources/$($Source.Name)')) {
   Add-ContractFailure "Region builds do not cache and inventory shared Planetiler sources."
+}
+if ($regionBuildSource -notmatch [regex]::Escape("Get-ReferenceIntegrity") -or
+    $regionDownloadSource -notmatch [regex]::Escape("Assert-PbfReferences") -or
+    $capabilityBuildSource -notmatch [regex]::Escape("Measure-Object maximumMissingReferences -Sum") -or
+    $capabilityBuildSource -notmatch [regex]::Escape("referenceIntegrity")) {
+  Add-ContractFailure "Regional downloads and shared capability builds do not enforce bounded reference-integrity limits."
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.

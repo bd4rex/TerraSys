@@ -1,6 +1,9 @@
 param(
   [Parameter(Mandatory = $true)]
-  [string]$PackId
+  [string]$PackId,
+  [int64]$MissingWayNodes = 0,
+  [int64]$MissingRelationMembers = 0,
+  [int64]$MaxMissingReferences = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +50,12 @@ $manifest = [ordered]@{
     sequenceNumber = $state.sequenceNumber
     updatedAt = $state.timestamp
     provider = [string]$pack.sourceProfile.provider
+    referenceIntegrity = [ordered]@{
+      missingWayNodes = $MissingWayNodes
+      missingRelationMembers = $MissingRelationMembers
+      missingTotal = $MissingWayNodes + $MissingRelationMembers
+      maximumMissingReferences = $MaxMissingReferences
+    }
   }
   supportingSources = $supportingSources
   product = [ordered]@{
