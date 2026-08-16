@@ -2,11 +2,14 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $checks = [ordered]@{}
 $envFile = Join-Path $root "services\.env"
-$httpPortLine = if (Test-Path -LiteralPath $envFile) {
-  Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
-}
+$envContent = if (Test-Path -LiteralPath $envFile) { @(Get-Content $envFile) } else { @() }
+$httpPortLine = $envContent | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
 $httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
-$baseUrl = "http://localhost:$httpPort"
+$bindAddressLine = $envContent | Where-Object { $_ -match '^TERRASYS_BIND_ADDRESS=' } | Select-Object -First 1
+$bindAddress = if ($bindAddressLine) { $bindAddressLine.Substring("TERRASYS_BIND_ADDRESS=".Length).Trim() } else { "0.0.0.0" }
+$probeHost = if ($bindAddress -in @("", "0.0.0.0", "::", "[::]")) { "127.0.0.1" } else { $bindAddress.TrimStart('[').TrimEnd(']') }
+$uriHost = if ($probeHost.Contains(":")) { "[$probeHost]" } else { $probeHost }
+$baseUrl = "http://${uriHost}:$httpPort"
 
 docker info *> $null
 if ($LASTEXITCODE -ne 0) {

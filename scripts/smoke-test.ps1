@@ -1,11 +1,14 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $root "services\.env"
-$httpPortLine = if (Test-Path -LiteralPath $envFile) {
-  Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
-}
+$envContent = if (Test-Path -LiteralPath $envFile) { @(Get-Content $envFile) } else { @() }
+$httpPortLine = $envContent | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
 $httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
-$webBase = "http://localhost:$httpPort"
+$bindAddressLine = $envContent | Where-Object { $_ -match '^TERRASYS_BIND_ADDRESS=' } | Select-Object -First 1
+$bindAddress = if ($bindAddressLine) { $bindAddressLine.Substring("TERRASYS_BIND_ADDRESS=".Length).Trim() } else { "0.0.0.0" }
+$probeHost = if ($bindAddress -in @("", "0.0.0.0", "::", "[::]")) { "127.0.0.1" } else { $bindAddress.TrimStart('[').TrimEnd(']') }
+$uriHost = if ($probeHost.Contains(":")) { "[$probeHost]" } else { $probeHost }
+$webBase = "http://${uriHost}:$httpPort"
 $base = "$webBase/api"
 $placeId = $null
 $collectionId = $null
@@ -177,7 +180,7 @@ try {
       throw "$resourceId remains incorrectly marked for update after a successful build."
     }
   }
-  $overviewResponse = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/assets/overview/gray-earth.jpg" -TimeoutSec 20
+  $overviewResponse = Invoke-WebRequest -UseBasicParsing -Uri "$webBase/assets/overview/gray-earth.jpg" -TimeoutSec 20
   if ($overviewResponse.StatusCode -ne 200 -or $overviewResponse.RawContentLength -lt 1MB) {
     throw "Global overview raster is unavailable."
   }
@@ -240,7 +243,7 @@ try {
       throw "Local terrain tile endpoint returned an invalid image."
     }
 
-    $contourAsset = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/vendor/maplibre-contour/index.min.js" -TimeoutSec 20
+    $contourAsset = Invoke-WebRequest -UseBasicParsing -Uri "$webBase/vendor/maplibre-contour/index.min.js" -TimeoutSec 20
     if ($contourAsset.StatusCode -ne 200 -or $contourAsset.Content -notmatch "DemSource") {
       throw "Local MapLibre contour worker asset is unavailable."
     }
@@ -248,7 +251,7 @@ try {
     $emergency = Invoke-RestMethod -Uri "$base/emergency.geojson?categories=medical,security,shelter,supplies,fuel&west=118.5&south=31.8&east=119.1&north=32.4&limit=100"
     if (@($emergency.features).Count -lt 10) { throw "Offline emergency layer returned too few Nanjing facilities." }
 
-    $wikiResponse = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/wiki/catalog/v2/entries?count=-1" -TimeoutSec 20
+    $wikiResponse = Invoke-WebRequest -UseBasicParsing -Uri "$webBase/wiki/catalog/v2/entries?count=-1" -TimeoutSec 20
     if ($wikiResponse.StatusCode -ne 200 -or $wikiResponse.Content -notmatch '<name>wikipedia_zh_all</name>' -or
         $wikiResponse.Content -notmatch '<name>wikivoyage_zh_all</name>') {
       throw "Offline knowledge catalog is missing the Chinese Wikipedia or Wikivoyage archive."

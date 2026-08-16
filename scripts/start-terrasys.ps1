@@ -200,10 +200,13 @@ if (-not $workerRunning) {
 
 $httpPortLine = Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
 $httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
+$bindAddressLine = Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_BIND_ADDRESS=' } | Select-Object -First 1
+$bindAddress = if ($bindAddressLine) { $bindAddressLine.Substring("TERRASYS_BIND_ADDRESS=".Length).Trim() } else { "0.0.0.0" }
+$displayHost = if ($bindAddress -in @("", "0.0.0.0", "::", "[::]")) { "localhost" } else { $bindAddress }
 
 Write-Host ""
 Write-Host "TerraSys is starting."
 Write-Host "Advanced offline engines: $(if ($advancedReady) { 'enabled' } else { 'not prepared' })"
 Write-Host "Maintenance worker: enabled"
-Write-Host "Map: http://localhost:$httpPort/"
+Write-Host "Map: http://${displayHost}:$httpPort/"
 Write-Host "Health: run ./terrasys.sh health (Linux) or health-check.cmd (Windows)"

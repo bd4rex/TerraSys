@@ -22,8 +22,13 @@ $httpPortLine = if (Test-Path -LiteralPath $envFile) {
   Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
 }
 $httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
+$bindAddressLine = if (Test-Path -LiteralPath $envFile) {
+  Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_BIND_ADDRESS=' } | Select-Object -First 1
+}
+$bindAddress = if ($bindAddressLine) { $bindAddressLine.Substring("TERRASYS_BIND_ADDRESS=".Length).Trim() } else { "0.0.0.0" }
+$displayHost = if ($bindAddress -in @("", "0.0.0.0", "::", "[::]")) { "localhost" } else { $bindAddress }
 Write-Host ""
-Write-Host "Web: http://localhost:$httpPort/"
+Write-Host "Web: http://${displayHost}:$httpPort/"
 if ($isWindowsHost) {
   $lanAddresses = Get-NetIPAddress -AddressFamily IPv4 |
     Where-Object {
