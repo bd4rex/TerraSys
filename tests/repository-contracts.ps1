@@ -77,6 +77,7 @@ $regionDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\
 $capabilityBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-capability-source.ps1")
 $planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
 $overviewDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\sync-overview-resources.ps1")
+$osmCartoDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-osm-carto-sources.ps1")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -97,6 +98,21 @@ if ($regionBuildSource -notmatch [regex]::Escape("Get-ReferenceIntegrity") -or
 if ($overviewDownloadSource -notmatch [regex]::Escape("https://naciscdn.org/naturalearth/50m/raster/GRAY_50M_SR_OB.zip") -or
     $overviewDownloadSource -notmatch [regex]::Escape("--continue-at")) {
   Add-ContractFailure "Natural Earth overview downloads do not use the resumable public CDN source."
+}
+foreach ($requiredSource in @(
+  "simplified-water-polygons-split-3857.zip",
+  "water-polygons-split-3857.zip",
+  "antarctica-icesheet-polygons-3857.zip",
+  "antarctica-icesheet-outlines-3857.zip",
+  "ne_110m_admin_0_boundary_lines_land.zip"
+)) {
+  if ($osmCartoDownloadSource -notmatch [regex]::Escape($requiredSource)) {
+    Add-ContractFailure "OSM Carto downloads do not declare supporting source: $requiredSource"
+  }
+}
+if ($osmCartoDownloadSource -notmatch [regex]::Escape("--continue-at") -or
+    $osmCartoDownloadSource -notmatch [regex]::Escape("raw/planetiler-sources/water-polygons-split-3857.zip")) {
+  Add-ContractFailure "OSM Carto supporting sources are not resumable or do not reuse the verified shared water archive."
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.

@@ -148,6 +148,8 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw "Docker was
 docker info *> $null
 Assert-NativeSuccess "Checking Docker"
 
+& (Join-Path $PSScriptRoot "download-osm-carto-sources.ps1")
+
 $externalInputs = foreach ($name in $requiredExternalFiles) {
   $path = Join-Path $externalRoot $name
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing local OSM Carto external dataset: $path" }

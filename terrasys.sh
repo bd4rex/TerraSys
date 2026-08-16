@@ -26,7 +26,7 @@ Common commands:
 All commands replacing the Windows .cmd entry points:
   backup, build-capability-source, build-nautical,
   build-world-overview-vector, create-offline-kit, download-encyclopedia,
-  download-osm, download-travel-guide, download-web-assets, health,
+  download-osm, download-osm-carto-sources, download-travel-guide, download-web-assets, health,
   import-reference-search, install-backup-task, migrate,
   plan-osm-incremental-updates, prepare-advanced, prune-offline-kits,
   rebuild-shared-indexes, refresh-offline-kit, region-pack,
@@ -79,6 +79,7 @@ case "$command_name" in
   create-offline-kit) script="create-offline-kit.ps1" ;;
   download-encyclopedia) script="download-encyclopedia.ps1" ;;
   download-osm) script="download-osm.ps1" ;;
+  download-osm-carto-sources) script="download-osm-carto-sources.ps1" ;;
   download-travel-guide) script="download-travel-guide.ps1" ;;
   download-web-assets) script="download-web-assets.ps1" ;;
   health) script="health-check.ps1" ;;
