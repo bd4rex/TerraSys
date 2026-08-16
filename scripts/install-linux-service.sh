@@ -50,7 +50,10 @@ if ! id "$SERVICE_USER" >/dev/null 2>&1; then
   printf 'Linux service user does not exist: %s\n' "$SERVICE_USER" >&2
   exit 1
 fi
-if [[ "$PROJECT_ROOT" =~ [[:space:]&|\;] ]]; then
+if [[ "$PROJECT_ROOT" == *[[:space:]]* ||
+      "$PROJECT_ROOT" == *"&"* ||
+      "$PROJECT_ROOT" == *"|"* ||
+      "$PROJECT_ROOT" == *";"* ]]; then
   printf 'The project path cannot contain whitespace or shell metacharacters: %s\n' "$PROJECT_ROOT" >&2
   exit 1
 fi

@@ -34,7 +34,9 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          bash -n terrasys.sh scripts/install-linux-service.sh scripts/linux/curl.exe
+          for script in terrasys.sh scripts/install-linux-service.sh scripts/linux/curl.exe; do
+            bash -n "$script"
+          done
           test -x terrasys.sh
           test -x scripts/install-linux-service.sh
           test -x scripts/linux/curl.exe
