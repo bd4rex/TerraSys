@@ -6,6 +6,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $root "runtime") | Out-Null
 if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) {
   throw "curl.exe was not found on PATH."
 }
+$curlSupportsParallel = ((curl.exe --help all 2>$null) -join "`n") -match '--parallel\s'
 
 function Invoke-Download {
   param(
@@ -28,6 +29,63 @@ function Invoke-Download {
   }
   finally {
     if (Test-Path $part) { Remove-Item -LiteralPath $part -Force }
+  }
+}
+
+function Invoke-ParallelDownloads {
+  param(
+    [Parameter(Mandatory = $true)][object[]]$Downloads,
+    [int]$ThrottleLimit = 8
+  )
+
+  if (-not $Downloads.Count) { return }
+  if (-not $curlSupportsParallel) {
+    foreach ($download in $Downloads) {
+      Invoke-Download -Url $download.Url -OutFile $download.OutFile
+      if ((Get-Item $download.OutFile).Length -ne [int64]$download.ExpectedSize) {
+        throw "Downloaded size mismatch: $($download.Label)"
+      }
+    }
+    return
+  }
+
+  $arguments = New-Object System.Collections.Generic.List[string]
+  foreach ($argument in @(
+    "--silent", "--show-error", "--location", "--fail", "--connect-timeout", "20",
+    "--max-time", "300", "--retry", "3", "--retry-delay", "3", "--retry-all-errors",
+    "--parallel", "--parallel-immediate", "--parallel-max", "$ThrottleLimit"
+  )) { $arguments.Add($argument) }
+
+  foreach ($download in $Downloads) {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $download.OutFile) | Out-Null
+    $part = "$($download.OutFile).part"
+    if (Test-Path -LiteralPath $part) { Remove-Item -LiteralPath $part -Force }
+    $arguments.Add("--output")
+    $arguments.Add($part)
+    $arguments.Add("--url")
+    $arguments.Add([string]$download.Url)
+  }
+
+  try {
+    $curlArguments = $arguments.ToArray()
+    curl.exe @curlArguments
+    if ($LASTEXITCODE -ne 0) {
+      throw "Parallel asset download failed with exit code $LASTEXITCODE."
+    }
+    foreach ($download in $Downloads) {
+      $part = "$($download.OutFile).part"
+      if (-not (Test-Path -LiteralPath $part -PathType Leaf) -or
+          (Get-Item -LiteralPath $part).Length -ne [int64]$download.ExpectedSize) {
+        throw "Downloaded size mismatch: $($download.Label)"
+      }
+      Move-Item -LiteralPath $part -Destination $download.OutFile -Force
+    }
+  }
+  finally {
+    foreach ($download in $Downloads) {
+      $part = "$($download.OutFile).part"
+      if (Test-Path -LiteralPath $part) { Remove-Item -LiteralPath $part -Force }
+    }
   }
 }
 
@@ -75,10 +133,9 @@ foreach ($font in $fonts) {
   $encoded = [uri]::EscapeDataString($font)
   $items = Invoke-RestMethod -Uri "https://api.github.com/repos/maplibre/demotiles/contents/font/$encoded`?ref=gh-pages"
   $files = $items | Where-Object { $_.type -eq "file" -and $_.name -like "*.pbf" }
-  $i = 0
+  $pending = New-Object System.Collections.Generic.List[object]
 
   foreach ($file in $files) {
-    $i++
     $dest = Join-Path $target $file.name
     if ((Test-Path $dest) -and ((Get-Item $dest).Length -eq [int64]$file.size)) {
       continue
@@ -87,15 +144,20 @@ foreach ($font in $fonts) {
     # distributes the same immutable branch content; retain the GitHub API size
     # as an independent post-download check.
     $encodedFile = [uri]::EscapeDataString([string]$file.name)
-    Invoke-Download `
-      -Url "https://cdn.jsdelivr.net/gh/maplibre/demotiles@gh-pages/font/$encoded/$encodedFile" `
-      -OutFile $dest
-    if ((Get-Item $dest).Length -ne [int64]$file.size) {
-      throw "Glyph size mismatch for $font/$($file.name)."
-    }
-    if ($i % 50 -eq 0) {
-      Write-Host "$font $i / $($files.Count)"
-    }
+    $pending.Add([pscustomobject]@{
+      Url = "https://cdn.jsdelivr.net/gh/maplibre/demotiles@gh-pages/font/$encoded/$encodedFile"
+      OutFile = $dest
+      ExpectedSize = [int64]$file.size
+      Label = "$font/$($file.name)"
+    })
+  }
+
+  $batchSize = 32
+  for ($offset = 0; $offset -lt $pending.Count; $offset += $batchSize) {
+    $batch = @($pending | Select-Object -Skip $offset -First $batchSize)
+    Invoke-ParallelDownloads -Downloads $batch -ThrottleLimit 8
+    $ready = [math]::Min($files.Count, $files.Count - $pending.Count + $offset + $batch.Count)
+    Write-Host "$font $ready / $($files.Count)"
   }
 }
 
