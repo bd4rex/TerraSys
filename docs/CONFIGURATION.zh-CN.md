@@ -25,6 +25,7 @@ NOMINATIM_PASSWORD=<independent-long-random-local-password>
 NOMINATIM_VOLUME_NAME=services_terrasys_nominatim_data
 VALHALLA_DATA_PATH=../products/routing/valhalla
 OSM_CARTO_IMAGE=overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79
+NOMINATIM_IMAGE=mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8
 ```
 
 该文件被 Git 忽略。缺失时，`scripts/start-terrasys.ps1` 会创建 32 字节随机密码，并同步已有 `gis` 数据库角色密码。
@@ -42,7 +43,7 @@ OSM_CARTO_IMAGE=overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d
 | `osm-carto` | 外部数据库卷与宿主机瓦片缓存 | 无 |
 | `web` | 只读网页与 PMTiles | `127.0.0.1:8080` |
 
-所有第三方运行镜像固定 digest；API 镜像从固定版本的 `requirements.txt` 构建。`OSM_CARTO_IMAGE` 可以使用不同的可访问 registry 前缀，但脚本只接受上面固定的清单 SHA256。正常启动不应持久设置 `VALHALLA_FORCE_REBUILD` 或 `VALHALLA_IGNORE_PBF` 的重建覆盖值。
+所有第三方运行镜像固定 digest；API 镜像从固定版本的 `requirements.txt` 构建。`OSM_CARTO_IMAGE` 和 `NOMINATIM_IMAGE` 可以使用不同的可访问 registry 前缀，但脚本只接受上面各自固定的清单 SHA256。正常启动不应持久设置 `VALHALLA_FORCE_REBUILD` 或 `VALHALLA_IGNORE_PBF` 的重建覆盖值。
 
 ## nginx 路由
 

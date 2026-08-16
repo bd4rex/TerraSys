@@ -112,6 +112,29 @@ else {
   }
 }
 
+$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimFallbackImage = "docker.1ms.run/mediagis/nominatim@$nominatimDigest"
+$nominatimImageLine = Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_IMAGE=' } | Select-Object -First 1
+if ($nominatimImageLine) {
+  $nominatimImage = ([string]$nominatimImageLine).Substring("NOMINATIM_IMAGE=".Length).Trim()
+  if (-not $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
+  }
+}
+else {
+  $savedPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    docker image inspect $nominatimFallbackImage *> $null
+    $fallbackIsLocal = $LASTEXITCODE -eq 0
+  }
+  catch { $fallbackIsLocal = $false }
+  finally { $ErrorActionPreference = $savedPreference }
+  if ($fallbackIsLocal) {
+    Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_IMAGE=$nominatimFallbackImage"
+  }
+}
+
 $valhallaPathLine = Get-Content $envFile | Where-Object { $_ -match '^VALHALLA_DATA_PATH=' } | Select-Object -First 1
 $valhallaDataPath = if ($valhallaPathLine) {
   $configuredPath = $valhallaPathLine.Substring("VALHALLA_DATA_PATH=".Length).Trim()

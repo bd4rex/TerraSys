@@ -160,13 +160,20 @@ if ($advancedIncluded) {
 
 $osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
 $osmCartoImage = "overv/openstreetmap-tile-server@$osmCartoDigest"
+$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimImage = "mediagis/nominatim@$nominatimDigest"
 $serviceEnv = Join-Path $root "services\.env"
 if (Test-Path -LiteralPath $serviceEnv -PathType Leaf) {
   $osmCartoImageLine = Get-Content -LiteralPath $serviceEnv | Where-Object { $_ -match '^OSM_CARTO_IMAGE=' } | Select-Object -First 1
   if ($osmCartoImageLine) { $osmCartoImage = ([string]$osmCartoImageLine).Substring("OSM_CARTO_IMAGE=".Length).Trim() }
+  $nominatimImageLine = Get-Content -LiteralPath $serviceEnv | Where-Object { $_ -match '^NOMINATIM_IMAGE=' } | Select-Object -First 1
+  if ($nominatimImageLine) { $nominatimImage = ([string]$nominatimImageLine).Substring("NOMINATIM_IMAGE=".Length).Trim() }
 }
 if (-not $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
   throw "OSM_CARTO_IMAGE must be pinned to the approved digest $osmCartoDigest."
+}
+if (-not $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase)) {
+  throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
 }
 
 $images = @(
@@ -178,7 +185,7 @@ $images = @(
   "ghcr.io/onthegomap/planetiler:latest",
   "terrasys-ui-test:1",
   $osmCartoImage,
-  "mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8",
+  $nominatimImage,
   "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1",
   "ghcr.io/kiwix/kiwix-serve@sha256:57baa553c46cd30770905df15a9a687258aa5471c30c8edaefe278f1784e1aa8"
 )

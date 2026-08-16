@@ -80,6 +80,8 @@ $overviewDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "script
 $osmCartoDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-osm-carto-sources.ps1")
 $osmCartoBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-osm-carto.ps1")
 $composeSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\docker-compose.yml")
+$startSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\start-terrasys.ps1")
+$sharedIndexSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\rebuild-shared-indexes.ps1")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -126,6 +128,14 @@ if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-
     $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or
     $composeSource -notmatch [regex]::Escape('${OSM_CARTO_IMAGE:-overv/openstreetmap-tile-server@' + $osmCartoDigest + '}')) {
   Add-ContractFailure "OSM Carto does not provide a digest-verified configurable registry fallback."
+}
+$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nominatim@' + $nominatimDigest + '}') -or
+    $startSource -notmatch [regex]::Escape("docker.1ms.run/mediagis/nominatim@`$nominatimDigest") -or
+    $startSource -notmatch [regex]::Escape('docker image inspect $nominatimFallbackImage') -or
+    $sharedIndexSource -notmatch [regex]::Escape('configuredImages.NOMINATIM_IMAGE') -or
+    $sharedIndexSource -notmatch [regex]::Escape('EndsWith("@$nominatimImageDigest"')) {
+  Add-ContractFailure "Nominatim does not preserve its pinned digest across registry fallback, Compose, and index rebuilds."
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
