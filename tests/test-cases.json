@@ -43,7 +43,8 @@
       "automation": ["tests/repository-contracts.ps1"],
       "assertions": [
         "Startup recognizes the approved local SHA256 image ID when repository digests are absent.",
-        "The immutable ID remains accepted by shared-index rebuilds and offline image export while mismatched references are rejected."
+        "The immutable ID remains accepted by shared-index rebuilds and offline image export while mismatched references are rejected.",
+        "Downloaded Kiwix archives and manifests are readable by non-owner container users on Linux."
       ],
       "evidence": "Nominatim image-reference assertions in the static repository-contract run."
     },

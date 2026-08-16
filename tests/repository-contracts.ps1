@@ -83,6 +83,8 @@ $composeSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\docker
 $startSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\start-terrasys.ps1")
 $sharedIndexSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\rebuild-shared-indexes.ps1")
 $offlineKitSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\create-offline-kit.ps1")
+$encyclopediaDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-encyclopedia.ps1")
+$travelGuideDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-travel-guide.ps1")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -143,6 +145,12 @@ if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nomina
 }
 if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s*5g.*?server_threads:\s*"3"') {
   Add-ContractFailure "Valhalla initial builds do not retain the validated 4 GiB / 5 GiB swap resource envelope."
+}
+foreach ($knowledgeSource in @($encyclopediaDownloadSource, $travelGuideDownloadSource)) {
+  if ($knowledgeSource -notmatch [regex]::Escape('Set-ContainerReadableFile @($target, $manifestPath)') -or
+      $knowledgeSource -notmatch [regex]::Escape('& chmod 0644 -- $path')) {
+    Add-ContractFailure "Downloaded Kiwix archives and manifests are not normalized for container read access on Linux."
+  }
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.

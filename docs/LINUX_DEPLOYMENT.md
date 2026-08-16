@@ -125,6 +125,8 @@ The renderer always remains pinned to the same OCI manifest SHA256. If Docker Hu
 
 Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` and rejects any mismatched manifest digest. The start command recognizes an already-local, digest-correct `docker.1ms.run` fallback image. It also accepts the exact immutable SHA256 image ID retained when `docker save/load` omits repository metadata; that selection carries through shared-index rebuilds and offline image export without attempting another network pull.
 
+The encyclopedia download commands normalize completed ZIM archives and their manifests to mode `0644` on Linux so the non-owner Kiwix container user can read bind-mounted files even under a restrictive host umask.
+
 Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space. Valhalla's initial build uses a 4 GiB memory limit and a 5 GiB memory-plus-swap limit; its steady-state use is substantially lower after the build.
 
 ## 7. Install boot startup and daily backups
