@@ -68,7 +68,11 @@ function Set-PublicBindTreeReadable {
   if ($LASTEXITCODE -ne 0) { throw "Could not normalize public bind-mount permissions: $Path" }
 
   $unreadable = New-Object System.Collections.Generic.List[string]
-  foreach ($item in @((Get-Item -LiteralPath $Path), @(Get-ChildItem -LiteralPath $Path -Force -Recurse))) {
+  $publicItems = @(
+    Get-Item -LiteralPath $Path
+    Get-ChildItem -LiteralPath $Path -Force -Recurse
+  )
+  foreach ($item in $publicItems) {
     $mode = [IO.File]::GetUnixFileMode($item.FullName)
     $required = if ($item.PSIsContainer) {
       [IO.UnixFileMode]::OtherRead -bor [IO.UnixFileMode]::OtherExecute

@@ -57,6 +57,7 @@
       "automation": ["tests/repository-contracts.ps1"],
       "assertions": [
         "Startup normalizes owner-controlled files under only the three public bind roots.",
+        "Startup flattens recursive directory enumeration before validating each Unix file mode.",
         "Startup rejects any remaining file or directory that lacks the required other-read or traversal permission.",
         "The dedicated OSM Carto Apache worker shares renderd's identity so newly rendered owner-only cache directories remain readable."
       ],

@@ -153,6 +153,8 @@ if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s
 }
 if ($startSource -notmatch [regex]::Escape('& find $Path -xdev -user $numericUid -exec chmod "u=rwX,go=rX"') -or
     $startSource -notmatch [regex]::Escape('[IO.File]::GetUnixFileMode($item.FullName)') -or
+    $startSource -notmatch [regex]::Escape('$publicItems = @(') -or
+    $startSource -notmatch [regex]::Escape('foreach ($item in $publicItems)') -or
     $startSource -notmatch '(?s)foreach \(\$publicRoot.*?Join-Path \$root "web".*?Join-Path \$root "products\\tiles\\pmtiles".*?Join-Path \$root "products\\encyclopedia".*?Set-PublicBindTreeReadable') {
   Add-ContractFailure "Linux startup does not normalize and verify every container-served public bind mount."
 }
