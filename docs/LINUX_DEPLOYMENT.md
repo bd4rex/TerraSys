@@ -123,6 +123,8 @@ The OSM Carto build automatically acquires its five public water, ice-sheet, and
 
 The renderer always remains pinned to the same OCI manifest SHA256. If Docker Hub or the host's configured mirror rejects that repository, the build first retries the Overv organization's `ghcr.io` image and then uses `docker.1ms.run` as a secondary fallback. Docker must verify the identical digest before accepting the image, and the selected full reference is saved in local `services/.env`. A manually configured `OSM_CARTO_IMAGE` must retain the documented digest.
 
+The dedicated OSM Carto Apache worker runs as the image's `renderer` user. renderd creates dynamic metatile directories as owner-only, so sharing this identity is required for Apache to return both prewarmed and newly requested tiles without widening the host cache tree.
+
 Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` and rejects any mismatched manifest digest. The start command recognizes an already-local, digest-correct `docker.1ms.run` fallback image. It also accepts the exact immutable SHA256 image ID retained when `docker save/load` omits repository metadata; that selection carries through shared-index rebuilds and offline image export without attempting another network pull.
 
 The encyclopedia download commands normalize completed ZIM archives and their manifests to mode `0644` on Linux so the non-owner Kiwix container user can read bind-mounted files even under a restrictive host umask.

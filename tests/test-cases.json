@@ -57,7 +57,8 @@
       "automation": ["tests/repository-contracts.ps1"],
       "assertions": [
         "Startup normalizes owner-controlled files under only the three public bind roots.",
-        "Startup rejects any remaining file or directory that lacks the required other-read or traversal permission."
+        "Startup rejects any remaining file or directory that lacks the required other-read or traversal permission.",
+        "The dedicated OSM Carto Apache worker shares renderd's identity so newly rendered owner-only cache directories remain readable."
       ],
       "evidence": "Public bind-mount permission assertions in the static repository-contract run."
     },

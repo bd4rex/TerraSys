@@ -123,6 +123,8 @@ OSM Carto 构建会自动从公开上游断点续传五份水域、冰盖和 Nat
 
 渲染器始终固定到同一个 OCI 清单 SHA256。若 Docker Hub 或主机配置的加速器拒绝该仓库，构建命令会先尝试 Overv 组织的 `ghcr.io` 镜像，再把 `docker.1ms.run` 作为次级回退；Docker 必须验证完全相同的摘要才会接受镜像，成功选择的完整引用会写入本机 `services/.env`。手工设置 `OSM_CARTO_IMAGE` 时也必须保留文档中的固定摘要。
 
+专用 OSM Carto 容器中的 Apache worker 以镜像自带的 `renderer` 用户运行。renderd 会把动态 metatile 子目录创建为仅所有者可访问，因此二者共享身份后，Apache 才能读取预热瓦片和后续按需生成的瓦片，同时无需放宽主机缓存树权限。
+
 Nominatim 也支持通过 `NOMINATIM_IMAGE` 更换 registry 前缀，并同样拒绝任何不匹配的清单摘要。启动命令会识别本机已有且摘要正确的 `docker.1ms.run` 回退镜像；若 `docker save/load` 只保留内容而省略仓库元数据，也会接受完全一致且不可变的 SHA256 镜像 ID。该选择会贯穿共享索引重建与离线包导出，并避免再次访问网络。
 
 百科资源下载命令会在 Linux 上把完成的 ZIM 文件及其清单统一设为 `0644`，因此即使主机使用严格 umask，非文件所有者身份运行的 Kiwix 容器也能读取这些 bind mount 文件。

@@ -85,6 +85,7 @@ $sharedIndexSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\reb
 $offlineKitSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\create-offline-kit.ps1")
 $encyclopediaDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-encyclopedia.ps1")
 $travelGuideDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-travel-guide.ps1")
+$osmCartoApacheSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\osm-carto-apache.conf")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -131,6 +132,10 @@ if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-
     $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or
     $composeSource -notmatch [regex]::Escape('${OSM_CARTO_IMAGE:-overv/openstreetmap-tile-server@' + $osmCartoDigest + '}')) {
   Add-ContractFailure "OSM Carto does not provide a digest-verified configurable registry fallback."
+}
+if ($osmCartoApacheSource -notmatch '(?m)^User renderer\s*$' -or
+    $osmCartoApacheSource -notmatch '(?m)^Group renderer\s*$') {
+  Add-ContractFailure "OSM Carto Apache does not share renderd's identity for its owner-only dynamic tile cache."
 }
 $nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
 if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nominatim@' + $nominatimDigest + '}') -or
