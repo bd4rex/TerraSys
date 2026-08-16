@@ -10,7 +10,10 @@ $compose = Join-Path $root "services\docker-compose.yml"
 $envFile = Join-Path $root "services\.env"
 $imageDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
 $canonicalImage = "overv/openstreetmap-tile-server@$imageDigest"
-$fallbackImages = @("docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest")
+$fallbackImages = @(
+  "ghcr.io/overv/openstreetmap-tile-server@$imageDigest",
+  "docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest"
+)
 $image = ""
 $sourceManifest = Join-Path $root "raw\osm\carto\installed-regions.manifest.json"
 $externalRoot = Join-Path $root "raw\osm\carto\external"

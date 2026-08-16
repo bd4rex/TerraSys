@@ -117,7 +117,8 @@ if ($osmCartoDownloadSource -notmatch [regex]::Escape("--continue-at") -or
   Add-ContractFailure "OSM Carto supporting sources are not resumable or do not reuse the verified shared water archive."
 }
 $osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
-if ($osmCartoBuildSource -notmatch [regex]::Escape('docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest') -or
+if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-tile-server@$imageDigest') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest') -or
     $osmCartoBuildSource -notmatch [regex]::Escape($osmCartoDigest) -or
     $osmCartoBuildSource -notmatch [regex]::Escape('EndsWith("@$imageDigest"') -or
     $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or

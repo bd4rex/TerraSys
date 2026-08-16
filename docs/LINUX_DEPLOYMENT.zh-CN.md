@@ -120,7 +120,7 @@ Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件，�
 
 OSM Carto 构建会自动从公开上游断点续传五份水域、冰盖和 Natural Earth Shapefile 归档，校验 ZIP 中的必需文件并在导入前记录 SHA256；如果 Planetiler 缓存中已有经过验证的大型水域归档，会直接复用而不重复下载。
 
-渲染器始终固定到同一个 OCI 清单 SHA256。若 Docker Hub 或主机配置的加速器拒绝该仓库，构建命令会尝试可访问的 `docker.1ms.run` 仓库前缀；Docker 必须验证完全相同的摘要才会接受镜像，成功选择的完整引用会写入本机 `services/.env`。手工设置 `OSM_CARTO_IMAGE` 时也必须保留文档中的固定摘要。
+渲染器始终固定到同一个 OCI 清单 SHA256。若 Docker Hub 或主机配置的加速器拒绝该仓库，构建命令会先尝试 Overv 组织的 `ghcr.io` 镜像，再把 `docker.1ms.run` 作为次级回退；Docker 必须验证完全相同的摘要才会接受镜像，成功选择的完整引用会写入本机 `services/.env`。手工设置 `OSM_CARTO_IMAGE` 时也必须保留文档中的固定摘要。
 
 Nominatim、Valhalla、Planetiler 和 OSM Carto 都会大量占用资源。16 GiB 主机应按顺序构建，并保留充足磁盘空间。
 
