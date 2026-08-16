@@ -86,6 +86,7 @@ $offlineKitSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\crea
 $encyclopediaDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-encyclopedia.ps1")
 $travelGuideDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-travel-guide.ps1")
 $osmCartoApacheSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\osm-carto-apache.conf")
+$apiSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\api\app\main.py")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -136,6 +137,9 @@ if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-
 if ($osmCartoApacheSource -notmatch '(?m)^User renderer\s*$' -or
     $osmCartoApacheSource -notmatch '(?m)^Group renderer\s*$') {
   Add-ContractFailure "OSM Carto Apache does not share renderd's identity for its owner-only dynamic tile cache."
+}
+if ($apiSource -notmatch '(?s)def map_pack_payload_revision\(\).*?map_pack_boundary_revision\(\)') {
+  Add-ContractFailure "Map-pack API caching does not invalidate when downloaded province boundaries change."
 }
 $nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
 if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nominatim@' + $nominatimDigest + '}') -or

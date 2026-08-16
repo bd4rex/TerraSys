@@ -2037,6 +2037,7 @@ def file_revision(path: Path) -> tuple[int, int]:
 def map_pack_payload_revision() -> tuple[Any, ...]:
     return (
         resource_inventory_revision(),
+        map_pack_boundary_revision(),
         *(
             file_revision(path)
             for path in (
