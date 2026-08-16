@@ -111,6 +111,7 @@ Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件，�
 ./terrasys.sh region-pack Build -PackId gf-north-korea
 ./terrasys.sh region-pack Build -PackId gf-south-korea
 ./terrasys.sh prepare-advanced -SkipStart
+./terrasys.sh sync-elevation
 ./terrasys.sh build-world-overview-vector
 ./terrasys.sh build-osm-carto
 ./terrasys.sh start --no-build

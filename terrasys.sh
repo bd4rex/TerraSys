@@ -20,6 +20,7 @@ Common commands:
   backup                   Create a checksum-verified personal-data backup
   region-pack              Build, update, verify, roll back, or remove a map pack
   prepare-advanced         Prepare the advanced offline services
+  sync-elevation           Download and verify elevation grids for installed packs
   test-suite               Run the layered test suite
   install-backup-task      Install the daily systemd backup timer
 
@@ -31,7 +32,7 @@ All commands replacing the Windows .cmd entry points:
   plan-osm-incremental-updates, prepare-advanced, prune-offline-kits,
   rebuild-shared-indexes, refresh-offline-kit, region-pack,
   restore-offline-kit, restore, smoke, start, start-offline, stop,
-  sync-overview-resources, sync-weather, sync-world-catalog,
+  sync-elevation, sync-overview-resources, sync-weather, sync-world-catalog,
   test-offline-recovery, test-suite, verify-offline-kit.
 
 Examples:
@@ -95,6 +96,7 @@ case "$command_name" in
   restore) script="restore-terrasys.ps1" ;;
   smoke) script="smoke-test.ps1" ;;
   stop) script="stop-terrasys.ps1" ;;
+  sync-elevation) script="sync-elevation.ps1" ;;
   sync-overview-resources) script="sync-overview-resources.ps1" ;;
   sync-weather) script="sync-weather.ps1" ;;
   sync-world-catalog) script="sync-world-catalog.ps1" ;;

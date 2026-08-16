@@ -182,6 +182,11 @@ if ($bashUsable) {
   }
 }
 $summary.BashFiles = $bashFiles.Count
+$linuxDispatcher = Get-Content -Raw -LiteralPath (Join-Path $root "terrasys.sh")
+if ($linuxDispatcher -notmatch 'sync-elevation\)\s+script="sync-elevation\.ps1"' -or
+    $linuxDispatcher -notmatch [regex]::Escape('export PATH="$PROJECT_ROOT/scripts/linux:$PATH"')) {
+  Add-ContractFailure "The Linux dispatcher does not expose elevation sync through its curl compatibility PATH."
+}
 
 # Every maintained document has a language counterpart and an explicit cross-link.
 $markdownFiles = Get-MarkdownFiles

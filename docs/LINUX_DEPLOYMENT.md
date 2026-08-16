@@ -111,6 +111,7 @@ The server should obtain large reproducible assets from their public upstream so
 ./terrasys.sh region-pack Build -PackId gf-north-korea
 ./terrasys.sh region-pack Build -PackId gf-south-korea
 ./terrasys.sh prepare-advanced -SkipStart
+./terrasys.sh sync-elevation
 ./terrasys.sh build-world-overview-vector
 ./terrasys.sh build-osm-carto
 ./terrasys.sh start --no-build
