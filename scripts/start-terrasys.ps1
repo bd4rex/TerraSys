@@ -90,6 +90,28 @@ if (-not $nominatimPasswordLine -or $nominatimPasswordLine.Substring("NOMINATIM_
   throw "NOMINATIM_PASSWORD must contain at least 20 characters."
 }
 
+$osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+$osmCartoImageLine = Get-Content $envFile | Where-Object { $_ -match '^OSM_CARTO_IMAGE=' } | Select-Object -First 1
+if ($osmCartoImageLine) {
+  $osmCartoImage = ([string]$osmCartoImageLine).Substring("OSM_CARTO_IMAGE=".Length).Trim()
+  if (-not $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "OSM_CARTO_IMAGE must be pinned to the approved digest $osmCartoDigest."
+  }
+}
+else {
+  $osmCartoManifestPath = Join-Path $root "products\osm-carto\osm-carto.manifest.json"
+  if (Test-Path -LiteralPath $osmCartoManifestPath -PathType Leaf) {
+    $osmCartoManifest = Get-Content -Raw -LiteralPath $osmCartoManifestPath | ConvertFrom-Json
+    $osmCartoImage = if ($osmCartoManifest.renderer.runtimeImage) {
+      [string]$osmCartoManifest.renderer.runtimeImage
+    }
+    else { [string]$osmCartoManifest.renderer.image }
+    if ($osmCartoImage -and $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
+      Add-Content -Encoding ASCII -LiteralPath $envFile -Value "OSM_CARTO_IMAGE=$osmCartoImage"
+    }
+  }
+}
+
 $valhallaPathLine = Get-Content $envFile | Where-Object { $_ -match '^VALHALLA_DATA_PATH=' } | Select-Object -First 1
 $valhallaDataPath = if ($valhallaPathLine) {
   $configuredPath = $valhallaPathLine.Substring("VALHALLA_DATA_PATH=".Length).Trim()

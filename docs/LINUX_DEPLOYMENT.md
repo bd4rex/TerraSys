@@ -120,6 +120,8 @@ The China snapshot and regional source downloads use resumable staging files and
 
 The OSM Carto build automatically acquires its five public water, ice-sheet, and Natural Earth Shapefile archives with resume support. It validates required ZIP members and records SHA256 before import. The large water archive is reused from the already verified Planetiler cache when available.
 
+The renderer always remains pinned to the same OCI manifest SHA256. If Docker Hub or the host's configured mirror rejects that repository, the build retries through the reachable `docker.1ms.run` registry prefix. Docker must verify the identical digest before accepting the image, and the selected full reference is saved in local `services/.env`. A manually configured `OSM_CARTO_IMAGE` must retain the documented digest.
+
 Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
 
 ## 7. Install boot startup and daily backups

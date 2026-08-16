@@ -78,6 +78,8 @@ $capabilityBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts
 $planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
 $overviewDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\sync-overview-resources.ps1")
 $osmCartoDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-osm-carto-sources.ps1")
+$osmCartoBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-osm-carto.ps1")
+$composeSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\docker-compose.yml")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -113,6 +115,14 @@ foreach ($requiredSource in @(
 if ($osmCartoDownloadSource -notmatch [regex]::Escape("--continue-at") -or
     $osmCartoDownloadSource -notmatch [regex]::Escape("raw/planetiler-sources/water-polygons-split-3857.zip")) {
   Add-ContractFailure "OSM Carto supporting sources are not resumable or do not reuse the verified shared water archive."
+}
+$osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+if ($osmCartoBuildSource -notmatch [regex]::Escape('docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape($osmCartoDigest) -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('EndsWith("@$imageDigest"') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or
+    $composeSource -notmatch [regex]::Escape('${OSM_CARTO_IMAGE:-overv/openstreetmap-tile-server@' + $osmCartoDigest + '}')) {
+  Add-ContractFailure "OSM Carto does not provide a digest-verified configurable registry fallback."
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
