@@ -125,7 +125,7 @@ The renderer always remains pinned to the same OCI manifest SHA256. If Docker Hu
 
 Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` and rejects any mismatched manifest digest. The start command recognizes an already-local, digest-correct `docker.1ms.run` fallback image; that selection also carries through shared-index rebuilds and offline image export.
 
-Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
+Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space. Valhalla's initial build uses a 4 GiB memory limit and a 5 GiB memory-plus-swap limit; its steady-state use is substantially lower after the build.
 
 ## 7. Install boot startup and daily backups
 

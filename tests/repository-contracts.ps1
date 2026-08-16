@@ -137,6 +137,9 @@ if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nomina
     $sharedIndexSource -notmatch [regex]::Escape('EndsWith("@$nominatimImageDigest"')) {
   Add-ContractFailure "Nominatim does not preserve its pinned digest across registry fallback, Compose, and index rebuilds."
 }
+if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s*5g.*?server_threads:\s*"3"') {
+  Add-ContractFailure "Valhalla initial builds do not retain the validated 4 GiB / 5 GiB swap resource envelope."
+}
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
 $powerShellFiles = @(
