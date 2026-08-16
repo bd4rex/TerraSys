@@ -14,6 +14,8 @@ Set-StrictMode -Version 2
 $root = Split-Path -Parent $PSScriptRoot
 $startedAt = Get-Date
 $results = New-Object System.Collections.Generic.List[object]
+$powerShellExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } elseif (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { throw "PowerShell was not found on PATH." }
+$pythonExecutable = if (Get-Command python -ErrorAction SilentlyContinue) { "python" } elseif (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" } else { throw "Python was not found on PATH." }
 
 function Invoke-SuiteStep {
   param(
@@ -70,20 +72,20 @@ Invoke-SuiteStep -Id "static" -Description "repository configuration, scripts, b
 }
 
 Invoke-SuiteStep -Id "live-layer-unit" -Description "keyless live-layer adapters, cache, bounds, and AIS NMEA decoding" -Action {
-  Invoke-NativeCommand -Executable "python" -Arguments @("-m", "unittest", "tests.test_live_layers", "-v") -Operation "Live-layer unit tests"
+  Invoke-NativeCommand -Executable $pythonExecutable -Arguments @("-m", "unittest", "tests.test_live_layers", "-v") -Operation "Live-layer unit tests"
 }
 
 if ($Profile -in @("browser", "full", "recovery")) {
   Invoke-SuiteStep -Id "health" -Description "running service and installed-product health" -Action {
     $script = Join-Path $root "scripts\health-check.ps1"
-    Invoke-NativeCommand -Executable "powershell" -Arguments @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script) -Operation "Health check"
+    Invoke-NativeCommand -Executable $powerShellExecutable -Arguments @("-NoProfile", "-File", $script) -Operation "Health check"
   }
 }
 
 if ($Profile -in @("full", "recovery")) {
   Invoke-SuiteStep -Id "api-lifecycle" -Description "regional resources and personal-data lifecycle" -Action {
     $script = Join-Path $root "scripts\smoke-test.ps1"
-    Invoke-NativeCommand -Executable "powershell" -Arguments @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script) -Operation "API lifecycle smoke test"
+    Invoke-NativeCommand -Executable $powerShellExecutable -Arguments @("-NoProfile", "-File", $script) -Operation "API lifecycle smoke test"
   }
 }
 
@@ -105,9 +107,9 @@ if ($Profile -in @("browser", "full", "recovery")) {
 if ($Profile -eq "recovery") {
   Invoke-SuiteStep -Id "offline-recovery" -Description "isolated offline-kit recovery drill" -Action {
     $script = Join-Path $root "scripts\test-offline-recovery.ps1"
-    $arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $script)
+    $arguments = @("-NoProfile", "-File", $script)
     if ($KitDirectory) { $arguments += @("-KitDirectory", $KitDirectory) }
-    Invoke-NativeCommand -Executable "powershell" -Arguments $arguments -Operation "Offline recovery drill"
+    Invoke-NativeCommand -Executable $powerShellExecutable -Arguments $arguments -Operation "Offline recovery drill"
   }
 }
 

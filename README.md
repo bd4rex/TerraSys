@@ -71,15 +71,27 @@ The active Compose profile contains eight services: `web`, `api`, `postgis`, `ma
 
 ## Start and verify
 
+Windows:
+
 ```powershell
 D:\TerraSys\start-terrasys.cmd
 D:\TerraSys\health-check.cmd
 D:\TerraSys\smoke-test.cmd
 ```
 
+Linux:
+
+```bash
+./terrasys.sh start
+./terrasys.sh health
+./terrasys.sh smoke
+```
+
+See [Linux server deployment](docs/LINUX_DEPLOYMENT.md) for disk expansion, OS/runtime installation, direct public downloads, systemd startup, and backup scheduling.
+
 Ongoing development uses the layered [test suite](tests/README.md): `static` for every commit, `browser` for map and resource UI coverage, `full` for API and personal-data lifecycles, and `recovery` for the isolated disconnected recovery drill.
 
-`start-terrasys.cmd` creates local secrets when required, starts Docker Desktop, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
+The start command creates local secrets when required, ensures Docker is available, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
 
 Prepare or rebuild advanced offline capabilities:
 

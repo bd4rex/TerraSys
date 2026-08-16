@@ -137,7 +137,7 @@ services:
       IMPORT_WIKIPEDIA: "false"
       THREADS: "4"
       GUNICORN_WORKERS: "2"
-      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?Run start-terrasys.cmd to create the local Nominatim password}
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?Run ./terrasys.sh start or start-terrasys.cmd to create the local Nominatim password}
       POSTGRES_SHARED_BUFFERS: 2GB
       POSTGRES_MAINTENANCE_WORK_MEM: 3GB
       POSTGRES_AUTOVACUUM_WORK_MEM: 512MB
@@ -246,7 +246,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "0.0.0.0:8080:80"
+      - "${TERRASYS_BIND_ADDRESS:-0.0.0.0}:${TERRASYS_HTTP_PORT:-8080}:80"
     volumes:
       - ../web:/usr/share/nginx/html:ro
       - ../products/tiles/pmtiles:/srv/pmtiles:ro

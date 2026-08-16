@@ -30,7 +30,7 @@ foreach ($dataset in @($catalog.datasets)) {
   }
 }
 
-$drive = Get-PSDrive -Name ([IO.Path]::GetPathRoot($root).TrimEnd('\').TrimEnd(':'))
+$drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($root))
 $osmiumReady = [bool](docker image ls -q terrasys-osmium:1 2>$null)
 $report = [ordered]@{
   schemaVersion = 1
@@ -39,7 +39,7 @@ $report = [ordered]@{
   productionIncrementalUpdatesEnabled = $false
   disasterRecoveryBaseline = "full-snapshot"
   osmiumImageReady = $osmiumReady
-  freeBytes = [int64]$drive.Free
+  freeBytes = [int64]$drive.AvailableFreeSpace
   installedPacks = $installed
   pilotRecommendation = [ordered]@{
     packIds = @($installed | Where-Object { $_.enabled -and $_.eligibleForPilot } | Select-Object -First 1 -ExpandProperty id)

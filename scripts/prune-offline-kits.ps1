@@ -8,7 +8,9 @@ $root = Split-Path -Parent $PSScriptRoot
 $kitRoot = Join-Path $root "offline-kit"
 if (-not (Test-Path -LiteralPath $kitRoot -PathType Container)) { exit 0 }
 
-$resolvedRoot = (Resolve-Path -LiteralPath $kitRoot).Path.TrimEnd('\')
+$resolvedRoot = (Resolve-Path -LiteralPath $kitRoot).Path.TrimEnd([char[]]@('\', '/'))
+$pathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$rootPrefix = $resolvedRoot + [IO.Path]::DirectorySeparatorChar
 $directories = @(Get-ChildItem -LiteralPath $resolvedRoot -Directory -Force)
 $valid = @($directories | Where-Object {
   if ($_.Name.EndsWith(".failed", [StringComparison]::OrdinalIgnoreCase)) { return $false }
@@ -33,7 +35,7 @@ if (-not $KeepFailed) {
 
 foreach ($directory in $remove | Sort-Object FullName -Unique) {
   $resolved = (Resolve-Path -LiteralPath $directory.FullName).Path
-  if (-not $resolved.StartsWith($resolvedRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+  if (-not $resolved.StartsWith($rootPrefix, $pathComparison)) {
     throw "Refusing to remove an offline kit outside $resolvedRoot"
   }
   Write-Host "Removing old offline kit: $resolved"

@@ -14,6 +14,7 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 ### Added
 
+- A complete Ubuntu server deployment path with a unified `terrasys.sh` command surface, Docker Engine/PowerShell 7 compatibility, systemd boot service, daily backup timer, configurable trusted-interface binding, and Linux CI coverage.
 - An independent additional-information-layer module with normalized GeoJSON adapters, TTL caching, viewport cropping, and graceful degradation for USGS, NASA EONET, GDACS, Open-Meteo, ADSB.lol, NOAA NDBC, and the Norwegian open AIS stream.
 - The former contour shortcut is now the P0/P1 information-layer entry; contours remain in the ordinary layer panel, with ADS-B/AIS refresh, provenance popups, and a quick jump to the AIS coverage area.
 - A decision catalog records keyed-source application paths and published call limits while the runtime remains `no-key-only`.

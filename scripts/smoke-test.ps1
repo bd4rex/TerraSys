@@ -1,7 +1,12 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$base = "http://localhost:8080/api"
-$webBase = "http://localhost:8080"
+$envFile = Join-Path $root "services\.env"
+$httpPortLine = if (Test-Path -LiteralPath $envFile) {
+  Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
+}
+$httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
+$webBase = "http://localhost:$httpPort"
+$base = "$webBase/api"
 $placeId = $null
 $collectionId = $null
 $trackIds = New-Object System.Collections.Generic.List[string]
@@ -372,7 +377,8 @@ try {
     if ($_.Exception.Response.StatusCode.value__ -ne 422) { throw }
   }
 
-  $gpxJson = curl.exe -sS --fail -F "file=@$root\tests\fixtures\sample.gpx" "$base/imports/gpx"
+  $sampleGpx = Join-Path $root "tests\fixtures\sample.gpx"
+  $gpxJson = curl.exe -sS --fail -F "file=@$sampleGpx" "$base/imports/gpx"
   $gpx = $gpxJson | ConvertFrom-Json
   foreach ($id in $gpx.created) { $trackIds.Add($id) }
 

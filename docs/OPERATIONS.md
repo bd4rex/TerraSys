@@ -10,6 +10,16 @@ D:\TerraSys\health-check.cmd
 D:\TerraSys\stop-terrasys.cmd
 ```
 
+Linux uses the unified command surface:
+
+```bash
+./terrasys.sh start
+./terrasys.sh health
+./terrasys.sh stop
+```
+
+See [Linux server deployment](LINUX_DEPLOYMENT.md) for host preparation, direct public downloads, systemd, and backups.
+
 Open `http://localhost:8080/` after health checks pass.
 
 Detailed service state:
@@ -113,7 +123,7 @@ Maintenance state is stored in `D:\TerraSys\data\maintenance`:
 | `logs\*.log` | Script output for each job |
 | `backup-policy.json` | Installed daily-backup schedule and optional mirror target |
 
-The API accepts only catalog pack IDs and a fixed resource allowlist. It never accepts a command string from the browser. `start-terrasys.cmd` starts `scripts\maintenance-worker.ps1` hidden; `stop-terrasys.cmd` requests a clean worker stop before Docker shuts down.
+The API accepts only catalog pack IDs and a fixed resource allowlist. It never accepts a command string from the browser. The Windows or Linux start command launches `scripts/maintenance-worker.ps1` in the background; the matching stop command requests a clean worker stop before Docker shuts down.
 
 The storage total is intentionally conservative. Host directories and PostGIS are counted; Docker-managed Nominatim bytes are shown as volume-managed and are not guessed.
 

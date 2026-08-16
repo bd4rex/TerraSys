@@ -1,0 +1,153 @@
+# Linux server deployment
+
+> English | [简体中文](LINUX_DEPLOYMENT.zh-CN.md)
+>
+> Supported baseline: Ubuntu Server 24.04 LTS, Docker Engine, Docker Compose plugin, and PowerShell 7.
+
+This guide deploys TerraSys on a trusted server or VPN. The server downloads source code, pinned container images, and public geographic datasets directly from the internet; only private PostGIS/media backups need to cross the private network.
+
+## 1. Expand an Ubuntu LVM root disk
+
+Inspect the exact disk, partition, physical volume, and logical volume before changing storage:
+
+```bash
+lsblk -o NAME,SIZE,FSTYPE,TYPE,MOUNTPOINTS
+sudo pvs
+sudo vgs
+sudo lvs
+findmnt /
+```
+
+For the common Ubuntu layout where the virtual disk is `/dev/sda`, LVM uses partition 3, and `/` is `/dev/ubuntu-vg/ubuntu-lv`:
+
+```bash
+sudo growpart /dev/sda 3
+sudo pvresize /dev/sda3
+sudo lvextend -r -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+df -h /
+sudo pvs
+sudo lvs
+```
+
+Do not copy these device names to a host with a different layout. `lvextend -r` grows the filesystem together with the logical volume.
+
+## 2. Update the operating system
+
+```bash
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get full-upgrade -y
+sudo apt-get autoremove --purge -y
+sudo timedatectl set-timezone Asia/Shanghai
+sudo reboot
+```
+
+After reconnecting, verify `uname -r`, `cat /etc/os-release`, and `apt list --upgradable`. Use `sudo do-release-upgrade -c` only to check whether Ubuntu offers a supported release upgrade; do not force an unsupported release path.
+
+## 3. Install the runtime
+
+Install Docker Engine and its Compose plugin from Docker's official Ubuntu repository, then install PowerShell from Microsoft's Ubuntu repository:
+
+- [Docker Engine for Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+- [PowerShell on Ubuntu](https://learn.microsoft.com/powershell/scripting/install/install-ubuntu)
+
+Verify the runtime:
+
+```bash
+docker version
+docker compose version
+pwsh --version
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$USER"
+```
+
+Log out and reconnect after changing Docker-group membership.
+
+## 4. Clone and configure TerraSys
+
+```bash
+sudo install -d -o "$USER" -g "$USER" -m 0750 /opt/terrasys
+git clone https://github.com/bd4rex/TerraSys.git /opt/terrasys/app
+cd /opt/terrasys/app
+./terrasys.sh test-suite -Profile static
+./terrasys.sh start
+```
+
+The first start creates strong local PostgreSQL and Nominatim passwords in `services/.env`. Add the host binding explicitly when the machine has any untrusted interface:
+
+```dotenv
+TERRASYS_BIND_ADDRESS=172.16.100.75
+TERRASYS_HTTP_PORT=8080
+```
+
+Use the server's actual trusted LAN/VPN address. TerraSys is a single-user trusted-network system; do not publish port `8080` directly to the internet. Restrict the environment file:
+
+```bash
+chmod 0600 services/.env
+```
+
+## 5. Restore private data
+
+Place a verified TerraSys backup directory below `backups/`, then run:
+
+```bash
+./terrasys.sh restore -BackupDirectory /opt/terrasys/app/backups/20260816-120000
+```
+
+The directory must contain `terrasys.dump`, `manifest.json`, and optional `media/`. The restore command validates file sizes and SHA256 values before replacing the new database. Keep at least one additional copy of the backup until server verification finishes.
+
+## 6. Download and build public data on the server
+
+The server should obtain large reproducible assets from their public upstream sources instead of copying them through a VPN:
+
+```bash
+./terrasys.sh download-web-assets
+./terrasys.sh sync-world-catalog
+./terrasys.sh region-pack Build -PackId jiangsu
+./terrasys.sh region-pack Build -PackId anhui
+./terrasys.sh region-pack Build -PackId shandong
+./terrasys.sh region-pack Build -PackId gf-north-korea
+./terrasys.sh region-pack Build -PackId gf-south-korea
+./terrasys.sh prepare-advanced -SkipStart
+./terrasys.sh build-world-overview-vector
+./terrasys.sh build-osm-carto
+./terrasys.sh start --no-build
+```
+
+These builds are resumable around verified products, but Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
+
+## 7. Install boot startup and daily backups
+
+```bash
+sudo ./scripts/install-linux-service.sh --user "$USER" --root /opt/terrasys/app --start
+systemctl status terrasys.service --no-pager
+systemctl list-timers terrasys-backup.timer --no-pager
+```
+
+The installer creates a systemd application service and a persistent daily backup timer. Logs are available through:
+
+```bash
+journalctl -u terrasys.service -n 200 --no-pager
+journalctl -u terrasys-backup.service -n 200 --no-pager
+```
+
+## 8. Verify and update
+
+```bash
+cd /opt/terrasys/app
+./terrasys.sh health
+./terrasys.sh smoke
+docker compose -f services/docker-compose.yml ps
+curl --fail http://127.0.0.1:8080/healthz
+```
+
+For a later application update:
+
+```bash
+cd /opt/terrasys/app
+git pull --ff-only
+./terrasys.sh test-suite -Profile static
+sudo systemctl restart terrasys.service
+./terrasys.sh health
+```
+
+Run `./terrasys.sh help` for every Linux command replacing the root Windows `.cmd` entry points.

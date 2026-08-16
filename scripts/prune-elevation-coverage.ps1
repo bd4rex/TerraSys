@@ -15,9 +15,10 @@ $utf8NoBom = New-Object Text.UTF8Encoding($false)
 if (-not (Test-Path -LiteralPath $elevationRoot -PathType Container)) {
   throw "Valhalla elevation directory is missing: $elevationRoot"
 }
-$resolvedRoot = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
-$resolvedRouting = [IO.Path]::GetFullPath($RoutingRoot).TrimEnd('\') + '\'
-if (-not $resolvedRouting.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+$pathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$resolvedRoot = [IO.Path]::GetFullPath($root).TrimEnd([char[]]@('\', '/')) + [IO.Path]::DirectorySeparatorChar
+$resolvedRouting = [IO.Path]::GetFullPath($RoutingRoot).TrimEnd([char[]]@('\', '/')) + [IO.Path]::DirectorySeparatorChar
+if (-not $resolvedRouting.StartsWith($resolvedRoot, $pathComparison)) {
   throw "RoutingRoot must remain inside the TerraSys project: $RoutingRoot"
 }
 

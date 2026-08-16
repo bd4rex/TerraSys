@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $services = Join-Path $root "services"
 $envFile = Join-Path $services ".env"
+$isWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 
 function New-LocalSecret {
   $bytes = New-Object byte[] 32
@@ -31,10 +32,13 @@ function Test-DockerEngine {
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-  throw "Docker was not found on PATH. Install Docker Desktop, then run this script again."
+  throw "Docker was not found on PATH. Install Docker Engine or Docker Desktop, then run this script again."
 }
 
 if (-not (Test-DockerEngine)) {
+  if (-not $isWindowsHost) {
+    throw "Docker Engine is not running or the current user cannot access it. Start docker.service and verify Docker-group membership."
+  }
   $dockerDesktop = @(
     "C:\Program Files\Docker\Docker\Docker Desktop.exe",
     (Join-Path $env:LOCALAPPDATA "Docker\Docker Desktop.exe")
@@ -126,19 +130,49 @@ if (Test-Path -LiteralPath $workerStatePath -PathType Leaf) {
   try {
     $workerState = Get-Content -Raw -LiteralPath $workerStatePath | ConvertFrom-Json
     $workerPid = [int]$workerState.pid
-    $workerProcess = if ($workerPid -gt 0) { Get-CimInstance Win32_Process -Filter "ProcessId = $workerPid" -ErrorAction SilentlyContinue } else { $null }
-    $workerRunning = $workerState.status -eq "running" -and $workerProcess -and
-      [string]$workerProcess.CommandLine -match [regex]::Escape($workerScript)
+    $workerCommandLine = $null
+    if ($workerPid -gt 0) {
+      if ($isWindowsHost) {
+        $workerProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $workerPid" -ErrorAction SilentlyContinue
+        if ($workerProcess) { $workerCommandLine = [string]$workerProcess.CommandLine }
+      }
+      else {
+        $commandLinePath = "/proc/$workerPid/cmdline"
+        if (Test-Path -LiteralPath $commandLinePath -PathType Leaf) {
+          $workerCommandLine = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($commandLinePath)).Replace([char]0, " ")
+        }
+      }
+    }
+    $workerRunning = $workerState.status -eq "running" -and
+      $workerCommandLine -match [regex]::Escape($workerScript)
   }
   catch { $workerRunning = $false }
 }
 if (-not $workerRunning) {
-  Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $workerScript) -WindowStyle Hidden | Out-Null
+  $workerExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
+  $workerArguments = @("-NoLogo", "-NoProfile")
+  if ($isWindowsHost) { $workerArguments += @("-ExecutionPolicy", "Bypass") }
+  $workerArguments += @("-File", $workerScript)
+  $workerStart = @{
+    FilePath = $workerExecutable
+    ArgumentList = $workerArguments
+  }
+  if ($isWindowsHost) {
+    $workerStart.WindowStyle = "Hidden"
+  }
+  else {
+    $workerStart.RedirectStandardOutput = (Join-Path $maintenanceRoot "worker-console.log")
+    $workerStart.RedirectStandardError = (Join-Path $maintenanceRoot "worker-error.log")
+  }
+  Start-Process @workerStart | Out-Null
 }
+
+$httpPortLine = Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
+$httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
 
 Write-Host ""
 Write-Host "TerraSys is starting."
 Write-Host "Advanced offline engines: $(if ($advancedReady) { 'enabled' } else { 'not prepared' })"
 Write-Host "Maintenance worker: enabled"
-Write-Host "Map: http://localhost:8080/"
-Write-Host "Health: run D:\TerraSys\health-check.cmd"
+Write-Host "Map: http://localhost:$httpPort/"
+Write-Host "Health: run ./terrasys.sh health (Linux) or health-check.cmd (Windows)"

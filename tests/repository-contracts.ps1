@@ -61,6 +61,28 @@ foreach ($file in $powerShellFiles) {
 }
 $summary.PowerShellFiles = $powerShellFiles.Count
 
+# Parse Linux entry points when Bash is available. CI always runs this on Ubuntu.
+$bashFiles = @(
+  Get-ChildItem -LiteralPath $root -File -Filter "*.sh" -ErrorAction SilentlyContinue
+  Get-ChildItem -LiteralPath (Join-Path $root "scripts") -Recurse -File -Filter "*.sh" -ErrorAction SilentlyContinue
+  Get-Item -LiteralPath (Join-Path $root "scripts\linux\curl.exe") -ErrorAction SilentlyContinue
+)
+$bash = Get-Command bash -ErrorAction SilentlyContinue
+$bashUsable = $false
+if ($bash) {
+  & $bash.Source --version *> $null
+  $bashUsable = $LASTEXITCODE -eq 0
+}
+if ($bashUsable) {
+  foreach ($file in $bashFiles) {
+    & $bash.Source -n $file.FullName
+    if ($LASTEXITCODE -ne 0) {
+      Add-ContractFailure "Bash parse error in $($file.FullName)."
+    }
+  }
+}
+$summary.BashFiles = $bashFiles.Count
+
 # Every maintained document has a language counterpart and an explicit cross-link.
 $markdownFiles = Get-MarkdownFiles
 $bilingualPairs = 0

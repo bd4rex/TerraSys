@@ -14,6 +14,7 @@
 
 ### 新增
 
+- 完整 Ubuntu 服务器部署路径：统一 `terrasys.sh` 命令面、Docker Engine/PowerShell 7 兼容、systemd 开机服务、每日备份计时器、可信接口监听配置和 Linux CI 覆盖。
 - 独立“附加信息图层”模块，以统一 GeoJSON 适配器、TTL 缓存、视口裁剪和安全降级接入 USGS、NASA EONET、GDACS、Open-Meteo、ADSB.lol、NOAA NDBC 与挪威沿岸开放 AIS。
 - 将原等高线快捷按钮改为 P0/P1 信息图层入口；等高线仍保留在普通图层面板，并新增 ADS-B/AIS 实时刷新、来源弹窗和 AIS 覆盖区快速定位。
 - 新增需要密钥的数据源与公开调用限制决策目录，本轮运行代码保持 `no-key-only`。

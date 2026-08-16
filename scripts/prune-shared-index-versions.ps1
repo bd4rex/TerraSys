@@ -24,7 +24,7 @@ function Get-ActiveMount([string]$Container, [string]$Destination, [string]$Prop
 
 function Normalize-Path([string]$Path) {
   if (-not $Path) { return "" }
-  return [IO.Path]::GetFullPath($Path).TrimEnd('\')
+  return [IO.Path]::GetFullPath($Path).TrimEnd([char[]]@('\', '/'))
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw "Docker is required." }
@@ -79,7 +79,9 @@ foreach ($volume in $removeVolumes) {
 
 foreach ($path in $removeRouting) {
   $resolved = Normalize-Path $path
-  if ($resolved -eq $activeRouting -or -not $resolved.StartsWith($routingRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+  $pathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+  $routingPrefix = (Normalize-Path $routingRoot) + [IO.Path]::DirectorySeparatorChar
+  if ($resolved -eq $activeRouting -or -not $resolved.StartsWith($routingPrefix, $pathComparison)) {
     throw "Refusing to remove unsafe or active routing path: $resolved"
   }
   if (Test-Path -LiteralPath $resolved -PathType Container) {

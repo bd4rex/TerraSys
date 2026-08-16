@@ -44,7 +44,7 @@ function Copy-PayloadTree([string]$SourceDirectory, [string]$RelativeDirectory) 
 New-Item -ItemType Directory -Force -Path $payload, $dockerDirectory | Out-Null
 
 $outputDrive = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($OutputRoot))
-$freeBytes = (Get-PSDrive -Name $outputDrive.TrimEnd(':','\')).Free
+$freeBytes = [IO.DriveInfo]::new($outputDrive).AvailableFreeSpace
 $previousKit = Get-ChildItem -LiteralPath $OutputRoot -Directory -ErrorAction SilentlyContinue |
   Where-Object { -not $_.Name.EndsWith('.failed') -and (Test-Path -LiteralPath (Join-Path $_.FullName 'manifest.json')) } |
   Sort-Object Name -Descending | Select-Object -First 1

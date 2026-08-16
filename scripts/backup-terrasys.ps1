@@ -15,6 +15,21 @@ function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }
 }
 
+function Normalize-DirectoryPath([string]$Path) {
+  $full = [IO.Path]::GetFullPath($Path)
+  $pathRoot = [IO.Path]::GetPathRoot($full)
+  if ($full -eq $pathRoot) { return $full }
+  return $full.TrimEnd([char[]]@('\', '/'))
+}
+
+function Test-ChildDirectory([string]$Candidate, [string]$Parent) {
+  $comparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+  $normalizedCandidate = Normalize-DirectoryPath $Candidate
+  $normalizedParent = Normalize-DirectoryPath $Parent
+  $prefix = $normalizedParent + [IO.Path]::DirectorySeparatorChar
+  return $normalizedCandidate.StartsWith($prefix, $comparison)
+}
+
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 try {
@@ -44,22 +59,29 @@ try {
   $hashes | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 (Join-Path $target "manifest.json")
 
   if ($MirrorRoot) {
-    $mirrorRootFull = [IO.Path]::GetFullPath($MirrorRoot).TrimEnd('\')
-    $projectDrive = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($root))
-    $mirrorDrive = [IO.Path]::GetPathRoot($mirrorRootFull)
-    if ($projectDrive -eq $mirrorDrive) {
-      throw "Backup mirror must be on a different drive from $projectDrive"
-    }
+    $mirrorRootFull = Normalize-DirectoryPath $MirrorRoot
     New-Item -ItemType Directory -Force -Path $mirrorRootFull | Out-Null
+    if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+      $projectDevice = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($root))
+      $mirrorDevice = [IO.Path]::GetPathRoot($mirrorRootFull)
+    }
+    else {
+      $projectDevice = (& stat -c '%d' -- $root).Trim()
+      $mirrorDevice = (& stat -c '%d' -- $mirrorRootFull).Trim()
+      Assert-NativeSuccess "Inspecting backup filesystems"
+    }
+    if ($projectDevice -eq $mirrorDevice) {
+      throw "Backup mirror must be on a different filesystem from the project."
+    }
     $mirrorTarget = Join-Path $mirrorRootFull $timestamp
     Copy-Item -LiteralPath $target -Destination $mirrorTarget -Recurse -Force
     Write-Host "Backup mirrored to: $mirrorTarget"
   }
 
-  $resolvedBackupRoot = (Resolve-Path $backupRoot).Path.TrimEnd('\')
+  $resolvedBackupRoot = Normalize-DirectoryPath (Resolve-Path $backupRoot).Path
   Get-ChildItem $backupRoot -Directory | Sort-Object Name -Descending | Select-Object -Skip $Keep | ForEach-Object {
     $resolved = (Resolve-Path $_.FullName).Path
-    if (-not $resolved.StartsWith($resolvedBackupRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    if (-not (Test-ChildDirectory -Candidate $resolved -Parent $resolvedBackupRoot)) {
       throw "Refusing to remove backup outside $resolvedBackupRoot"
     }
     Remove-Item -LiteralPath $resolved -Recurse -Force

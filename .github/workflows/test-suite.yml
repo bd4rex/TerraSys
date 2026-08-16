@@ -15,12 +15,26 @@ concurrency:
 
 jobs:
   repository-contracts:
-    name: Static repository contracts
-    runs-on: windows-latest
+    name: Static repository contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
       - name: Run static test profile
-        shell: powershell
-        run: .\tests\run-suite.ps1 -Profile static
+        shell: pwsh
+        run: ./tests/run-suite.ps1 -Profile static
+      - name: Validate Linux entry points
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          bash -n terrasys.sh scripts/install-linux-service.sh scripts/linux/curl.exe
+          test -x terrasys.sh
+          test -x scripts/install-linux-service.sh
+          test -x scripts/linux/curl.exe
