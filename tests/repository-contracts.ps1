@@ -76,6 +76,7 @@ $regionBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\bui
 $regionDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-region-source.ps1")
 $capabilityBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-capability-source.ps1")
 $planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
+$overviewDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\sync-overview-resources.ps1")
 foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
   if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
     Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
@@ -92,6 +93,10 @@ if ($regionBuildSource -notmatch [regex]::Escape("Get-ReferenceIntegrity") -or
     $capabilityBuildSource -notmatch [regex]::Escape("Measure-Object maximumMissingReferences -Sum") -or
     $capabilityBuildSource -notmatch [regex]::Escape("referenceIntegrity")) {
   Add-ContractFailure "Regional downloads and shared capability builds do not enforce bounded reference-integrity limits."
+}
+if ($overviewDownloadSource -notmatch [regex]::Escape("https://naciscdn.org/naturalearth/50m/raster/GRAY_50M_SR_OB.zip") -or
+    $overviewDownloadSource -notmatch [regex]::Escape("--continue-at")) {
+  Add-ContractFailure "Natural Earth overview downloads do not use the resumable public CDN source."
 }
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.

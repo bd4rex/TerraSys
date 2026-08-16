@@ -99,7 +99,7 @@ The directory must contain `terrasys.dump`, `manifest.json`, and optional `media
 
 ## 6. Download and build public data on the server
 
-The server should obtain large reproducible assets from their public upstream sources instead of copying them through a VPN:
+The server should obtain large reproducible assets from their public upstream sources instead of copying them through a VPN. Kiwix knowledge archives, Natural Earth assets, and regional OSM sources use resumable public downloads; the overview raster uses Natural Earth's NACIS CDN:
 
 ```bash
 ./terrasys.sh download-web-assets

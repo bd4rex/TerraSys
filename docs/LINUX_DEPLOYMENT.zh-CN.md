@@ -99,7 +99,7 @@ Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件，�
 
 ## 6. 由服务器直接下载并构建公开数据
 
-大型可复现资源应由服务器从公开上游直接获取，不通过 VPN 搬运：
+大型可复现资源应由服务器从公开上游直接获取，不通过 VPN 搬运。Kiwix 知识库、Natural Earth 资源和区域 OSM 源都使用可续传的公开下载，其中概览栅格使用 Natural Earth 的 NACIS CDN：
 
 ```bash
 ./terrasys.sh download-web-assets
