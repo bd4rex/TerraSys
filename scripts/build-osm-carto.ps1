@@ -93,7 +93,9 @@ function Resolve-OsmCartoImage {
       Set-DotEnvValue "OSM_CARTO_IMAGE" $candidate
       return $candidate
     }
+  }
 
+  foreach ($candidate in $candidates) {
     Write-Host "Downloading pinned OSM Carto renderer from $candidate ..."
     $savedPreference = $ErrorActionPreference
     $pullSucceeded = $false
