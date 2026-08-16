@@ -97,7 +97,9 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Could not start PostGIS." }
   $ready = $false
   for ($attempt = 0; $attempt -lt 30; $attempt++) {
-    docker exec terrasys-postgis pg_isready -U gis -d terrasys *> $null
+    # The image's initialization server listens on its Unix socket only. A TCP
+    # probe becomes ready after init scripts finish and the final server starts.
+    docker exec terrasys-postgis pg_isready -h 127.0.0.1 -U gis -d terrasys *> $null
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     Start-Sleep -Seconds 1
   }

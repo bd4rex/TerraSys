@@ -14,7 +14,7 @@ services:
       - ./postgis/migrations:/docker-entrypoint-initdb.d:ro
       - ./postgis/migrations:/migrations:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gis -d terrasys"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U gis -d terrasys"]
       interval: 5s
       timeout: 5s
       retries: 20
