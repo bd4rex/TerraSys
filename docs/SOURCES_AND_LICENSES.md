@@ -14,7 +14,7 @@ Source mirror:
 - `https://download.geofabrik.de/index-v1.json` (global region catalog)
 - `https://tiles.osm.kr/download/` (North/South Korea non-military extracts)
 
-The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. The North/South Korea packs use OpenStreetMap Korea's public non-military extracts; TerraSys performs a complete PBF validation and records a local SHA256 because that download directory does not publish a sidecar checksum or replication state. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
+The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. The China provider can omit references crossing its outer country-extract boundary; TerraSys performs a complete PBF scan and accepts only a source-specific bounded count before the stricter province extraction checks run. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. The North/South Korea packs use OpenStreetMap Korea's public non-military extracts; TerraSys performs a complete PBF validation and records a local SHA256 because that download directory does not publish a sidecar checksum or replication state. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
 
 Project and license information: `https://www.openstreetmap.org/copyright`
 

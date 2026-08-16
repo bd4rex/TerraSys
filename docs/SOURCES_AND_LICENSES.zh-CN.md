@@ -14,7 +14,7 @@
 - `https://download.geofabrik.de/index-v1.json`
 - `https://tiles.osm.kr/download/`（朝鲜/韩国非军事要素提取文件）
 
-大陆省级地图从同一份中国快照和省级边界派生；台湾使用独立校验的 Geofabrik PBF 与边界。朝鲜/韩国包使用 OpenStreetMap Korea 的公开非军事要素提取文件；由于下载目录不提供旁路校验和或复制序列，TerraSys 会完整扫描 PBF 并在本地清单记录 SHA256。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
+大陆省级地图从同一份中国快照和省级边界派生。中国提供方可能省略跨越国家提取范围外边界的引用；TerraSys 会完整扫描 PBF，只接受该来源明确设置的有上限缺口，随后省级提取仍执行更严格的引用检查。台湾使用独立校验的 Geofabrik PBF 与边界。朝鲜/韩国包使用 OpenStreetMap Korea 的公开非军事要素提取文件；由于下载目录不提供旁路校验和或复制序列，TerraSys 会完整扫描 PBF 并在本地清单记录 SHA256。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
 
 版权与许可：`https://www.openstreetmap.org/copyright`
 

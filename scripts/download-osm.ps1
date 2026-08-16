@@ -8,6 +8,7 @@ $items = @(
     Dir = "raw\osm\china"
     Pbf = "https://download.openstreetmap.fr/extracts/asia/china-latest.osm.pbf"
     State = "https://download.openstreetmap.fr/extracts/asia/china.state.txt"
+    MaxMissingReferences = 100000
   }
 )
 
@@ -70,8 +71,26 @@ foreach ($item in $items) {
 
     docker run --rm -v "${root}:/data" $osmiumImage fileinfo -e $containerPart | Out-Host
     Assert-NativeSuccess "Reading $($item.Name) PBF metadata"
-    docker run --rm -v "${root}:/data" $osmiumImage check-refs $containerPart | Out-Host
-    Assert-NativeSuccess "Checking $($item.Name) PBF references"
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $referenceCheck = docker run --rm -v "${root}:/data" $osmiumImage check-refs $containerPart 2>&1
+    $referenceExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousPreference
+    $referenceLines = @($referenceCheck | ForEach-Object { "$_" })
+    $referenceLines | ForEach-Object { Write-Host $_ }
+    if ($referenceExitCode -ne 0) {
+      $missingCounts = @([regex]::Matches(
+        ($referenceLines -join "`n"),
+        '(?:Nodes in ways|Members in relations) missing:\s+(\d+)'
+      ) | ForEach-Object { [int64]$_.Groups[1].Value })
+      $missingTotal = [int64](($missingCounts | Measure-Object -Sum).Sum)
+      if ($missingCounts.Count -gt 0 -and $missingTotal -le [int64]$item.MaxMissingReferences) {
+        Write-Warning "$($item.Name) contains $missingTotal references omitted at the provider's outer extract boundary; the configured limit is $($item.MaxMissingReferences)."
+      }
+      else {
+        throw "Checking $($item.Name) PBF references failed with exit code $referenceExitCode."
+      }
+    }
 
     if (Test-Path $pbfPath) {
       Copy-Item -LiteralPath $pbfPath -Destination "$pbfPath.previous" -Force
