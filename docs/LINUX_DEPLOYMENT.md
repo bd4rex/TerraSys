@@ -123,7 +123,7 @@ The OSM Carto build automatically acquires its five public water, ice-sheet, and
 
 The renderer always remains pinned to the same OCI manifest SHA256. If Docker Hub or the host's configured mirror rejects that repository, the build first retries the Overv organization's `ghcr.io` image and then uses `docker.1ms.run` as a secondary fallback. Docker must verify the identical digest before accepting the image, and the selected full reference is saved in local `services/.env`. A manually configured `OSM_CARTO_IMAGE` must retain the documented digest.
 
-Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` and rejects any mismatched manifest digest. The start command recognizes an already-local, digest-correct `docker.1ms.run` fallback image; that selection also carries through shared-index rebuilds and offline image export.
+Nominatim likewise permits a registry-prefix override through `NOMINATIM_IMAGE` and rejects any mismatched manifest digest. The start command recognizes an already-local, digest-correct `docker.1ms.run` fallback image. It also accepts the exact immutable SHA256 image ID retained when `docker save/load` omits repository metadata; that selection carries through shared-index rebuilds and offline image export without attempting another network pull.
 
 Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space. Valhalla's initial build uses a 4 GiB memory limit and a 5 GiB memory-plus-swap limit; its steady-state use is substantially lower after the build.
 

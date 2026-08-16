@@ -123,7 +123,7 @@ OSM Carto 构建会自动从公开上游断点续传五份水域、冰盖和 Nat
 
 渲染器始终固定到同一个 OCI 清单 SHA256。若 Docker Hub 或主机配置的加速器拒绝该仓库，构建命令会先尝试 Overv 组织的 `ghcr.io` 镜像，再把 `docker.1ms.run` 作为次级回退；Docker 必须验证完全相同的摘要才会接受镜像，成功选择的完整引用会写入本机 `services/.env`。手工设置 `OSM_CARTO_IMAGE` 时也必须保留文档中的固定摘要。
 
-Nominatim 也支持通过 `NOMINATIM_IMAGE` 更换 registry 前缀，并同样拒绝任何不匹配的清单摘要。启动命令会识别本机已有且摘要正确的 `docker.1ms.run` 回退镜像；该选择也会贯穿共享索引重建与离线包导出。
+Nominatim 也支持通过 `NOMINATIM_IMAGE` 更换 registry 前缀，并同样拒绝任何不匹配的清单摘要。启动命令会识别本机已有且摘要正确的 `docker.1ms.run` 回退镜像；若 `docker save/load` 只保留内容而省略仓库元数据，也会接受完全一致且不可变的 SHA256 镜像 ID。该选择会贯穿共享索引重建与离线包导出，并避免再次访问网络。
 
 Nominatim、Valhalla、Planetiler 和 OSM Carto 都会大量占用资源。16 GiB 主机应按顺序构建，并保留充足磁盘空间；Valhalla 首次构建使用 4 GiB 内存上限和最多 5 GiB memory+swap 上限，完成后的常驻使用量会明显降低。
 

@@ -35,6 +35,23 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   throw "Docker was not found on PATH. Install Docker Engine or Docker Desktop, then run this script again."
 }
 
+function Test-LocalDockerImage {
+  param([Parameter(Mandatory = $true)][string]$Image)
+
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    docker image inspect $Image *> $null
+    return $LASTEXITCODE -eq 0
+  }
+  catch {
+    return $false
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
 if (-not (Test-DockerEngine)) {
   if (-not $isWindowsHost) {
     throw "Docker Engine is not running or the current user cannot access it. Start docker.service and verify Docker-group membership."
@@ -113,25 +130,27 @@ else {
 }
 
 $nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimPrimaryImage = "mediagis/nominatim@$nominatimDigest"
 $nominatimFallbackImage = "docker.1ms.run/mediagis/nominatim@$nominatimDigest"
 $nominatimImageLine = Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_IMAGE=' } | Select-Object -First 1
 if ($nominatimImageLine) {
   $nominatimImage = ([string]$nominatimImageLine).Substring("NOMINATIM_IMAGE=".Length).Trim()
-  if (-not $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase)) {
+  if (-not ($nominatimImage.Equals($nominatimDigest, [StringComparison]::OrdinalIgnoreCase) -or
+      $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase))) {
     throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
   }
 }
 else {
-  $savedPreference = $ErrorActionPreference
-  try {
-    $ErrorActionPreference = "SilentlyContinue"
-    docker image inspect $nominatimFallbackImage *> $null
-    $fallbackIsLocal = $LASTEXITCODE -eq 0
+  if (Test-LocalDockerImage $nominatimPrimaryImage) {
+    # Compose's default reference is already available locally.
   }
-  catch { $fallbackIsLocal = $false }
-  finally { $ErrorActionPreference = $savedPreference }
-  if ($fallbackIsLocal) {
+  elseif (Test-LocalDockerImage $nominatimFallbackImage) {
     Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_IMAGE=$nominatimFallbackImage"
+  }
+  elseif (Test-LocalDockerImage $nominatimDigest) {
+    # docker save/load preserves content but may omit repository digests. The
+    # immutable image ID remains safe to use and prevents an unnecessary pull.
+    Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_IMAGE=$nominatimDigest"
   }
 }
 

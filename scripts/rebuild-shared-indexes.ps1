@@ -221,7 +221,8 @@ $configuredImages = Read-DotEnv
 if ($configuredImages.ContainsKey("NOMINATIM_IMAGE") -and $configuredImages.NOMINATIM_IMAGE) {
   $nominatimImage = [string]$configuredImages.NOMINATIM_IMAGE
 }
-if (-not $nominatimImage.EndsWith("@$nominatimImageDigest", [StringComparison]::OrdinalIgnoreCase)) {
+if (-not ($nominatimImage.Equals($nominatimImageDigest, [StringComparison]::OrdinalIgnoreCase) -or
+    $nominatimImage.EndsWith("@$nominatimImageDigest", [StringComparison]::OrdinalIgnoreCase))) {
   throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimImageDigest."
 }
 

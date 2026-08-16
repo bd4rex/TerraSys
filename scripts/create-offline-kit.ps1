@@ -172,7 +172,8 @@ if (Test-Path -LiteralPath $serviceEnv -PathType Leaf) {
 if (-not $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
   throw "OSM_CARTO_IMAGE must be pinned to the approved digest $osmCartoDigest."
 }
-if (-not $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase)) {
+if (-not ($nominatimImage.Equals($nominatimDigest, [StringComparison]::OrdinalIgnoreCase) -or
+    $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase))) {
   throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
 }
 
