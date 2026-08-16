@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.requests import Request as StarletteRequest
 
 from app.personal_export import gpx_document
+from app.live_layers import live_layers
 from app.resource_support import directory_usage, read_json_file, upstream_source_states, write_json_file
 
 
@@ -130,6 +131,11 @@ MAINTENANCE_ROOT.mkdir(parents=True, exist_ok=True)
 pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=6, kwargs={"row_factory": dict_row})
 app = FastAPI(title="TerraSys Personal Data API", version="1.0.0", docs_url="/docs")
 RESOURCE_INVENTORY_REFRESH_LOCK = Lock()
+
+
+class LiveLayerSettingInput(BaseModel):
+    enabled: bool | None = None
+    refreshSeconds: int | None = Field(default=None, ge=5, le=172800)
 
 
 class PlaceInput(BaseModel):
@@ -1242,6 +1248,125 @@ def nautical_features() -> Any:
     return FileResponse(path, media_type="application/geo+json", headers={"Cache-Control": "public, max-age=3600"})
 
 
+def live_bounds(west: float, south: float, east: float, north: float) -> tuple[float, float, float, float]:
+    if south >= north:
+        raise HTTPException(status_code=422, detail="south must be lower than north")
+    return west, south, east, north
+
+
+@app.get("/live/catalog")
+def live_layer_catalog() -> dict[str, Any]:
+    """Catalog for keyless, independently maintained information overlays."""
+    return live_layers.catalog()
+
+
+@app.get("/live/status")
+def live_layer_status() -> dict[str, Any]:
+    """Runtime health collected while information sources are queried."""
+    return live_layers.runtime_status()
+
+
+@app.put("/live/settings/{layer_id}")
+def update_live_layer_setting(layer_id: str, setting: LiveLayerSettingInput) -> dict[str, Any]:
+    """Persist enablement and refresh cadence for a keyless information source."""
+    try:
+        layer = live_layers.update_setting(
+            layer_id,
+            enabled=setting.enabled,
+            refresh_seconds=setting.refreshSeconds,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Unknown live layer") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"status": "updated", "layer": layer}
+
+
+@app.get("/live/earthquakes")
+def live_earthquakes(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+    min_magnitude: float = Query(default=1.0, ge=-2, le=10),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("earthquakes", lambda: live_layers.earthquakes(bounds, min_magnitude))
+
+
+@app.get("/live/wildfires")
+def live_wildfires(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("wildfires", lambda: live_layers.wildfires(bounds))
+
+
+@app.get("/live/disasters")
+def live_disasters(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("disasters", lambda: live_layers.gdacs(bounds, {"FL", "VO", "DR", "WF"}, "gdacs"))
+
+
+@app.get("/live/air-quality")
+def live_air_quality(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("air-quality", lambda: live_layers.air_quality(bounds))
+
+
+@app.get("/live/floods")
+def live_floods(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("floods", lambda: live_layers.floods(bounds))
+
+
+@app.get("/live/aircraft")
+def live_aircraft(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+    limit: int = Query(default=2000, ge=1, le=5000),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("aircraft", lambda: live_layers.aircraft(bounds, limit))
+
+
+@app.get("/live/vessels")
+def live_vessels(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+    limit: int = Query(default=5000, ge=1, le=10000),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("vessels", lambda: live_layers.ais.features(bounds, limit))
+
+
+@app.get("/live/ocean-buoys")
+def live_ocean_buoys(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+    limit: int = Query(default=2000, ge=1, le=5000),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("ocean-buoys", lambda: live_layers.ocean_buoys(bounds, limit))
+
+
+@app.get("/live/cyclones")
+def live_cyclones(
+    west: float = Query(ge=-180, le=180), south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180), north: float = Query(ge=-90, le=90),
+) -> dict[str, Any]:
+    bounds = live_bounds(west, south, east, north)
+    return live_layers.safe("cyclones", lambda: live_layers.gdacs(bounds, {"TC"}, "gdacs-cyclones"))
+
+
 def current_osm_state() -> dict[str, str]:
     if not OSM_STATE_PATH.is_file():
         return {}
@@ -1903,7 +2028,13 @@ def warm_map_catalog_caches() -> None:
 
 @app.on_event("startup")
 def schedule_map_catalog_cache_warmup() -> None:
+    live_layers.start()
     Thread(target=warm_map_catalog_caches, name="map-catalog-warmup", daemon=True).start()
+
+
+@app.on_event("shutdown")
+def stop_live_layer_receivers() -> None:
+    live_layers.stop()
 
 
 @app.put("/map-packs/{pack_id}/activation")

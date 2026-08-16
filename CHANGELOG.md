@@ -14,6 +14,10 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 ### Added
 
+- An independent additional-information-layer module with normalized GeoJSON adapters, TTL caching, viewport cropping, and graceful degradation for USGS, NASA EONET, GDACS, Open-Meteo, ADSB.lol, NOAA NDBC, and the Norwegian open AIS stream.
+- The former contour shortcut is now the P0/P1 information-layer entry; contours remain in the ordinary layer panel, with ADS-B/AIS refresh, provenance popups, and a quick jump to the AIS coverage area.
+- A decision catalog records keyed-source application paths and published call limits while the runtime remains `no-key-only`.
+- A standalone additional-information-source console now manages no-key enablement, refresh cadence, bounded connection tests, runtime health, coverage, and licenses, with settings persisted in the maintenance directory.
 - A Natural Earth 110m/50m/10m vector PMTiles overview with land, water, boundaries, places, roads, railways, and rivers through zoom 7.
 - Region-aware elevation synchronization backed by AWS Open Data Terrain Tiles, with retained HGT manifests and maintenance progress.
 - ETag-backed map-pack and boundary responses, deferred catalog loading, cache warming, and a browser performance smoke test.

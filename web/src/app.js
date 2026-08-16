@@ -1,4 +1,5 @@
 import { escapeHtml, formatBytes, formatDate, formatEstimateRange } from "./format.js";
+import { createLiveLayersModule } from "./live-layers.js";
 
 const legacyStorageKeys = [
   "online-provider", "theme", "map-style-schema", "online-map", "poi-density",
@@ -68,6 +69,7 @@ const state = {
   coveragePromptPinnedId: null,
   coveragePromptPinnedUntil: 0,
   terrainDemSource: null,
+  liveLayers: null,
   layerGroups: new Map(),
   layerVisibility: {
     land: true,
@@ -139,7 +141,7 @@ function cacheElements() {
     "resourceStorageTrack", "resourceDiskUsedBar", "resourceManagedUsedBar", "resourceDiskUsed", "resourceManagedSize", "resourceSearchWrap",
     "resourceSearchInput", "resourceManagerBody", "resourceRegionBrowser", "resourceRegionList",
     "resourceManagerContent", "viewSwitcher", "mapShortcuts",
-    "layersShortcut", "layersPopover", "layersCloseButton", "contourShortcut", "legendShortcut", "legendPopover", "legendCloseButton", "legendSourceLabel",
+    "layersShortcut", "layersPopover", "layersCloseButton", "liveLayersShortcut", "liveLayersPopover", "liveLayersCloseButton", "liveLayersList", "liveLayersStatus", "legendShortcut", "legendPopover", "legendCloseButton", "legendSourceLabel",
     "legendSourceHint", "legendBaseGrid", "legendDetailGroups", "legendOverlayGrid", "legendOverlayEmpty", "onlineMapShortcut",
     "mapSourcePopover", "mapSourceCloseButton", "mapSourceStatus", "mapCoverageStatus",
     "coveragePrompt", "coveragePromptTitle", "coveragePromptText",
@@ -2402,10 +2404,12 @@ function applyLayerVisibility() {
 }
 
 function syncMapShortcuts() {
-  if (!elements.contourShortcut) return;
-  const contoursVisible = state.layerVisibility.contours !== false;
-  elements.contourShortcut.classList.toggle("active", contoursVisible);
-  elements.contourShortcut.setAttribute("aria-pressed", String(contoursVisible));
+  const liveCount = state.liveLayers?.visibleCount() || 0;
+  const livePopoverOpen = elements.liveLayersPopover ? !elements.liveLayersPopover.hidden : false;
+  elements.liveLayersShortcut?.classList.toggle("active", liveCount > 0 || livePopoverOpen);
+  elements.liveLayersShortcut?.classList.toggle("has-visible-layers", liveCount > 0);
+  elements.liveLayersShortcut?.setAttribute("aria-label", liveCount ? `附加信息图层，已开启 ${liveCount} 层` : "附加信息图层");
+  elements.liveLayersShortcut?.setAttribute("title", liveCount ? `附加信息图层 · 已开启 ${liveCount} 层` : "附加信息图层");
   elements.onlineMapShortcut?.classList.toggle("active", state.onlineMapEnabled);
   elements.onlineMapShortcut?.classList.toggle("degraded", state.onlineMapEnabled && state.onlineMapStatus === "degraded");
   elements.onlineMapShortcut?.classList.toggle("fallback", state.onlineMapEnabled && state.onlineMapStatus === "fallback");
@@ -2669,7 +2673,8 @@ function renderLegend() {
   const style = legendBaseStyles[presentation.key];
   const overlays = legendOverlayItems
     .filter(({ group }) => state.layerVisibility[group] !== false)
-    .flatMap(({ items }) => items);
+    .flatMap(({ items }) => items)
+    .concat(state.liveLayers?.getLegendItems() || []);
   const signature = [presentation.key, presentation.label, ...overlays.flat()].join("|");
   if (state.legendSignature === signature) return;
   state.legendSignature = signature;
@@ -2749,6 +2754,7 @@ function setMapSourceOpen(open) {
   if (open) {
     setLegendOpen(false);
     setLayersOpen(false);
+    setLiveLayersOpen(false);
     syncMapSourceControl();
   }
 }
@@ -2761,8 +2767,21 @@ function setLayersOpen(open) {
   if (open) {
     setMapSourceOpen(false);
     setLegendOpen(false);
+    setLiveLayersOpen(false);
     syncDisplaySettings();
   }
+}
+
+function setLiveLayersOpen(open) {
+  if (!elements.liveLayersPopover) return;
+  elements.liveLayersPopover.hidden = !open;
+  elements.liveLayersShortcut?.setAttribute("aria-expanded", String(open));
+  if (open) {
+    setMapSourceOpen(false);
+    setLayersOpen(false);
+    setLegendOpen(false);
+  }
+  syncMapShortcuts();
 }
 
 function setOnlineMapStatus(status) {
@@ -3068,7 +3087,10 @@ function setLegendOpen(open) {
     elements.mapSourcePopover.hidden = true;
     elements.onlineMapShortcut.setAttribute("aria-expanded", "false");
   }
-  if (open) setLayersOpen(false);
+  if (open) {
+    setLayersOpen(false);
+    setLiveLayersOpen(false);
+  }
 }
 
 function applyPoiDensity() {
@@ -3238,7 +3260,10 @@ function addWorldVectorOverviewLayers(map, beforeLayerId = undefined) {
 
 function addOfflineReferenceLayers() {
   const map = state.map;
-  if (map.getSource("world-overview")) return;
+  if (map.getSource("world-overview")) {
+    state.liveLayers?.ensureLayers();
+    return;
+  }
   const firstPackLayerId = map.getStyle().layers.find((layer) => state.layerPackIds.has(layer.id))?.id;
   if (map.getLayer("background")) {
     map.setPaintProperty("background", "background-color", [
@@ -3448,6 +3473,7 @@ function addOfflineReferenceLayers() {
   state.layerGroups.set("world-country-boundaries", ["overview", "boundaries"]);
   ["weather-point", "weather-label"].forEach((id) => state.layerGroups.set(id, ["weather"]));
   ["nautical-line", "nautical-point", "nautical-label"].forEach((id) => state.layerGroups.set(id, ["nautical"]));
+  state.liveLayers?.ensureLayers();
   watchOnlineMapConnection(state.onlinePreferredProvider);
 }
 
@@ -4537,9 +4563,8 @@ function wireUi() {
   elements.mapSourceCloseButton.addEventListener("click", () => setMapSourceOpen(false));
   elements.layersShortcut.addEventListener("click", () => setLayersOpen(elements.layersPopover.hidden));
   elements.layersCloseButton.addEventListener("click", () => setLayersOpen(false));
-  elements.contourShortcut.addEventListener("click", () => {
-    setLayerGroupVisibility("contours", state.layerVisibility.contours === false);
-  });
+  elements.liveLayersShortcut.addEventListener("click", () => setLiveLayersOpen(elements.liveLayersPopover.hidden));
+  elements.liveLayersCloseButton.addEventListener("click", () => setLiveLayersOpen(false));
   elements.coverageDownloadButton.addEventListener("click", () => {
     const packId = state.coveragePromptPackId;
     if (!packId) return;
@@ -4568,12 +4593,16 @@ function wireUi() {
     if (!elements.layersPopover.hidden && !elements.mapShortcuts.contains(event.target)) {
       setLayersOpen(false);
     }
+    if (!elements.liveLayersPopover.hidden && !elements.mapShortcuts.contains(event.target)) {
+      setLiveLayersOpen(false);
+    }
     if (!elements.searchSuggestions.hidden && !elements.searchForm.contains(event.target)) closeSearchSuggestions();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       setMapSourceOpen(false);
       setLayersOpen(false);
+      setLiveLayersOpen(false);
       closeSearchSuggestions();
     }
   });
@@ -4999,6 +5028,8 @@ function wireMap() {
   const map = state.map;
   map.on("style.load", async () => {
     addPersonalLayers();
+    state.liveLayers?.ensureLayers();
+    state.liveLayers?.refreshVisible(true);
     syncMapPackLayerVisibilityForViewport();
     if (state.selectedMapFeature) setSelectedFeatureMarker(state.selectedMapFeature.coordinate);
     updateRouteSource();
@@ -5020,7 +5051,7 @@ function wireMap() {
     if (!state.mode) {
       const topLayer = map.queryRenderedFeatures(event.point)[0]?.layer?.id || "";
       const overlayInteractive = ["personal-point", "personal-track", "search-result-point", "search-result-cluster", "emergency-point", "emergency-cluster", "weather-point", "nautical-point", "nautical-line"]
-        .includes(topLayer);
+        .includes(topLayer) || topLayer.startsWith("live-");
       map.getCanvas().style.cursor = overlayInteractive || selectableBaseFeature(event.point) ? "pointer" : "";
     }
   });
@@ -5039,6 +5070,7 @@ function wireMap() {
       updateMeasure();
       return;
     }
+    if (state.liveLayers?.featureAtPoint(event.point)) return;
     const feature = selectableBaseFeature(event.point);
     if (feature) showMapFeatureDetail(feature, [event.lngLat.lng, event.lngLat.lat]);
     else updateCoveragePrompt(event.lngLat, true);
@@ -5141,6 +5173,7 @@ function wireMap() {
   });
   map.on("moveend", () => {
     if (state.layerVisibility.emergency) updateEmergencyLayer();
+    state.liveLayers?.scheduleViewportRefresh();
     syncMapPackLayerVisibilityForViewport();
     syncLocalBaseMapForViewport();
     updateCoveragePrompt();
@@ -5250,6 +5283,20 @@ async function init() {
   state.map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false }), "bottom-right");
   state.scaleControl = new maplibregl.ScaleControl({ maxWidth: 120, unit: state.scaleUnit });
   state.map.addControl(state.scaleControl, "bottom-left");
+
+  state.liveLayers = createLiveLayersModule(state.map, {
+    api,
+    escapeHtml,
+    showToast,
+    renderIcons: icons,
+    listElement: elements.liveLayersList,
+    statusElement: elements.liveLayersStatus,
+    onStateChange: () => {
+      state.legendSignature = "";
+      syncMapShortcuts();
+      renderLegend();
+    }
+  });
 
   wireUi();
   wireMap();

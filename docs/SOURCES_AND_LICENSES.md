@@ -103,7 +103,18 @@ Role: the legacy low-zoom raster plus the zoom 0-7 multiscale vector PMTiles. Th
 
 Source: `https://open-meteo.com/`
 
-Role: refreshable seven-day snapshots for the current Jiangsu/Anhui city set. Weather data is attributed to Open-Meteo under CC BY 4.0 and stored with source URLs and checksums in `products/weather/weather.manifest.json`.
+Role: refreshable seven-day snapshots for the current Jiangsu/Anhui city set, plus viewport-sampled CAMS air-quality and GloFAS river-discharge references. Open-Meteo/Copernicus attribution and the applicable CC BY terms are retained; the free API is used for this personal non-commercial installation. Weather snapshots are stored with source URLs and checksums in `products/weather/weather.manifest.json`.
+
+## Keyless additional information layers
+
+Additional overlays are requested only after the user enables them, cropped to the current viewport, and cached by the API. No API key is present in the runtime catalog:
+
+- [USGS Earthquake GeoJSON](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php): seven-day earthquake catalog; US public-domain data.
+- [NASA EONET](https://eonet.gsfc.nasa.gov/docs/v3): curated open wildfire events with EONET and upstream event links. This is not a pixel-level FIRMS hotspot feed.
+- [GDACS API](https://www.gdacs.org/gdacsapi/): flood, volcano, drought, wildfire, and tropical-cyclone notices with GDACS attribution and report links; not a replacement for local official alerts.
+- [ADSB.lol](https://www.adsb.lol/): crowdsourced ADS-B aircraft positions under ODbL; incomplete coverage and not for aviation safety decisions.
+- [Norwegian Coastal Administration open AIS](https://www.kystverket.no/en/sea-transport-and-ports/ais/access-to-ais-data/): Norway-region TCP AIS under NLOD and subject to geographic/vessel disclosure limits; not for navigation decisions.
+- [NOAA NDBC](https://www.ndbc.noaa.gov/): latest ocean buoy and coastal-station observations; US public data.
 
 ## Kiwix, Wikipedia, and Wikivoyage ZIM
 

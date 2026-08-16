@@ -23,6 +23,8 @@
 | 资源生命周期 | [Resource and version management](RESOURCE_AND_VERSION_MANAGEMENT.md) | [资源与版本管理](RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
 | OSM 更新策略 | [Incremental updates](OSM_INCREMENTAL_UPDATES.md) | [增量更新](OSM_INCREMENTAL_UPDATES.zh-CN.md) |
 | 来源与许可 | [Sources and licenses](SOURCES_AND_LICENSES.md) | [来源与许可](SOURCES_AND_LICENSES.zh-CN.md) |
+| 附加信息图层 | [Additional information layers](ADDITIONAL_INFORMATION_LAYERS.md) | [附加信息图层](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) |
+| 需要密钥的数据源 | [Keyed source catalog](KEYED_DATA_SOURCES.md) | [密钥源决策目录](KEYED_DATA_SOURCES.zh-CN.md) |
 | 路线图 | [Roadmap](ROADMAP.md) | [路线图](ROADMAP.zh-CN.md) |
 
 ## 历史与设计记录

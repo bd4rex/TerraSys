@@ -69,6 +69,10 @@ Invoke-SuiteStep -Id "static" -Description "repository configuration, scripts, b
   & (Join-Path $PSScriptRoot "repository-contracts.ps1")
 }
 
+Invoke-SuiteStep -Id "live-layer-unit" -Description "keyless live-layer adapters, cache, bounds, and AIS NMEA decoding" -Action {
+  Invoke-NativeCommand -Executable "python" -Arguments @("-m", "unittest", "tests.test_live_layers", "-v") -Operation "Live-layer unit tests"
+}
+
 if ($Profile -in @("browser", "full", "recovery")) {
   Invoke-SuiteStep -Id "health" -Description "running service and installed-product health" -Action {
     $script = Join-Path $root "scripts\health-check.ps1"
@@ -90,7 +94,7 @@ if ($Profile -in @("browser", "full", "recovery")) {
       Invoke-NativeCommand -Executable "docker" -Arguments @("build", "--file", $dockerfile, "--tag", $UiImage, $root) -Operation "Building the UI-test image"
     }
   }
-  foreach ($browserTest in @("ui-smoke.cjs", "resource-console-smoke.cjs", "world-map-smoke.cjs", "performance-smoke.cjs")) {
+  foreach ($browserTest in @("ui-smoke.cjs", "resource-console-smoke.cjs", "information-layer-console-smoke.cjs", "world-map-smoke.cjs", "performance-smoke.cjs")) {
     $stepId = [IO.Path]::GetFileNameWithoutExtension($browserTest)
     Invoke-SuiteStep -Id $stepId -Description "Playwright $browserTest" -Action {
       Invoke-BrowserTest -ScriptName $browserTest

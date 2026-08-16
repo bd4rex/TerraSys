@@ -22,6 +22,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profi
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
 ```
 
+所有 profile 都会运行 `tests/test_live_layers.py` 的确定性单元测试；它使用固定夹具验证缓存、跨日期变更线 bbox、USGS 规范化和 AIS NMEA 解码，不访问公网。
+
 浏览器层会构建 `terrasys-ui-test:suite`，并与 `terrasys-web` 共享网络命名空间。重复测试时可用 `-SkipImageBuild` 复用已构建镜像；测试脚本或基线有变化时不要跳过构建。
 
 ## 回归覆盖
@@ -32,13 +34,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profi
 - 地图包与派生资源：中国 34 个省级单元和全球目录完整，所有已启用区域进入 Carto、搜索、路线、高程、天气与航海覆盖，并保留逐区域来源哈希。
 - 个人数据：点位、轨迹、集合、乐观版本、GPX、GeoJSON、ZIP、媒体所有权和孤儿清理形成闭环。
 - 地图体验：本地 Carto、区域 PMTiles、全球概览和两个在线来源切换；网络失败、Carto 延迟、海岸/海洋/低缩放误判和视口平移均有回归断言。
+- 附加信息图层：无密钥目录、持久化启停/刷新设置、运行状态、统一 GeoJSON、缓存、bbox、AIS 解码、P0/P1 入口、独立管理页及等高线保留逻辑有单元和浏览器回归。
 - 全球本地化：国家多边形定位和中文提示一致，台湾相关包、资源名、要素详情与全球概览图层统一显示“台湾省”。
 - 性能：启动只请求一次地图包目录，并将 DOM、画布和系统就绪时间与三次测试中位数比较。
 - 恢复：先校验路径、大小和 SHA256，再在隔离 Docker 网络中验证数据库、地图、搜索、路线、知识库、个人数据和导出。
 
 ## 证据与副作用
 
-Playwright 截图写入忽略版本控制的 `runtime/ui-smoke` 和 `runtime/resource-console-smoke`。性能脚本输出当前值、基线值和百分比变化。恢复演练报告写入 `runtime/recovery-audit`。
+Playwright 截图写入忽略版本控制的 `runtime/ui-smoke`、`runtime/resource-console-smoke` 和 `runtime/information-layer-console-smoke`。性能脚本输出当前值、基线值和百分比变化。恢复演练报告写入 `runtime/recovery-audit`。
 
 `scripts/smoke-test.ps1` 会创建临时集合、点位、轨迹、媒体和导出文件，并在成功或失败时执行清理。浏览器测试拦截需要写入的维护请求，不会触发真实删除或重建。`recovery` profile 会创建临时隔离容器、网络和卷，并由恢复脚本清理。
 

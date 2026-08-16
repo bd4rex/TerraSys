@@ -23,6 +23,8 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Resource lifecycle | [Resource and version management](RESOURCE_AND_VERSION_MANAGEMENT.md) | [资源与版本管理](RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
 | OSM update policy | [Incremental updates](OSM_INCREMENTAL_UPDATES.md) | [增量更新](OSM_INCREMENTAL_UPDATES.zh-CN.md) |
 | Sources and licenses | [Sources and licenses](SOURCES_AND_LICENSES.md) | [来源与许可](SOURCES_AND_LICENSES.zh-CN.md) |
+| Additional information layers | [Additional information layers](ADDITIONAL_INFORMATION_LAYERS.md) | [附加信息图层](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) |
+| Keyed data sources | [Keyed source catalog](KEYED_DATA_SOURCES.md) | [密钥源决策目录](KEYED_DATA_SOURCES.zh-CN.md) |
 | Roadmap | [Roadmap](ROADMAP.md) | [路线图](ROADMAP.zh-CN.md) |
 
 ## History and design records
