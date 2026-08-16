@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-10",
+  "updatedAt": "2026-08-17",
   "profiles": {
     "static": "Repository contracts that need neither Docker nor running TerraSys services.",
     "browser": "Static contracts, service health, and all browser regressions.",
@@ -33,6 +33,19 @@
         "Every tracked PowerShell script parses without syntax errors."
       ],
       "evidence": "PowerShell parser count in the static test summary."
+    },
+    {
+      "id": "TC-STATIC-003",
+      "title": "Digest-only Nominatim image recovery remains immutable",
+      "area": "recovery",
+      "risk": "Docker save/load can omit repository metadata and cause an offline restore to attempt an unavailable registry pull.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/repository-contracts.ps1"],
+      "assertions": [
+        "Startup recognizes the approved local SHA256 image ID when repository digests are absent.",
+        "The immutable ID remains accepted by shared-index rebuilds and offline image export while mismatched references are rejected."
+      ],
+      "evidence": "Nominatim image-reference assertions in the static repository-contract run."
     },
     {
       "id": "TC-DOC-001",
