@@ -85,6 +85,8 @@ TERRASYS_HTTP_PORT=8080
 chmod 0600 services/.env
 ```
 
+Linux 启动命令还会把当前用户的数字 UID 和 GID 写入该文件。API 以此身份运行，因此媒体、导出、缓存和维护目录的绑定挂载无需放宽为全局可写，也能保持正常读写。
+
 ## 5. 恢复私有数据
 
 把已校验的 TerraSys 备份目录放到 `backups/` 下，然后运行：

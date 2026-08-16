@@ -62,6 +62,23 @@ if (-not (Test-Path $envFile)) {
 if (-not (Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_PASSWORD=' } | Select-Object -First 1)) {
   Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_PASSWORD=$(New-LocalSecret)"
 }
+if (-not $isWindowsHost) {
+  if (-not (Get-Command id -ErrorAction SilentlyContinue)) {
+    throw "The Linux 'id' command was not found."
+  }
+  foreach ($identity in @(
+    @{ Name = "TERRASYS_API_UID"; Argument = "-u" },
+    @{ Name = "TERRASYS_API_GID"; Argument = "-g" }
+  )) {
+    if (-not (Get-Content $envFile | Where-Object { $_ -match "^$($identity.Name)=" } | Select-Object -First 1)) {
+      $numericId = ((& id $identity.Argument) -join "").Trim()
+      if ($LASTEXITCODE -ne 0 -or $numericId -notmatch '^\d+$') {
+        throw "Could not determine the Linux identity for $($identity.Name)."
+      }
+      Add-Content -Encoding ASCII -LiteralPath $envFile -Value "$($identity.Name)=$numericId"
+    }
+  }
+}
 
 $passwordLine = Get-Content $envFile | Where-Object { $_ -match '^POSTGRES_PASSWORD=' } | Select-Object -First 1
 if (-not $passwordLine) { throw "POSTGRES_PASSWORD is missing from services/.env" }
@@ -90,6 +107,18 @@ $advancedReady = (Test-Path -LiteralPath (Join-Path $root "raw\osm\china\terrasy
   (Test-Path -LiteralPath (Join-Path $valhallaDataPath "terrasys-core-latest.osm.pbf") -PathType Leaf) -and
   (Test-Path -LiteralPath (Join-Path $root "products\encyclopedia\wikipedia_zh_all_mini_2026-05.zim") -PathType Leaf)
 $profileArguments = if ($advancedReady) { @("--profile", "advanced") } else { @() }
+
+# Bind-mounted writable paths must exist before Docker starts. Otherwise Docker
+# creates them as root on Linux and the non-root API cannot initialize them.
+foreach ($directory in @(
+  (Join-Path $root "data\media"),
+  (Join-Path $root "data\exports"),
+  (Join-Path $root "data\terrain-cache"),
+  (Join-Path $root "data\maintenance"),
+  (Join-Path $root "tmp")
+)) {
+  New-Item -ItemType Directory -Force -Path $directory | Out-Null
+}
 
 Push-Location $services
 try {

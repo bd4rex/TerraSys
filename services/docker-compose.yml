@@ -48,6 +48,7 @@ services:
     build:
       context: ./api
     container_name: terrasys-api
+    user: "${TERRASYS_API_UID:-10001}:${TERRASYS_API_GID:-10001}"
     mem_limit: 1g
     cpus: 2
     depends_on:

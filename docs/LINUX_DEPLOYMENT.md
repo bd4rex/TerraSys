@@ -85,6 +85,8 @@ Use the server's actual trusted LAN/VPN address. TerraSys is a single-user trust
 chmod 0600 services/.env
 ```
 
+On Linux, the start command also records the invoking user's numeric UID and GID in that file. The API runs with that identity so its bind-mounted media, export, cache, and maintenance directories remain writable without granting broad filesystem permissions.
+
 ## 5. Restore private data
 
 Place a verified TerraSys backup directory below `backups/`, then run:
