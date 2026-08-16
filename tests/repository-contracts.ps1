@@ -65,6 +65,20 @@ foreach ($packId in @("gf-north-korea", "gf-south-korea")) {
 }
 $summary.WorldSourceOverrides = @($sourceOverrides.datasets.PSObject.Properties).Count
 
+$regionBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-region-pack.ps1")
+$planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
+foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
+  if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
+    Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
+  }
+}
+if ($regionBuildSource -notmatch [regex]::Escape("download-planetiler-sources.ps1") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape("--continue-at") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape("6c900507c88fc9f5b5a386f90fd0a42d0495e8755a03d075538fb9a6801a3192") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape('raw/planetiler-sources/$($Source.Name)')) {
+  Add-ContractFailure "Region builds do not cache and inventory shared Planetiler sources."
+}
+
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
 $powerShellFiles = @(
   Get-ChildItem -LiteralPath (Join-Path $root "scripts") -Recurse -File -Filter "*.ps1"

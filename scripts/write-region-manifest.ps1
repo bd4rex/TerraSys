@@ -16,6 +16,7 @@ $stateFile = if ($pack.sourceProfile.stateFile) {
 } else { $null }
 $product = Join-Path $root "products\tiles\pmtiles\$PackId.pmtiles"
 $manifestPath = Join-Path $root "products\tiles\pmtiles\$PackId.manifest.json"
+$supportingSourceManifestPath = Join-Path $root "raw\planetiler-sources\manifest.json"
 if (-not (Test-Path -LiteralPath $source) -or -not (Test-Path -LiteralPath $product)) {
   throw "The $PackId source PBF and PMTiles product are required."
 }
@@ -28,6 +29,9 @@ if ($stateFile -and (Test-Path -LiteralPath $stateFile -PathType Leaf)) {
 }
 $sourceInfo = Get-Item -LiteralPath $source
 $productInfo = Get-Item -LiteralPath $product
+$supportingSources = if (Test-Path -LiteralPath $supportingSourceManifestPath -PathType Leaf) {
+  Get-Content -Raw -LiteralPath $supportingSourceManifestPath | ConvertFrom-Json
+} else { $null }
 $manifest = [ordered]@{
   schemaVersion = 2
   id = [string]$pack.id
@@ -44,6 +48,7 @@ $manifest = [ordered]@{
     updatedAt = $state.timestamp
     provider = [string]$pack.sourceProfile.provider
   }
+  supportingSources = $supportingSources
   product = [ordered]@{
     file = "products/tiles/pmtiles/$PackId.pmtiles"
     bytes = $productInfo.Length

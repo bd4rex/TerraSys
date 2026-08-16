@@ -99,6 +99,8 @@ try {
     Write-Host "Using verified direct source for $($pack.name): $sourceRelative"
   }
 
+  & (Join-Path $PSScriptRoot "download-planetiler-sources.ps1")
+
   if (Test-Path -LiteralPath $outputStaged) { Remove-Item -LiteralPath $outputStaged -Force }
   $bounds = (@($pack.bounds) -join ',')
   Write-Host "Building staged $($pack.name) PMTiles..."

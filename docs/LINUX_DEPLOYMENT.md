@@ -116,7 +116,7 @@ The server should obtain large reproducible assets from their public upstream so
 ./terrasys.sh start --no-build
 ```
 
-The China snapshot and regional source downloads use resumable staging files and are activated only after format/integrity validation. If Geofabrik cannot be reached, catalog refresh preserves the checked-in snapshot. The two Korea packs use the public non-military extracts from OpenStreetMap Korea, validate the complete PBF, and record its SHA256 in the product manifest.
+The China snapshot and regional source downloads use resumable staging files and are activated only after format/integrity validation. If Geofabrik cannot be reached, catalog refresh preserves the checked-in snapshot. The two Korea packs use the public non-military extracts from OpenStreetMap Korea, validate the complete PBF, and record its SHA256 in the product manifest. The first regional build also downloads Planetiler's three shared basemap archives directly from their public upstreams with resume support, verifies their ZIP structure, and inventories their SHA256 values for all later offline builds. The versioned lake-centerline release is additionally pinned to its expected byte size and SHA256 before activation.
 
 Nominatim, Valhalla, Planetiler, and OSM Carto are resource intensive. Build them sequentially on a 16 GiB host and retain ample free disk space.
 
