@@ -16,7 +16,7 @@ function Add-ContractFailure {
 function Get-MarkdownFiles {
   $files = New-Object System.Collections.Generic.List[System.IO.FileInfo]
   foreach ($file in @(Get-ChildItem -LiteralPath $root -File -Filter "*.md")) { $files.Add($file) }
-  foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "docs") -File -Filter "*.md")) { $files.Add($file) }
+  foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "docs") -Recurse -File -Filter "*.md")) { $files.Add($file) }
   foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "tests") -File -Filter "*.md")) { $files.Add($file) }
   return @($files)
 }
@@ -37,6 +37,137 @@ foreach ($file in $jsonFiles) {
   }
 }
 $summary.JsonFiles = $jsonFiles.Count
+
+# Source overrides must be explicit, bounded to known packs, and reflected by the shared catalog loader.
+$worldCatalog = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-catalog.json") | ConvertFrom-Json
+$sourceOverrides = Get-Content -Raw -LiteralPath (Join-Path $root "web\config\world-region-source-overrides.json") | ConvertFrom-Json
+$worldIds = @($worldCatalog.datasets | ForEach-Object { [string]$_.id })
+$expectedKoreaMissingReferenceLimits = @{
+  "gf-north-korea" = 20000
+  "gf-south-korea" = 0
+}
+if ([int]$sourceOverrides.schemaVersion -ne 1) {
+  Add-ContractFailure "World source overrides use an unsupported schema."
+}
+foreach ($property in $sourceOverrides.datasets.PSObject.Properties) {
+  $profile = $property.Value.sourceProfile
+  if ($worldIds -notcontains [string]$property.Name) {
+    Add-ContractFailure "World source override references an unknown pack: $($property.Name)"
+  }
+  if (-not $profile -or [string]$profile.mode -ne "direct" -or [Uri]$profile.snapshotUrl -isnot [Uri] -or
+      ([Uri]$profile.snapshotUrl).Scheme -ne "https" -or ([Uri]$profile.snapshotUrl).Host -ne "tiles.osm.kr") {
+    Add-ContractFailure "World source override is not a trusted direct OSM Korea source: $($property.Name)"
+  }
+  if ([int64]$profile.maxMissingReferences -ne [int64]$expectedKoreaMissingReferenceLimits[[string]$property.Name]) {
+    Add-ContractFailure "World source override has an unexpected missing-reference limit: $($property.Name)"
+  }
+}
+. (Join-Path $root "scripts\catalog-utils.ps1")
+$effectiveCatalog = Get-TerraSysExpandedCatalog -Root $root
+foreach ($packId in @("gf-north-korea", "gf-south-korea")) {
+  $pack = @($effectiveCatalog.datasets | Where-Object { $_.id -eq $packId }) | Select-Object -First 1
+  if (-not $pack -or [string]$pack.sourceProfile.provider -ne "OpenStreetMap Korea") {
+    Add-ContractFailure "Effective catalog did not apply the source override for $packId."
+  }
+}
+$summary.WorldSourceOverrides = @($sourceOverrides.datasets.PSObject.Properties).Count
+
+$regionBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-region-pack.ps1")
+$regionDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-region-source.ps1")
+$capabilityBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-capability-source.ps1")
+$planetilerDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-planetiler-sources.ps1")
+$overviewDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\sync-overview-resources.ps1")
+$osmCartoDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-osm-carto-sources.ps1")
+$osmCartoBuildSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\build-osm-carto.ps1")
+$composeSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\docker-compose.yml")
+$startSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\start-terrasys.ps1")
+$sharedIndexSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\rebuild-shared-indexes.ps1")
+$offlineKitSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\create-offline-kit.ps1")
+$encyclopediaDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-encyclopedia.ps1")
+$travelGuideDownloadSource = Get-Content -Raw -LiteralPath (Join-Path $root "scripts\download-travel-guide.ps1")
+$osmCartoApacheSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\osm-carto-apache.conf")
+$apiSource = Get-Content -Raw -LiteralPath (Join-Path $root "services\api\app\main.py")
+foreach ($requiredSource in @("lake_centerline.shp.zip", "water-polygons-split-3857.zip", "natural_earth_vector.sqlite.zip")) {
+  if ($planetilerDownloadSource -notmatch [regex]::Escape($requiredSource)) {
+    Add-ContractFailure "Region builds do not declare Planetiler source: $requiredSource"
+  }
+}
+if ($regionBuildSource -notmatch [regex]::Escape("download-planetiler-sources.ps1") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape("--continue-at") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape("6c900507c88fc9f5b5a386f90fd0a42d0495e8755a03d075538fb9a6801a3192") -or
+    $planetilerDownloadSource -notmatch [regex]::Escape('raw/planetiler-sources/$($Source.Name)')) {
+  Add-ContractFailure "Region builds do not cache and inventory shared Planetiler sources."
+}
+if ($regionBuildSource -notmatch [regex]::Escape("Get-ReferenceIntegrity") -or
+    $regionDownloadSource -notmatch [regex]::Escape("Assert-PbfReferences") -or
+    $capabilityBuildSource -notmatch [regex]::Escape("Measure-Object maximumMissingReferences -Sum") -or
+    $capabilityBuildSource -notmatch [regex]::Escape("referenceIntegrity")) {
+  Add-ContractFailure "Regional downloads and shared capability builds do not enforce bounded reference-integrity limits."
+}
+if ($overviewDownloadSource -notmatch [regex]::Escape("https://naciscdn.org/naturalearth/50m/raster/GRAY_50M_SR_OB.zip") -or
+    $overviewDownloadSource -notmatch [regex]::Escape("--continue-at")) {
+  Add-ContractFailure "Natural Earth overview downloads do not use the resumable public CDN source."
+}
+foreach ($requiredSource in @(
+  "simplified-water-polygons-split-3857.zip",
+  "water-polygons-split-3857.zip",
+  "antarctica-icesheet-polygons-3857.zip",
+  "antarctica-icesheet-outlines-3857.zip",
+  "ne_110m_admin_0_boundary_lines_land.zip"
+)) {
+  if ($osmCartoDownloadSource -notmatch [regex]::Escape($requiredSource)) {
+    Add-ContractFailure "OSM Carto downloads do not declare supporting source: $requiredSource"
+  }
+}
+if ($osmCartoDownloadSource -notmatch [regex]::Escape("--continue-at") -or
+    $osmCartoDownloadSource -notmatch [regex]::Escape("raw/planetiler-sources/water-polygons-split-3857.zip")) {
+  Add-ContractFailure "OSM Carto supporting sources are not resumable or do not reuse the verified shared water archive."
+}
+$osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+if ($osmCartoBuildSource -notmatch [regex]::Escape('ghcr.io/overv/openstreetmap-tile-server@$imageDigest') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape($osmCartoDigest) -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('EndsWith("@$imageDigest"') -or
+    $osmCartoBuildSource -notmatch '(?s)foreach \(\$candidate in \$candidates\).*?Test-LocalDockerImage.*?foreach \(\$candidate in \$candidates\).*?docker pull' -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('chmod 0755 -- $candidateCache $tileCache') -or
+    $osmCartoBuildSource -notmatch [regex]::Escape('Set-DotEnvValue "OSM_CARTO_IMAGE"') -or
+    $composeSource -notmatch [regex]::Escape('${OSM_CARTO_IMAGE:-overv/openstreetmap-tile-server@' + $osmCartoDigest + '}')) {
+  Add-ContractFailure "OSM Carto does not provide a digest-verified configurable registry fallback."
+}
+if ($osmCartoApacheSource -notmatch '(?m)^User renderer\s*$' -or
+    $osmCartoApacheSource -notmatch '(?m)^Group renderer\s*$') {
+  Add-ContractFailure "OSM Carto Apache does not share renderd's identity for its owner-only dynamic tile cache."
+}
+if ($apiSource -notmatch '(?s)def map_pack_payload_revision\(\).*?map_pack_boundary_revision\(\)') {
+  Add-ContractFailure "Map-pack API caching does not invalidate when downloaded province boundaries change."
+}
+$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nominatim@' + $nominatimDigest + '}') -or
+    $startSource -notmatch [regex]::Escape("docker.1ms.run/mediagis/nominatim@`$nominatimDigest") -or
+    $startSource -notmatch [regex]::Escape('Test-LocalDockerImage $nominatimFallbackImage') -or
+    $startSource -notmatch [regex]::Escape('Test-LocalDockerImage $nominatimDigest') -or
+    $startSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimDigest') -or
+    $sharedIndexSource -notmatch [regex]::Escape('configuredImages.NOMINATIM_IMAGE') -or
+    $sharedIndexSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimImageDigest') -or
+    $offlineKitSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimDigest')) {
+  Add-ContractFailure "Nominatim does not preserve its pinned digest across registry fallback, local image-ID recovery, Compose, index rebuilds, and offline export."
+}
+if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s*5g.*?server_threads:\s*"3"') {
+  Add-ContractFailure "Valhalla initial builds do not retain the validated 4 GiB / 5 GiB swap resource envelope."
+}
+if ($startSource -notmatch [regex]::Escape('& find $Path -xdev -user $numericUid -exec chmod "u=rwX,go=rX"') -or
+    $startSource -notmatch [regex]::Escape('[IO.File]::GetUnixFileMode($item.FullName)') -or
+    $startSource -notmatch [regex]::Escape('$publicItems = @(') -or
+    $startSource -notmatch [regex]::Escape('foreach ($item in $publicItems)') -or
+    $startSource -notmatch '(?s)foreach \(\$publicRoot.*?Join-Path \$root "web".*?Join-Path \$root "products\\tiles\\pmtiles".*?Join-Path \$root "products\\encyclopedia".*?Set-PublicBindTreeReadable') {
+  Add-ContractFailure "Linux startup does not normalize and verify every container-served public bind mount."
+}
+foreach ($knowledgeSource in @($encyclopediaDownloadSource, $travelGuideDownloadSource)) {
+  if ($knowledgeSource -notmatch [regex]::Escape('Set-ContainerReadableFile @($target, $manifestPath)') -or
+      $knowledgeSource -notmatch [regex]::Escape('& chmod 0644 -- $path')) {
+    Add-ContractFailure "Downloaded Kiwix archives and manifests are not normalized for container read access on Linux."
+  }
+}
 
 # Keep all PowerShell entry points parseable, including scripts not safe to execute in CI.
 $powerShellFiles = @(
@@ -60,6 +191,43 @@ foreach ($file in $powerShellFiles) {
   }
 }
 $summary.PowerShellFiles = $powerShellFiles.Count
+
+# Parse Linux entry points when Bash is available. CI always runs this on Ubuntu.
+$bashFiles = @(
+  Get-ChildItem -LiteralPath $root -File -Filter "*.sh" -ErrorAction SilentlyContinue
+  Get-ChildItem -LiteralPath (Join-Path $root "scripts") -Recurse -File -Filter "*.sh" -ErrorAction SilentlyContinue
+  Get-Item -LiteralPath (Join-Path $root "scripts\linux\curl.exe") -ErrorAction SilentlyContinue
+)
+$bash = Get-Command bash -ErrorAction SilentlyContinue
+$bashUsable = $false
+if ($bash) {
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    & $bash.Source --version *> $null
+    $bashUsable = $LASTEXITCODE -eq 0
+  }
+  catch {
+    $bashUsable = $false
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+if ($bashUsable) {
+  foreach ($file in $bashFiles) {
+    & $bash.Source -n $file.FullName
+    if ($LASTEXITCODE -ne 0) {
+      Add-ContractFailure "Bash parse error in $($file.FullName)."
+    }
+  }
+}
+$summary.BashFiles = $bashFiles.Count
+$linuxDispatcher = Get-Content -Raw -LiteralPath (Join-Path $root "terrasys.sh")
+if ($linuxDispatcher -notmatch 'sync-elevation\)\s+script="sync-elevation\.ps1"' -or
+    $linuxDispatcher -notmatch [regex]::Escape('export PATH="$PROJECT_ROOT/scripts/linux:$PATH"')) {
+  Add-ContractFailure "The Linux dispatcher does not expose elevation sync through its curl compatibility PATH."
+}
 
 # Every maintained document has a language counterpart and an explicit cross-link.
 $markdownFiles = Get-MarkdownFiles
@@ -172,6 +340,13 @@ if ($dockerfile -notmatch [regex]::Escape("tests/performance-baseline.json")) {
   Add-ContractFailure "UI-test Dockerfile does not copy performance-baseline.json."
 }
 $summary.BrowserTests = $browserTests.Count
+
+# Compose can replace the image user with a host UID/GID on Linux. Image code
+# must therefore stay readable even when a strict checkout umask reached COPY.
+$apiDockerfile = Get-Content -Raw -LiteralPath (Join-Path $root "services\api\Dockerfile")
+if ($apiDockerfile -notmatch [regex]::Escape("chmod -R u=rwX,go=rX /app")) {
+  Add-ContractFailure "The API image does not normalize application read permissions for a host UID/GID."
+}
 
 if ($failures.Count) {
   $message = "Repository contract tests failed:`n - " + ($failures -join "`n - ")

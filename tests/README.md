@@ -22,6 +22,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profi
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
 ```
 
+Every profile runs the deterministic `tests/test_live_layers.py` unit suite. Fixed fixtures cover caching, antimeridian bounds, USGS normalization, and AIS NMEA decoding without internet access.
+
 The browser profiles build `terrasys-ui-test:suite` and share the `terrasys-web` network namespace. Use `-SkipImageBuild` to reuse an existing image during repeated runs; do not skip the build after changing a test or its baseline.
 
 ## Regression coverage
@@ -32,13 +34,14 @@ The catalog groups the project's hard-won contracts into these areas:
 - Map packages and derivatives: all 34 Chinese province units and the global catalog are complete; every enabled region propagates into Carto, search, routing, elevation, weather, and nautical coverage with per-region source hashes.
 - Personal data: places, tracks, collections, optimistic versions, GPX, GeoJSON, ZIP, media ownership, and orphan cleanup form a complete lifecycle.
 - Map behavior: local Carto, regional PMTiles, world overview, and both online sources; network failure, Carto lag, coast/ocean/low-zoom false positives, and viewport movement have explicit regressions.
+- Additional information layers: the no-key catalog, persistent enable/refresh settings, runtime status, normalized GeoJSON, cache, bounds, AIS decoding, P0/P1 entry, standalone management console, and retained contour control have unit and browser regressions.
 - Global localization: country-polygon selection and Chinese prompts agree, while Taiwan-related packages, resource names, feature details, and world-overview layers consistently display `台湾省`.
 - Performance: startup requests the package inventory once and compares DOM, canvas, and system-ready timings with a retained three-run median.
 - Recovery: paths, sizes, and SHA256 values are verified before an isolated Docker network tests the database, maps, search, routing, knowledge services, personal data, and exports.
 
 ## Evidence and side effects
 
-Playwright screenshots go to the gitignored `runtime/ui-smoke` and `runtime/resource-console-smoke` directories. The performance test prints current, baseline, and percentage-delta values. Recovery reports go to `runtime/recovery-audit`.
+Playwright screenshots go to the gitignored `runtime/ui-smoke`, `runtime/resource-console-smoke`, and `runtime/information-layer-console-smoke` directories. The performance test prints current, baseline, and percentage-delta values. Recovery reports go to `runtime/recovery-audit`.
 
 `scripts/smoke-test.ps1` creates temporary collections, places, tracks, media, and exports, then cleans them on success or failure. Browser tests intercept write-oriented maintenance requests and do not perform real deletion or rebuild actions. The `recovery` profile creates temporary isolated containers, a network, and volumes that the recovery script removes afterward.
 

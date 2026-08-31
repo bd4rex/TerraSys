@@ -19,7 +19,7 @@ for ($attempt = 0; $attempt -lt 10; $attempt++) {
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-  throw "Docker was not found on PATH. Install Docker Desktop, then run this script again."
+  throw "Docker was not found on PATH. Install Docker Engine or Docker Desktop, then run this script again."
 }
 
 Push-Location $services

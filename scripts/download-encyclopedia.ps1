@@ -9,12 +9,27 @@ $directory = Join-Path $root "products\encyclopedia"
 $fileName = [IO.Path]::GetFileName(([Uri]$Url).AbsolutePath)
 $target = Join-Path $directory $fileName
 $staged = "$target.part"
+$manifestPath = Join-Path $directory "encyclopedia.manifest.json"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
+
+function Set-ContainerReadableFile {
+  param([Parameter(Mandatory = $true)][string[]]$Paths)
+
+  if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { return }
+  if (-not (Get-Command chmod -ErrorAction SilentlyContinue)) { throw "The Linux 'chmod' command was not found." }
+  foreach ($path in $Paths) {
+    & chmod 0644 -- $path
+    if ($LASTEXITCODE -ne 0) { throw "Could not make the encyclopedia asset container-readable: $path" }
+  }
+}
 
 New-Item -ItemType Directory -Force -Path $directory | Out-Null
 if (Test-Path -LiteralPath $target -PathType Leaf) {
   $currentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash.ToLowerInvariant()
   if ($currentHash -eq $ExpectedSha256.ToLowerInvariant()) {
+    $readablePaths = @($target)
+    if (Test-Path -LiteralPath $manifestPath -PathType Leaf) { $readablePaths += $manifestPath }
+    Set-ContainerReadableFile $readablePaths
     Write-Host "Encyclopedia archive is already verified: $target"
     exit 0
   }
@@ -40,5 +55,6 @@ $manifest = [ordered]@{
   content = "Chinese Wikipedia all-mini"
   snapshot = "2026-05"
 }
-[IO.File]::WriteAllText((Join-Path $directory "encyclopedia.manifest.json"), ($manifest | ConvertTo-Json -Depth 5), $utf8NoBom)
+[IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 5), $utf8NoBom)
+Set-ContainerReadableFile @($target, $manifestPath)
 Get-Item -LiteralPath $target | Select-Object FullName, Length, LastWriteTime

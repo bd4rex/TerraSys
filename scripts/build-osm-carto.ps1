@@ -8,7 +8,13 @@ $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
 $compose = Join-Path $root "services\docker-compose.yml"
 $envFile = Join-Path $root "services\.env"
-$image = "overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+$imageDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+$canonicalImage = "overv/openstreetmap-tile-server@$imageDigest"
+$fallbackImages = @(
+  "ghcr.io/overv/openstreetmap-tile-server@$imageDigest",
+  "docker.1ms.run/overv/openstreetmap-tile-server@$imageDigest"
+)
+$image = ""
 $sourceManifest = Join-Path $root "raw\osm\carto\installed-regions.manifest.json"
 $externalRoot = Join-Path $root "raw\osm\carto\external"
 $externalConfig = Join-Path $root "config\osm-carto\external-data.local.yml"
@@ -53,6 +59,62 @@ function Set-DotEnvValue([string]$Name, [string]$Value) {
   }
   if (-not $updated) { $lines.Add("$Name=$Value") }
   [IO.File]::WriteAllLines($envFile, $lines, (New-Object Text.UTF8Encoding($false)))
+}
+
+function Get-DotEnvValue([string]$Name) {
+  if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) { return "" }
+  $line = Get-Content -LiteralPath $envFile | Where-Object { $_ -match "^\s*$([regex]::Escape($Name))=" } | Select-Object -First 1
+  if (-not $line) { return "" }
+  return ([string]$line).Substring(([string]$line).IndexOf('=') + 1).Trim()
+}
+
+function Test-LocalDockerImage([string]$Reference) {
+  $savedPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    docker image inspect $Reference *> $null
+    return $LASTEXITCODE -eq 0
+  }
+  catch { return $false }
+  finally { $ErrorActionPreference = $savedPreference }
+}
+
+function Resolve-OsmCartoImage {
+  $configured = Get-DotEnvValue "OSM_CARTO_IMAGE"
+  if ($configured -and -not $configured.EndsWith("@$imageDigest", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "OSM_CARTO_IMAGE must be pinned to the approved digest $imageDigest."
+  }
+
+  $candidates = @($configured, $canonicalImage) + $fallbackImages |
+    Where-Object { $_ } |
+    Select-Object -Unique
+  foreach ($candidate in $candidates) {
+    if (Test-LocalDockerImage $candidate) {
+      Set-DotEnvValue "OSM_CARTO_IMAGE" $candidate
+      return $candidate
+    }
+  }
+
+  foreach ($candidate in $candidates) {
+    Write-Host "Downloading pinned OSM Carto renderer from $candidate ..."
+    $savedPreference = $ErrorActionPreference
+    $pullSucceeded = $false
+    try {
+      $ErrorActionPreference = "Continue"
+      docker pull $candidate | Out-Host
+      $pullSucceeded = $LASTEXITCODE -eq 0
+    }
+    catch {
+      Write-Warning "Docker could not pull $candidate`: $($_.Exception.Message)"
+    }
+    finally { $ErrorActionPreference = $savedPreference }
+    if ($pullSucceeded) {
+      Set-DotEnvValue "OSM_CARTO_IMAGE" $candidate
+      return $candidate
+    }
+    Write-Warning "Pinned renderer source unavailable: $candidate"
+  }
+  throw "No approved registry could provide the pinned OSM Carto renderer $imageDigest."
 }
 
 function Invoke-Compose([string[]]$Arguments, [string]$Operation) {
@@ -148,6 +210,8 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw "Docker was
 docker info *> $null
 Assert-NativeSuccess "Checking Docker"
 
+& (Join-Path $PSScriptRoot "download-osm-carto-sources.ps1")
+
 $externalInputs = foreach ($name in $requiredExternalFiles) {
   $path = Join-Path $externalRoot $name
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing local OSM Carto external dataset: $path" }
@@ -170,6 +234,13 @@ $importContents = (Get-Content -Raw -LiteralPath $localImportScript).Replace("`r
 & (Join-Path $PSScriptRoot "build-osm-carto-source.ps1")
 if ($LASTEXITCODE -ne 0) { throw "Preparing the OSM Carto source failed." }
 New-Item -ItemType Directory -Force -Path $productRoot, $tileCache, $candidateCache, (Split-Path -Parent $statePath) | Out-Null
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+  # renderd writes as its internal renderer user while Apache reads as www-data.
+  # PowerShell creates directories as 0700 on Linux, which makes rendered
+  # metatiles look like 404s even though rendering itself succeeded.
+  & chmod 0755 -- $candidateCache $tileCache
+  Assert-NativeSuccess "Setting OSM Carto cache permissions"
+}
 $sourceState = Get-Content -Raw -LiteralPath $sourceManifest | ConvertFrom-Json
 $source = Join-Path $root ([string]$sourceState.product.file).Replace('/', '\')
 $sourceHash = [string]$sourceState.product.sha256
@@ -194,6 +265,7 @@ $currentExternalSignature = if ($current -and $current.externalData -and $curren
   (@($current.externalData.inputs) | ForEach-Object { "$($_.file):$($_.sha256)" }) -join ':'
 } else { "" }
 $sourceChanged = -not $current -or [string]$current.source.sha256 -ne $sourceHash -or $currentExternalSignature -ne $externalSignature
+$image = Resolve-OsmCartoImage
 $activeReady = [bool](docker volume ls -q --filter "name=^${activeVolume}$")
 if ($activeReady) {
   docker run --rm --entrypoint bash -v "${activeVolume}:/data/database/:ro" $image -lc `
@@ -207,9 +279,6 @@ if (-not $needsImport) {
   Invoke-Compose @("up", "-d", "osm-carto", "api", "web") "Starting the current OSM Carto service"
   exit 0
 }
-
-docker pull $image | Out-Host
-Assert-NativeSuccess "Downloading the pinned OSM Carto renderer"
 
 try {
   Write-Host "OSM_CARTO_STAGE 1/4 IMPORT"
@@ -283,7 +352,8 @@ try {
     generatedAt = (Get-Date).ToUniversalTime().ToString("o")
     renderer = [ordered]@{
       name = "OpenStreetMap Carto"
-      image = $image
+      image = $canonicalImage
+      runtimeImage = $image
       tiles = "/osm-carto/tile/{z}/{x}/{y}.png"
       minZoom = 0
       maxZoom = 20

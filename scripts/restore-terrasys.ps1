@@ -4,14 +4,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$backupRoot = (Resolve-Path (Join-Path $root "backups")).Path.TrimEnd('\')
+$backupRoot = (Resolve-Path (Join-Path $root "backups")).Path.TrimEnd([char[]]@('\', '/'))
 $target = (Resolve-Path $BackupDirectory).Path
 
 function Assert-NativeSuccess([string]$Operation) {
   if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }
 }
 
-if (-not $target.StartsWith($backupRoot + '\', [StringComparison]::OrdinalIgnoreCase)) {
+$pathComparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+$pathPrefix = $backupRoot + [IO.Path]::DirectorySeparatorChar
+if (-not $target.StartsWith($pathPrefix, $pathComparison)) {
   throw "BackupDirectory must be inside $backupRoot"
 }
 
@@ -37,12 +39,12 @@ foreach ($entry in $entries) {
   if ([IO.Path]::IsPathRooted($relative) -or $relative -match '(^|/)\.\.(/|$)') {
     throw "Unsafe path in backup manifest: $relative"
   }
-  $file = Join-Path $target $relative.Replace('/', '\')
+  $file = Join-Path $target $relative.Replace('/', [IO.Path]::DirectorySeparatorChar)
   if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
     throw "Backup file is missing: $relative"
   }
   $resolvedFile = (Resolve-Path -LiteralPath $file).Path
-  if (-not $resolvedFile.StartsWith($target + '\', [StringComparison]::OrdinalIgnoreCase)) {
+  if (-not $resolvedFile.StartsWith($target.TrimEnd([char[]]@('\', '/')) + [IO.Path]::DirectorySeparatorChar, $pathComparison)) {
     throw "Backup file resolves outside the selected directory: $relative"
   }
   if ((Get-Item -LiteralPath $resolvedFile).Length -ne [int64]$entry.Bytes) {

@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/terrasys-favicon-16.png?v=1" />
     <link rel="apple-touch-icon" href="/assets/brand/terrasys-app-icon.png" />
     <link rel="stylesheet" href="/vendor/maplibre/maplibre-gl.css" />
-    <link rel="stylesheet" href="/src/app.css?v=20260809-10" />
+    <link rel="stylesheet" href="/src/app.css?v=20260810-1" />
   </head>
   <body class="panel-collapsed">
     <div id="map" aria-label="个人离线地图"></div>
@@ -53,8 +53,8 @@
         <button id="layersShortcut" class="map-shortcut-button" type="button" title="图层" aria-label="图层" aria-expanded="false" aria-controls="layersPopover">
           <i data-lucide="layers-3"></i>
         </button>
-        <button id="contourShortcut" class="map-shortcut-button" type="button" title="等高线" aria-label="等高线" aria-pressed="false">
-          <i data-lucide="mountain-snow"></i>
+        <button id="liveLayersShortcut" class="map-shortcut-button" type="button" title="附加信息图层" aria-label="附加信息图层" aria-expanded="false" aria-controls="liveLayersPopover">
+          <i data-lucide="radar"></i>
         </button>
         <button id="legendShortcut" class="map-shortcut-button" type="button" title="图例" aria-label="图例" aria-expanded="false" aria-controls="legendPopover">
           <i data-lucide="list"></i>
@@ -145,6 +145,19 @@
           <div class="settings-row"><span>地图明暗</span><div class="mini-segmented" role="group" aria-label="地图明暗"><button type="button" data-map-light="day" class="active">昼间</button><button type="button" data-map-light="night">夜间</button></div></div>
         </section>
       </aside>
+      <aside id="liveLayersPopover" class="live-layers-popover" aria-label="附加信息图层" hidden>
+        <header>
+          <span class="live-layers-heading">
+            <strong>附加信息图层</strong>
+            <small id="liveLayersStatus">仅列出无需密钥的公开源</small>
+          </span>
+          <button id="liveLayersCloseButton" class="icon-button compact" type="button" title="关闭附加信息图层" aria-label="关闭附加信息图层">
+            <i data-lucide="x"></i>
+          </button>
+        </header>
+        <p class="live-layers-note">按当前视口按需加载；不同源的时效、覆盖和精度并不相同，不能替代主管部门正式预警或安全系统。</p>
+        <div id="liveLayersList" class="live-layers-list"></div>
+      </aside>
       <aside id="legendPopover" class="legend-popover" aria-label="地图图例" hidden>
         <header>
           <span class="legend-heading">
@@ -228,9 +241,14 @@
           <div id="regionPackList" class="region-pack-list"></div>
           <div class="region-pack-catalog-bar">
             <span id="availablePackSummary">检查中</span>
-            <button id="availablePacksButton" class="region-pack-add-button" type="button">
-              <i data-lucide="hard-drive-download"></i><span>管理资源</span>
-            </button>
+            <div class="region-pack-console-actions">
+              <a class="region-pack-add-button" href="/information-layers.html">
+                <i data-lucide="radar"></i><span>管理信息源</span>
+              </a>
+              <button id="availablePacksButton" class="region-pack-add-button" type="button">
+                <i data-lucide="hard-drive-download"></i><span>管理资源</span>
+              </button>
+            </div>
           </div>
           <div class="section-caption spaced">服务与数据</div>
           <div class="system-list">
@@ -518,6 +536,6 @@
     <script src="/vendor/maplibre-contour/index.min.js"></script>
     <script src="/vendor/lucide/lucide.min.js"></script>
   <script src="/src/map-style.js?v=20260803-1"></script>
-    <script type="module" src="/src/app.js?v=20260809-9"></script>
+    <script type="module" src="/src/app.js?v=20260810-1"></script>
   </body>
 </html>

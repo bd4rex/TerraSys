@@ -1,0 +1,22 @@
+[Unit]
+Description=TerraSys personal offline GIS
+Documentation=https://github.com/bd4rex/TerraSys
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+SupplementaryGroups=docker
+WorkingDirectory=@PROJECT_ROOT@
+Environment=PATH=@PROJECT_ROOT@/scripts/linux:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/pwsh -NoLogo -NoProfile -File @PROJECT_ROOT@/scripts/start-terrasys.ps1 -NoBuild
+ExecStop=/usr/bin/pwsh -NoLogo -NoProfile -File @PROJECT_ROOT@/scripts/stop-terrasys.ps1
+TimeoutStartSec=infinity
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target

@@ -32,7 +32,8 @@ $statePath = Join-Path $root "data\maintenance\shared-index-state.json"
 $candidateNominatimVolume = "terrasys_nominatim_candidate_$timestamp"
 $candidateNominatimContainer = "terrasys-nominatim-candidate-$timestamp"
 $candidateValhallaContainer = "terrasys-valhalla-candidate-$timestamp"
-$nominatimImage = "mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimImageDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimImage = "mediagis/nominatim@$nominatimImageDigest"
 $valhallaImage = "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1"
 $utf8 = New-Object Text.UTF8Encoding($false)
 $report = [ordered]@{
@@ -214,6 +215,15 @@ function Restore-ActivePointers {
   Wait-Healthy "terrasys-api" 10
   Invoke-Compose @("up", "-d", "--force-recreate", "web") "Refreshing the web entry after rollback"
   Wait-Healthy "terrasys-web" 5
+}
+
+$configuredImages = Read-DotEnv
+if ($configuredImages.ContainsKey("NOMINATIM_IMAGE") -and $configuredImages.NOMINATIM_IMAGE) {
+  $nominatimImage = [string]$configuredImages.NOMINATIM_IMAGE
+}
+if (-not ($nominatimImage.Equals($nominatimImageDigest, [StringComparison]::OrdinalIgnoreCase) -or
+    $nominatimImage.EndsWith("@$nominatimImageDigest", [StringComparison]::OrdinalIgnoreCase))) {
+  throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimImageDigest."
 }
 
 if ($Plan) {

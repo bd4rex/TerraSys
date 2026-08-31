@@ -1,10 +1,21 @@
 param(
-  [string]$Image = "overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79",
+  [string]$Image = "",
   [string]$DataVolume = "terrasys_osm_carto_data"
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+$imageDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+$canonicalImage = "overv/openstreetmap-tile-server@$imageDigest"
+$envFile = Join-Path $root "services\.env"
+if (-not $Image -and (Test-Path -LiteralPath $envFile -PathType Leaf)) {
+  $imageLine = Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^\s*OSM_CARTO_IMAGE=' } | Select-Object -First 1
+  if ($imageLine) { $Image = ([string]$imageLine).Substring(([string]$imageLine).IndexOf('=') + 1).Trim() }
+}
+if (-not $Image) { $Image = $canonicalImage }
+if (-not $Image.EndsWith("@$imageDigest", [StringComparison]::OrdinalIgnoreCase)) {
+  throw "The OSM Carto repair image must be pinned to the approved digest $imageDigest."
+}
 $externalRoot = Join-Path $root "raw\osm\carto\external"
 $externalConfig = Join-Path $root "config\osm-carto\external-data.local.yml"
 $repairScript = Join-Path $root "scripts\osm-carto-repair.sh"

@@ -59,6 +59,9 @@ foreach ($dataset in @($catalog.datasets)) {
   if ($sourceHash -ne ([string]$packManifest.source.sha256).ToLowerInvariant()) {
     throw "Regional source hash does not match the $($dataset.id) manifest."
   }
+  $maximumMissingReferences = if ($null -ne $dataset.sourceProfile.maxMissingReferences) {
+    [int64]$dataset.sourceProfile.maxMissingReferences
+  } elseif ([string]$dataset.sourceProfile.mode -eq "extract") { [int64]100 } else { [int64]0 }
   $inputs += [pscustomobject][ordered]@{
     id = [string]$dataset.id
     relativePath = $sourceRelative.Replace('\', '/')
@@ -66,6 +69,7 @@ foreach ($dataset in @($catalog.datasets)) {
     sha256 = $sourceHash
     sourceSequence = [string]$packManifest.source.sequenceNumber
     sourceUpdatedAt = [string]$packManifest.source.updatedAt
+    maximumMissingReferences = $maximumMissingReferences
   }
 }
 
@@ -73,6 +77,7 @@ if ($inputs.Count -lt 1) { throw "The map catalog contains no capability-source 
 Write-Host "Capability scope: $($inputs.Count) installed packs; skipped $skippedCount disabled or uninstalled catalog entries."
 $sequences = @($inputs.sourceSequence | Select-Object -Unique)
 $sourceSequence = if ($sequences.Count -eq 1) { $sequences[0] } else { "mixed" }
+$maximumMissingReferences = [int64](($inputs | Measure-Object maximumMissingReferences -Sum).Sum)
 
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 if (Test-Path -LiteralPath $staged) { Remove-Item -LiteralPath $staged -Force }
@@ -102,10 +107,14 @@ try {
   $ErrorActionPreference = $savedErrorAction
   $referenceLines = @($referenceCheck | ForEach-Object { "$_" })
   $referenceLines | ForEach-Object { Write-Host $_ }
+  $referenceText = $referenceLines -join "`n"
+  $missingWayNodes = if ($referenceText -match 'Nodes in ways missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingRelationMembers = if ($referenceText -match 'Members in relations missing:\s+(\d+)') { [int64]$matches[1] } else { [int64]0 }
+  $missingTotal = $missingWayNodes + $missingRelationMembers
+  $recognizedFailure = $referenceText -match '(?:Nodes in ways|Members in relations) missing:\s+\d+'
   if ($referenceExitCode -ne 0) {
-    $referenceText = $referenceLines -join "`n"
-    if ($referenceText -match 'Nodes in ways missing:\s+(\d+)' -and [int]$matches[1] -le 100) {
-      Write-Warning "$OutputId inherited $($matches[1]) missing way nodes from the upstream China extract."
+    if ($recognizedFailure -and $missingTotal -le $maximumMissingReferences) {
+      Write-Warning "$OutputId inherited $missingTotal omitted references from its public regional extracts; the aggregate configured limit is $maximumMissingReferences."
     }
     else {
       throw "Checking capability-source references failed with exit code $referenceExitCode."
@@ -134,6 +143,12 @@ try {
       catalogVersion = [string]$catalog.version
     }
     inputs = $inputs
+    referenceIntegrity = [ordered]@{
+      missingWayNodes = $missingWayNodes
+      missingRelationMembers = $missingRelationMembers
+      missingTotal = $missingTotal
+      maximumMissingReferences = $maximumMissingReferences
+    }
     product = [ordered]@{
       path = "raw/osm/china/$OutputId-latest.osm.pbf"
       bytes = (Get-Item -LiteralPath $output).Length

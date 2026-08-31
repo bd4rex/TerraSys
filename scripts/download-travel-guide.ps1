@@ -9,7 +9,20 @@ $directory = Join-Path $root "products\encyclopedia"
 $fileName = [IO.Path]::GetFileName(([Uri]$Url).AbsolutePath)
 $target = Join-Path $directory $fileName
 $staged = "$target.part"
+$manifestPath = Join-Path $directory "travel-guide.manifest.json"
 $utf8NoBom = New-Object Text.UTF8Encoding($false)
+
+function Set-ContainerReadableFile {
+  param([Parameter(Mandatory = $true)][string[]]$Paths)
+
+  if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { return }
+  if (-not (Get-Command chmod -ErrorAction SilentlyContinue)) { throw "The Linux 'chmod' command was not found." }
+  foreach ($path in $Paths) {
+    & chmod 0644 -- $path
+    if ($LASTEXITCODE -ne 0) { throw "Could not make the travel-guide asset container-readable: $path" }
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $directory | Out-Null
 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
   curl.exe --fail --location --retry 8 --retry-delay 5 --continue-at - --output $staged $Url
@@ -28,5 +41,6 @@ $manifest = [ordered]@{
   content = "Chinese Wikivoyage all-maxi"
   snapshot = "2026-06"
 }
-[IO.File]::WriteAllText((Join-Path $directory "travel-guide.manifest.json"), ($manifest | ConvertTo-Json -Depth 5), $utf8NoBom)
+[IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 5), $utf8NoBom)
+Set-ContainerReadableFile @($target, $manifestPath)
 Get-Item -LiteralPath $target | Select-Object FullName, Length, LastWriteTime

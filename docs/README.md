@@ -2,7 +2,7 @@
 
 > English | [简体中文](README.zh-CN.md)
 >
-> Documentation snapshot: `2026-08-07T14:04:59+08:00`
+> Documentation snapshot: `2026-08-31`
 
 Every maintained Markdown document has an English default file and a Simplified Chinese companion. Commands, paths, identifiers, checksums, and timestamps are intentionally kept identical between languages.
 
@@ -11,6 +11,10 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Subject | English | 简体中文 |
 | --- | --- | --- |
 | Project overview | [README](../README.md) | [README](../README.zh-CN.md) |
+| Deployment choice | [Deployment guide](deployment/README.md) | [部署指南](deployment/README.zh-CN.md) |
+| Windows deployment | [Windows workstation](deployment/WINDOWS.md) | [Windows 工作站](deployment/WINDOWS.zh-CN.md) |
+| Linux deployment | [Linux server](deployment/LINUX.md) | [Linux 服务器](deployment/LINUX.zh-CN.md) |
+| Project layout | [Project structure](PROJECT_STRUCTURE.md) | [项目结构](PROJECT_STRUCTURE.zh-CN.md) |
 | Architecture | [Architecture](ARCHITECTURE.md) | [架构](ARCHITECTURE.zh-CN.md) |
 | Configuration | [Configuration](CONFIGURATION.md) | [配置](CONFIGURATION.zh-CN.md) |
 | Data pipeline | [Data pipeline](DATA_PIPELINE.md) | [数据流水线](DATA_PIPELINE.zh-CN.md) |
@@ -23,6 +27,8 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Resource lifecycle | [Resource and version management](RESOURCE_AND_VERSION_MANAGEMENT.md) | [资源与版本管理](RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
 | OSM update policy | [Incremental updates](OSM_INCREMENTAL_UPDATES.md) | [增量更新](OSM_INCREMENTAL_UPDATES.zh-CN.md) |
 | Sources and licenses | [Sources and licenses](SOURCES_AND_LICENSES.md) | [来源与许可](SOURCES_AND_LICENSES.zh-CN.md) |
+| Additional information layers | [Additional information layers](ADDITIONAL_INFORMATION_LAYERS.md) | [附加信息图层](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) |
+| Keyed data sources | [Keyed source catalog](KEYED_DATA_SOURCES.md) | [密钥源决策目录](KEYED_DATA_SOURCES.zh-CN.md) |
 | Roadmap | [Roadmap](ROADMAP.md) | [路线图](ROADMAP.zh-CN.md) |
 
 ## History and design records

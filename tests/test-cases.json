@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-07",
+  "updatedAt": "2026-08-17",
   "profiles": {
     "static": "Repository contracts that need neither Docker nor running TerraSys services.",
     "browser": "Static contracts, service health, and all browser regressions.",
@@ -33,6 +33,35 @@
         "Every tracked PowerShell script parses without syntax errors."
       ],
       "evidence": "PowerShell parser count in the static test summary."
+    },
+    {
+      "id": "TC-STATIC-003",
+      "title": "Digest-only Nominatim image recovery remains immutable",
+      "area": "recovery",
+      "risk": "Docker save/load can omit repository metadata and cause an offline restore to attempt an unavailable registry pull.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/repository-contracts.ps1"],
+      "assertions": [
+        "Startup recognizes the approved local SHA256 image ID when repository digests are absent.",
+        "The immutable ID remains accepted by shared-index rebuilds and offline image export while mismatched references are rejected.",
+        "Downloaded Kiwix archives and manifests are readable by non-owner container users on Linux."
+      ],
+      "evidence": "Nominatim image-reference assertions in the static repository-contract run."
+    },
+    {
+      "id": "TC-STATIC-004",
+      "title": "Linux public bind mounts remain container-readable",
+      "area": "runtime",
+      "risk": "A restrictive host umask can make web, map-pack, or knowledge assets return 403 inside non-owner containers.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/repository-contracts.ps1"],
+      "assertions": [
+        "Startup normalizes owner-controlled files under only the three public bind roots.",
+        "Startup flattens recursive directory enumeration before validating each Unix file mode.",
+        "Startup rejects any remaining file or directory that lacks the required other-read or traversal permission.",
+        "The dedicated OSM Carto Apache worker shares renderd's identity so newly rendered owner-only cache directories remain readable."
+      ],
+      "evidence": "Public bind-mount permission assertions in the static repository-contract run."
     },
     {
       "id": "TC-DOC-001",
@@ -79,7 +108,9 @@
       "profiles": ["full", "recovery"],
       "automation": ["scripts/smoke-test.ps1"],
       "assertions": [
-        "The 34 province units and global Geofabrik catalog are complete.",
+        "The 34 province units, global provider catalog, and bounded source overrides are complete.",
+        "The map-pack API cache invalidates when province boundary files are added or updated.",
+        "North/South Korea direct sources are fully validated and recorded by SHA256 when no upstream state file exists.",
         "Installed packages verify through the maintenance queue.",
         "Package manifests expose source, rich-detail, checksum, and recovery metadata.",
         "Protected removal is rejected without its confirmation token."
@@ -125,6 +156,21 @@
         "Linked media follows place and track ownership and is removed without orphans."
       ],
       "evidence": "Functional smoke output and validated temporary export archive."
+    },
+    {
+      "id": "TC-LIVE-001",
+      "title": "Keyless additional information adapters remain normalized and bounded",
+      "area": "additional information layers",
+      "risk": "Provider differences, cache regressions, or AIS decoding errors can break overlays or leak into the main map.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/test_live_layers.py", "tests/ui-smoke.cjs", "tests/information-layer-console-smoke.cjs"],
+      "assertions": [
+        "The runtime catalog stays no-key-only and declares all P0/P1 overlays.",
+        "TTL caching, persistent enable/refresh settings, runtime health, antimeridian bounds, normalized USGS GeoJSON, and open AIS NMEA position decoding pass deterministic unit tests.",
+        "The additional-layer entry mounts a selected source while contours remain available in the ordinary layer panel.",
+        "The standalone console exposes all nine no-key sources and five keyed candidates, and its setting/test controls use their bounded APIs."
+      ],
+      "evidence": "Python unit output plus runtime/ui-smoke and runtime/information-layer-console-smoke screenshots."
     },
     {
       "id": "TC-UI-001",

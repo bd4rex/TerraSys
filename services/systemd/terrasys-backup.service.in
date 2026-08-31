@@ -1,0 +1,16 @@
+[Unit]
+Description=TerraSys checksum-verified personal-data backup
+Requires=docker.service
+After=docker.service terrasys.service
+
+[Service]
+Type=oneshot
+User=@SERVICE_USER@
+Group=@SERVICE_GROUP@
+SupplementaryGroups=docker
+WorkingDirectory=@PROJECT_ROOT@
+Environment=PATH=@PROJECT_ROOT@/scripts/linux:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/pwsh -NoLogo -NoProfile -File @PROJECT_ROOT@/scripts/backup-terrasys.ps1
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6

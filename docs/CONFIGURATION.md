@@ -22,6 +22,8 @@ PostGIS `5432`, Martin `3000`, FastAPI `8000`, Nominatim `8080`, Valhalla `8002`
 ```dotenv
 POSTGRES_PASSWORD=<long-random-local-password>
 NOMINATIM_PASSWORD=<independent-long-random-local-password>
+OSM_CARTO_IMAGE=overv/openstreetmap-tile-server@sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79
+NOMINATIM_IMAGE=mediagis/nominatim@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8
 ```
 
 The file is ignored by Git. `scripts/start-terrasys.ps1` creates a 32-byte random password if the file is missing and synchronizes it with the existing `gis` database role.
@@ -41,7 +43,7 @@ The Compose project lives in `services/docker-compose.yml`.
 | `kiwix` (`advanced`) | read-only `products/encyclopedia` | none |
 | `osm-carto` (`advanced`) | external Docker volume `terrasys_osm_carto_data`; `data/osm-carto-tiles` | none |
 
-All third-party runtime images are pinned by digest. The API image is built from `services/api/Dockerfile` with exact Python dependency versions.
+All third-party runtime images are pinned by digest. `OSM_CARTO_IMAGE` and `NOMINATIM_IMAGE` may use different reachable registry prefixes, but the scripts accept only their fixed manifest SHA256 values shown above. The API image is built from `services/api/Dockerfile` with exact Python dependency versions.
 
 `VALHALLA_FORCE_REBUILD` and `VALHALLA_IGNORE_PBF` have safe normal-start defaults and are overridden only by `rebuild-shared-indexes.cmd`. They should not be persisted in `.env`.
 

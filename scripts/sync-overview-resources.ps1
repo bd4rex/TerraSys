@@ -1,5 +1,5 @@
 param(
-  [string]$RasterUrl = "https://naturalearth.s3.amazonaws.com/50m_raster/GRAY_50M_SR_OB.zip"
+  [string]$RasterUrl = "https://naciscdn.org/naturalearth/50m/raster/GRAY_50M_SR_OB.zip"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,9 +13,19 @@ $utf8NoBom = New-Object Text.UTF8Encoding($false)
 
 New-Item -ItemType Directory -Force -Path $rawDirectory, $outputDirectory | Out-Null
 if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
-  curl.exe --fail --location --retry 5 --retry-delay 3 --output "$archive.part" $RasterUrl
-  if ($LASTEXITCODE -ne 0) { throw "Downloading the Natural Earth raster failed." }
-  Move-Item -LiteralPath "$archive.part" -Destination $archive -Force
+  $archivePart = "$archive.part"
+  curl.exe --fail --location --continue-at - --connect-timeout 20 --retry 8 --retry-delay 5 --retry-all-errors `
+    --speed-limit 1024 --speed-time 120 --output $archivePart $RasterUrl
+  $downloadExitCode = $LASTEXITCODE
+  if ($downloadExitCode -eq 33 -and (Test-Path -LiteralPath $archivePart -PathType Leaf)) {
+    Write-Warning "The Natural Earth CDN rejected the saved byte range; restarting this staging download once."
+    Remove-Item -LiteralPath $archivePart -Force
+    curl.exe --fail --location --connect-timeout 20 --retry 8 --retry-delay 5 --retry-all-errors `
+      --speed-limit 1024 --speed-time 120 --output $archivePart $RasterUrl
+    $downloadExitCode = $LASTEXITCODE
+  }
+  if ($downloadExitCode -ne 0) { throw "Downloading the Natural Earth raster failed with exit code $downloadExitCode." }
+  Move-Item -LiteralPath $archivePart -Destination $archive -Force
 }
 if (-not (Test-Path -LiteralPath $tiff -PathType Leaf)) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the TerraSys personal-data backup every day
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=10m
+Unit=terrasys-backup.service
+
+[Install]
+WantedBy=timers.target

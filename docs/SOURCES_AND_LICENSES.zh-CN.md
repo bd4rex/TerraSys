@@ -1,6 +1,6 @@
 # 来源与许可
 
-> [English](SOURCES_AND_LICENSES.md) | 简体中文 · 快照 `2026-08-03T23:12:23+08:00`
+> [English](SOURCES_AND_LICENSES.md) | 简体中文 · 快照 `2026-08-17T00:26:42+08:00`
 
 本项目组合开放数据与开源软件。重新分发地图包或浏览器资源前，应保留署名并重新核对上游许可和服务条款。
 
@@ -11,9 +11,10 @@
 - `https://download.openstreetmap.fr/extracts/asia/china/`
 - `https://download.openstreetmap.fr/polygons/asia/china/`
 - `https://download.geofabrik.de/asia/taiwan.html`
-- `https://download.geofabrik.de/index-v1-nogeom.json`
+- `https://download.geofabrik.de/index-v1.json`
+- `https://tiles.osm.kr/download/`（朝鲜/韩国非军事要素提取文件）
 
-大陆省级地图从同一份中国快照和省级边界派生；台湾使用独立校验的 Geofabrik PBF 与边界。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
+大陆省级地图从同一份中国快照和省级边界派生。中国提供方可能省略跨越国家提取范围外边界的引用；TerraSys 会完整扫描 PBF，只接受该来源明确设置的有上限缺口，随后省级提取仍执行更严格的引用检查。台湾使用独立校验的 Geofabrik PBF 与边界。朝鲜/韩国包使用 OpenStreetMap Korea 的公开非军事要素提取文件；由于下载目录不提供旁路校验和或复制序列，TerraSys 会完整扫描 PBF 并在本地清单记录 SHA256。OpenStreetMap 数据使用 ODbL，浏览器必须显示 OpenStreetMap contributors 署名。
 
 版权与许可：`https://www.openstreetmap.org/copyright`
 
@@ -94,7 +95,20 @@
 
 来源：`https://open-meteo.com/`
 
-提供江苏/安徽城市集合的七天天气快照，按 CC BY 4.0 署名，来源与校验位于 `products/weather/weather.manifest.json`。
+提供江苏/安徽城市集合的七天天气快照，以及按当前视口抽样的空气质量（CAMS）和河流流量（GloFAS）参考。按 CC BY 4.0/Copernicus 相关条款署名；个人非商业运行使用 Open-Meteo 免费 API。天气快照来源与校验位于 `products/weather/weather.manifest.json`。
+
+## 无密钥附加信息图层
+
+附加信息图层只在用户开启后按当前视口请求，并由后端做 TTL 缓存与裁剪。当前运行目录不包含任何 API 密钥：
+
+- [USGS Earthquake GeoJSON](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php)：近 7 日地震；美国政府公共领域数据。
+- [NASA EONET](https://eonet.gsfc.nasa.gov/docs/v3)：开放山火事件；保留 EONET 与原事件源链接。它不是 FIRMS 逐像元火点。
+- [GDACS API](https://www.gdacs.org/gdacsapi/)：洪水、火山、干旱、山火与热带气旋通报；保留 GDACS 署名和原报告链接，不能替代当地正式预警。
+- [ADSB.lol](https://www.adsb.lol/)：众包 ADS-B 飞机位置，数据按 ODbL 署名；覆盖不完整，不用于航空安全决策。
+- [Norwegian Coastal Administration open AIS](https://www.kystverket.no/en/sea-transport-and-ports/ais/access-to-ais-data/)：挪威区域 AIS TCP 流，按 NLOD 署名并受船型/尺寸与地理公开范围限制；不用于航行安全决策。
+- [NOAA NDBC](https://www.ndbc.noaa.gov/)：海洋浮标与沿岸站最新观测；美国政府公共数据。
+
+需要账号或密钥、尚未接入的候选源及官方调用限制见 [需要密钥的数据源决策目录](KEYED_DATA_SOURCES.zh-CN.md)。
 
 ## Kiwix、Wikipedia 与 Wikivoyage
 

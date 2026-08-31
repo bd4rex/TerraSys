@@ -91,6 +91,29 @@ fs.mkdirSync(outputDir, { recursive: true });
       })
     });
   });
+  await page.route("**/api/live/**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/catalog")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ schemaVersion: 1, keyPolicy: "no-key-only", layers: [] }) });
+    }
+    const id = url.pathname.split("/").pop();
+    const labels = {
+      earthquakes: "测试地震", wildfires: "测试山火", disasters: "测试灾害", "air-quality": "测试空气质量",
+      floods: "测试河流流量", aircraft: "TEST123", vessels: "测试船舶", "ocean-buoys": "测试浮标", cyclones: "测试气旋"
+    };
+    return route.fulfill({
+      status: 200,
+      contentType: "application/geo+json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature", id: `${id}-fixture`, geometry: { type: "Point", coordinates: [118.89574, 32.05272] },
+          properties: { kind: id, title: labels[id] || id, subtitle: "UI 测试对象", observedAt: "2026-08-10T04:00:00Z", sourceLabel: "UI fixture", sourceUrl: "https://example.com/source", license: "Test license", magnitude: 4.2, track: 90, course: 90 }
+        }],
+        properties: { source: "ui-fixture", status: "ok", count: 1 }
+      })
+    });
+  });
 
   await page.goto(`${baseUrl}/?lon=118.89574&lat=32.05272&zoom=16`, { waitUntil: "load" });
   await page.waitForFunction(() => document.querySelector("#systemState")?.textContent === "本地在线", null, { timeout: 90000 });
@@ -373,10 +396,42 @@ fs.mkdirSync(outputDir, { recursive: true });
   await page.getByRole("button", { name: "关闭", exact: true }).click();
   if (!(await page.locator("#modeBanner").isHidden())) throw new Error("Closing the editor did not leave add-place mode.");
 
-  const contourShortcut = page.getByRole("button", { name: "等高线", exact: true });
-  if (await contourShortcut.count() !== 1) throw new Error("Contour shortcut is missing.");
-  await contourShortcut.click();
-  if (await contourShortcut.getAttribute("aria-pressed") !== "true") throw new Error("Contour shortcut did not enable contours.");
+  if (await page.getByRole("button", { name: "等高线", exact: true }).count()) throw new Error("The contour shortcut was not replaced.");
+  const liveLayersShortcut = page.getByRole("button", { name: "附加信息图层", exact: true });
+  if (await liveLayersShortcut.count() !== 1) throw new Error("Additional information layer shortcut is missing.");
+  await liveLayersShortcut.click();
+  await page.locator("#liveLayersPopover").waitFor({ state: "visible" });
+  const livePanelText = await page.locator("#liveLayersPopover").innerText();
+  for (const label of ["地震", "山火事件", "灾害预警", "空气质量", "河流流量", "ADS-B 飞机", "AIS 船舶", "海洋浮标", "热带气旋"]) {
+    if (!livePanelText.includes(label)) throw new Error(`Additional information panel is missing ${label}.`);
+  }
+  if (!livePanelText.includes("无需密钥") || !livePanelText.includes("P0") || !livePanelText.includes("P1")) {
+    throw new Error("Additional information panel does not explain its keyless P0/P1 catalog.");
+  }
+  const informationManagerLink = page.locator('#liveLayersPopover a[href="/information-layers.html"]');
+  if (await informationManagerLink.count() !== 1 || !(await informationManagerLink.innerText()).includes("管理附加信息源")) {
+    throw new Error("The additional-information popover does not link to its standalone management console.");
+  }
+  await page.locator('[data-live-layer="earthquakes"]').check();
+  await page.waitForFunction(() => document.querySelector('[data-live-count="earthquakes"]')?.textContent === "1 个");
+  const liveLayerState = await page.evaluate(() => {
+    const map = window.__terrasysMapInstance;
+    return {
+      source: Boolean(map.getSource("live-earthquakes-source")),
+      visibility: map.getLayoutProperty("live-earthquakes", "visibility"),
+      aircraftMarker: map.hasImage("live-aircraft-marker"),
+      vesselMarker: map.hasImage("live-vessel-marker")
+    };
+  });
+  if (!liveLayerState.source || liveLayerState.visibility !== "visible" || !liveLayerState.aircraftMarker || !liveLayerState.vesselMarker) {
+    throw new Error(`Additional information layers were not fully mounted: ${JSON.stringify(liveLayerState)}`);
+  }
+  await page.screenshot({ path: path.join(outputDir, "additional-information-layers.png"), fullPage: false });
+  await page.getByRole("button", { name: "关闭附加信息图层", exact: true }).click();
+
+  await page.locator("#layersShortcut").click();
+  await page.locator('#layersPopover [data-layer-toggle="contours"]').check();
+  await page.getByRole("button", { name: "关闭图层", exact: true }).click();
   const contourLabelStyles = await page.evaluate(() => {
     const map = window.__terrasysMapInstance;
     return {
@@ -403,7 +458,7 @@ fs.mkdirSync(outputDir, { recursive: true });
   if (!vectorLegend.includes("离线交互矢量") || !vectorLegend.includes("符号可随图层开关") || !vectorLegend.includes("植被与绿地")) {
     throw new Error(`Vector legend did not reflect the rendered base map: ${vectorLegend}`);
   }
-  if (!vectorLegend.includes("已开启的独立叠加层") || !vectorLegend.includes("主等高线") || !vectorLegend.includes("次等高线高度")) {
+  if (!vectorLegend.includes("已开启的独立叠加层") || !vectorLegend.includes("主等高线") || !vectorLegend.includes("次等高线高度") || !vectorLegend.includes("地震")) {
     throw new Error(`Legend did not separate enabled overlays from the base map: ${vectorLegend}`);
   }
   await page.locator("#legendDetails summary").click();

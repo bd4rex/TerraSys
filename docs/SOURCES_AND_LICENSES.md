@@ -1,6 +1,6 @@
 # Sources and Licenses
 
-> English | [简体中文](SOURCES_AND_LICENSES.zh-CN.md) · Snapshot `2026-08-03T23:12:23+08:00`
+> English | [简体中文](SOURCES_AND_LICENSES.zh-CN.md) · Snapshot `2026-08-17T00:26:42+08:00`
 
 This project combines open data and open-source software. Keep attribution visible and review upstream licenses before redistributing a data pack or bundled browser assets.
 
@@ -11,9 +11,10 @@ Source mirror:
 - `https://download.openstreetmap.fr/extracts/asia/china/`
 - `https://download.openstreetmap.fr/polygons/asia/china/`
 - `https://download.geofabrik.de/asia/taiwan.html`
-- `https://download.geofabrik.de/index-v1-nogeom.json` (global region catalog)
+- `https://download.geofabrik.de/index-v1.json` (global region catalog)
+- `https://tiles.osm.kr/download/` (North/South Korea non-military extracts)
 
-The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
+The mainland province maps are derived from one China snapshot and 33 province-level polygon boundaries. The China provider can omit references crossing its outer country-extract boundary; TerraSys performs a complete PBF scan and accepts only a source-specific bounded count before the stricter province extraction checks run. Taiwan uses a separately checksummed Geofabrik OSM PBF and polygon. The North/South Korea packs use OpenStreetMap Korea's public non-military extracts; TerraSys performs a complete PBF validation and records a local SHA256 because that download directory does not publish a sidecar checksum or replication state. OpenStreetMap data is available under the Open Database License (ODbL). The browser visibly credits OpenStreetMap contributors.
 
 Project and license information: `https://www.openstreetmap.org/copyright`
 
@@ -103,7 +104,18 @@ Role: the legacy low-zoom raster plus the zoom 0-7 multiscale vector PMTiles. Th
 
 Source: `https://open-meteo.com/`
 
-Role: refreshable seven-day snapshots for the current Jiangsu/Anhui city set. Weather data is attributed to Open-Meteo under CC BY 4.0 and stored with source URLs and checksums in `products/weather/weather.manifest.json`.
+Role: refreshable seven-day snapshots for the current Jiangsu/Anhui city set, plus viewport-sampled CAMS air-quality and GloFAS river-discharge references. Open-Meteo/Copernicus attribution and the applicable CC BY terms are retained; the free API is used for this personal non-commercial installation. Weather snapshots are stored with source URLs and checksums in `products/weather/weather.manifest.json`.
+
+## Keyless additional information layers
+
+Additional overlays are requested only after the user enables them, cropped to the current viewport, and cached by the API. No API key is present in the runtime catalog:
+
+- [USGS Earthquake GeoJSON](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php): seven-day earthquake catalog; US public-domain data.
+- [NASA EONET](https://eonet.gsfc.nasa.gov/docs/v3): curated open wildfire events with EONET and upstream event links. This is not a pixel-level FIRMS hotspot feed.
+- [GDACS API](https://www.gdacs.org/gdacsapi/): flood, volcano, drought, wildfire, and tropical-cyclone notices with GDACS attribution and report links; not a replacement for local official alerts.
+- [ADSB.lol](https://www.adsb.lol/): crowdsourced ADS-B aircraft positions under ODbL; incomplete coverage and not for aviation safety decisions.
+- [Norwegian Coastal Administration open AIS](https://www.kystverket.no/en/sea-transport-and-ports/ais/access-to-ais-data/): Norway-region TCP AIS under NLOD and subject to geographic/vessel disclosure limits; not for navigation decisions.
+- [NOAA NDBC](https://www.ndbc.noaa.gov/): latest ocean buoy and coastal-station observations; US public data.
 
 ## Kiwix, Wikipedia, and Wikivoyage ZIM
 

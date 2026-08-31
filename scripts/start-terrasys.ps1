@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $services = Join-Path $root "services"
 $envFile = Join-Path $services ".env"
+$isWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 
 function New-LocalSecret {
   $bytes = New-Object byte[] 32
@@ -31,10 +32,66 @@ function Test-DockerEngine {
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-  throw "Docker was not found on PATH. Install Docker Desktop, then run this script again."
+  throw "Docker was not found on PATH. Install Docker Engine or Docker Desktop, then run this script again."
+}
+
+function Test-LocalDockerImage {
+  param([Parameter(Mandatory = $true)][string]$Image)
+
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    docker image inspect $Image *> $null
+    return $LASTEXITCODE -eq 0
+  }
+  catch {
+    return $false
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
+function Set-PublicBindTreeReadable {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  if ($isWindowsHost) { return }
+  if (-not (Get-Command find -ErrorAction SilentlyContinue) -or
+      -not (Get-Command chmod -ErrorAction SilentlyContinue)) {
+    throw "The Linux 'find' and 'chmod' commands are required to normalize public bind mounts."
+  }
+  $numericUid = ((& id -u) -join "").Trim()
+  if ($LASTEXITCODE -ne 0 -or $numericUid -notmatch '^\d+$') {
+    throw "Could not determine the Linux UID for public bind-mount permissions."
+  }
+  & find $Path -xdev -user $numericUid -exec chmod "u=rwX,go=rX" -- "{}" "+"
+  if ($LASTEXITCODE -ne 0) { throw "Could not normalize public bind-mount permissions: $Path" }
+
+  $unreadable = New-Object System.Collections.Generic.List[string]
+  $publicItems = @(
+    Get-Item -LiteralPath $Path
+    Get-ChildItem -LiteralPath $Path -Force -Recurse
+  )
+  foreach ($item in $publicItems) {
+    $mode = [IO.File]::GetUnixFileMode($item.FullName)
+    $required = if ($item.PSIsContainer) {
+      [IO.UnixFileMode]::OtherRead -bor [IO.UnixFileMode]::OtherExecute
+    }
+    else { [IO.UnixFileMode]::OtherRead }
+    if (([int]$mode -band [int]$required) -ne [int]$required) {
+      $unreadable.Add($item.FullName)
+      if ($unreadable.Count -ge 5) { break }
+    }
+  }
+  if ($unreadable.Count) {
+    throw "Public bind mount contains files the container cannot read: $($unreadable -join ', ')"
+  }
 }
 
 if (-not (Test-DockerEngine)) {
+  if (-not $isWindowsHost) {
+    throw "Docker Engine is not running or the current user cannot access it. Start docker.service and verify Docker-group membership."
+  }
   $dockerDesktop = @(
     "C:\Program Files\Docker\Docker\Docker Desktop.exe",
     (Join-Path $env:LOCALAPPDATA "Docker\Docker Desktop.exe")
@@ -58,6 +115,23 @@ if (-not (Test-Path $envFile)) {
 if (-not (Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_PASSWORD=' } | Select-Object -First 1)) {
   Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_PASSWORD=$(New-LocalSecret)"
 }
+if (-not $isWindowsHost) {
+  if (-not (Get-Command id -ErrorAction SilentlyContinue)) {
+    throw "The Linux 'id' command was not found."
+  }
+  foreach ($identity in @(
+    @{ Name = "TERRASYS_API_UID"; Argument = "-u" },
+    @{ Name = "TERRASYS_API_GID"; Argument = "-g" }
+  )) {
+    if (-not (Get-Content $envFile | Where-Object { $_ -match "^$($identity.Name)=" } | Select-Object -First 1)) {
+      $numericId = ((& id $identity.Argument) -join "").Trim()
+      if ($LASTEXITCODE -ne 0 -or $numericId -notmatch '^\d+$') {
+        throw "Could not determine the Linux identity for $($identity.Name)."
+      }
+      Add-Content -Encoding ASCII -LiteralPath $envFile -Value "$($identity.Name)=$numericId"
+    }
+  }
+}
 
 $passwordLine = Get-Content $envFile | Where-Object { $_ -match '^POSTGRES_PASSWORD=' } | Select-Object -First 1
 if (-not $passwordLine) { throw "POSTGRES_PASSWORD is missing from services/.env" }
@@ -67,6 +141,53 @@ $sqlPassword = $password.Replace("'", "''")
 $nominatimPasswordLine = Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_PASSWORD=' } | Select-Object -First 1
 if (-not $nominatimPasswordLine -or $nominatimPasswordLine.Substring("NOMINATIM_PASSWORD=".Length).Length -lt 20) {
   throw "NOMINATIM_PASSWORD must contain at least 20 characters."
+}
+
+$osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
+$osmCartoImageLine = Get-Content $envFile | Where-Object { $_ -match '^OSM_CARTO_IMAGE=' } | Select-Object -First 1
+if ($osmCartoImageLine) {
+  $osmCartoImage = ([string]$osmCartoImageLine).Substring("OSM_CARTO_IMAGE=".Length).Trim()
+  if (-not $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "OSM_CARTO_IMAGE must be pinned to the approved digest $osmCartoDigest."
+  }
+}
+else {
+  $osmCartoManifestPath = Join-Path $root "products\osm-carto\osm-carto.manifest.json"
+  if (Test-Path -LiteralPath $osmCartoManifestPath -PathType Leaf) {
+    $osmCartoManifest = Get-Content -Raw -LiteralPath $osmCartoManifestPath | ConvertFrom-Json
+    $osmCartoImage = if ($osmCartoManifest.renderer.runtimeImage) {
+      [string]$osmCartoManifest.renderer.runtimeImage
+    }
+    else { [string]$osmCartoManifest.renderer.image }
+    if ($osmCartoImage -and $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
+      Add-Content -Encoding ASCII -LiteralPath $envFile -Value "OSM_CARTO_IMAGE=$osmCartoImage"
+    }
+  }
+}
+
+$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
+$nominatimPrimaryImage = "mediagis/nominatim@$nominatimDigest"
+$nominatimFallbackImage = "docker.1ms.run/mediagis/nominatim@$nominatimDigest"
+$nominatimImageLine = Get-Content $envFile | Where-Object { $_ -match '^NOMINATIM_IMAGE=' } | Select-Object -First 1
+if ($nominatimImageLine) {
+  $nominatimImage = ([string]$nominatimImageLine).Substring("NOMINATIM_IMAGE=".Length).Trim()
+  if (-not ($nominatimImage.Equals($nominatimDigest, [StringComparison]::OrdinalIgnoreCase) -or
+      $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase))) {
+    throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
+  }
+}
+else {
+  if (Test-LocalDockerImage $nominatimPrimaryImage) {
+    # Compose's default reference is already available locally.
+  }
+  elseif (Test-LocalDockerImage $nominatimFallbackImage) {
+    Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_IMAGE=$nominatimFallbackImage"
+  }
+  elseif (Test-LocalDockerImage $nominatimDigest) {
+    # docker save/load preserves content but may omit repository digests. The
+    # immutable image ID remains safe to use and prevents an unnecessary pull.
+    Add-Content -Encoding ASCII -LiteralPath $envFile -Value "NOMINATIM_IMAGE=$nominatimDigest"
+  }
 }
 
 $valhallaPathLine = Get-Content $envFile | Where-Object { $_ -match '^VALHALLA_DATA_PATH=' } | Select-Object -First 1
@@ -87,13 +208,61 @@ $advancedReady = (Test-Path -LiteralPath (Join-Path $root "raw\osm\china\terrasy
   (Test-Path -LiteralPath (Join-Path $root "products\encyclopedia\wikipedia_zh_all_mini_2026-05.zim") -PathType Leaf)
 $profileArguments = if ($advancedReady) { @("--profile", "advanced") } else { @() }
 
+# Every host-side bind target must exist before Docker starts. Otherwise Docker
+# creates missing paths as root on Linux, which blocks later non-root data builds.
+foreach ($directory in @(
+  (Join-Path $root "data\media"),
+  (Join-Path $root "data\exports"),
+  (Join-Path $root "backups"),
+  (Join-Path $root "offline-kit"),
+  (Join-Path $root "products\tiles\pmtiles"),
+  (Join-Path $root "raw\osm\china"),
+  (Join-Path $root "products\elevation"),
+  (Join-Path $root "data\terrain-cache"),
+  (Join-Path $root "data\maintenance"),
+  (Join-Path $root "tmp"),
+  $valhallaDataPath,
+  (Join-Path $root "products\encyclopedia"),
+  (Join-Path $root "products\weather"),
+  (Join-Path $root "products\nautical"),
+  (Join-Path $root "web\assets\overview"),
+  (Join-Path $root "products\osm-carto"),
+  (Join-Path $root "data\osm-carto-tiles")
+)) {
+  New-Item -ItemType Directory -Force -Path $directory | Out-Null
+}
+foreach ($publicRoot in @(
+  (Join-Path $root "web"),
+  (Join-Path $root "products\tiles\pmtiles"),
+  (Join-Path $root "products\encyclopedia")
+)) {
+  Set-PublicBindTreeReadable $publicRoot
+}
+
+$utf8NoBom = New-Object Text.UTF8Encoding($false)
+foreach ($file in @(
+  @{ Path = (Join-Path $root "raw\osm\china\china.state.txt"); Content = "" },
+  @{ Path = (Join-Path $root "raw\osm\china\terrasys-core.manifest.json"); Content = "{}`n" }
+)) {
+  if (Test-Path -LiteralPath $file.Path) {
+    if (-not (Test-Path -LiteralPath $file.Path -PathType Leaf)) {
+      throw "Bind-mounted file path is not a regular file: $($file.Path)"
+    }
+  }
+  else {
+    [IO.File]::WriteAllText($file.Path, [string]$file.Content, $utf8NoBom)
+  }
+}
+
 Push-Location $services
 try {
   docker compose up -d postgis | Out-Host
   if ($LASTEXITCODE -ne 0) { throw "Could not start PostGIS." }
   $ready = $false
   for ($attempt = 0; $attempt -lt 30; $attempt++) {
-    docker exec terrasys-postgis pg_isready -U gis -d terrasys *> $null
+    # The image's initialization server listens on its Unix socket only. A TCP
+    # probe becomes ready after init scripts finish and the final server starts.
+    docker exec terrasys-postgis pg_isready -h 127.0.0.1 -U gis -d terrasys *> $null
     if ($LASTEXITCODE -eq 0) { $ready = $true; break }
     Start-Sleep -Seconds 1
   }
@@ -126,19 +295,52 @@ if (Test-Path -LiteralPath $workerStatePath -PathType Leaf) {
   try {
     $workerState = Get-Content -Raw -LiteralPath $workerStatePath | ConvertFrom-Json
     $workerPid = [int]$workerState.pid
-    $workerProcess = if ($workerPid -gt 0) { Get-CimInstance Win32_Process -Filter "ProcessId = $workerPid" -ErrorAction SilentlyContinue } else { $null }
-    $workerRunning = $workerState.status -eq "running" -and $workerProcess -and
-      [string]$workerProcess.CommandLine -match [regex]::Escape($workerScript)
+    $workerCommandLine = $null
+    if ($workerPid -gt 0) {
+      if ($isWindowsHost) {
+        $workerProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $workerPid" -ErrorAction SilentlyContinue
+        if ($workerProcess) { $workerCommandLine = [string]$workerProcess.CommandLine }
+      }
+      else {
+        $commandLinePath = "/proc/$workerPid/cmdline"
+        if (Test-Path -LiteralPath $commandLinePath -PathType Leaf) {
+          $workerCommandLine = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($commandLinePath)).Replace([char]0, " ")
+        }
+      }
+    }
+    $workerRunning = $workerState.status -eq "running" -and
+      $workerCommandLine -match [regex]::Escape($workerScript)
   }
   catch { $workerRunning = $false }
 }
 if (-not $workerRunning) {
-  Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $workerScript) -WindowStyle Hidden | Out-Null
+  $workerExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
+  $workerArguments = @("-NoLogo", "-NoProfile")
+  if ($isWindowsHost) { $workerArguments += @("-ExecutionPolicy", "Bypass") }
+  $workerArguments += @("-File", $workerScript)
+  $workerStart = @{
+    FilePath = $workerExecutable
+    ArgumentList = $workerArguments
+  }
+  if ($isWindowsHost) {
+    $workerStart.WindowStyle = "Hidden"
+  }
+  else {
+    $workerStart.RedirectStandardOutput = (Join-Path $maintenanceRoot "worker-console.log")
+    $workerStart.RedirectStandardError = (Join-Path $maintenanceRoot "worker-error.log")
+  }
+  Start-Process @workerStart | Out-Null
 }
+
+$httpPortLine = Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_HTTP_PORT=' } | Select-Object -First 1
+$httpPort = if ($httpPortLine) { $httpPortLine.Substring("TERRASYS_HTTP_PORT=".Length).Trim() } else { "8080" }
+$bindAddressLine = Get-Content $envFile | Where-Object { $_ -match '^TERRASYS_BIND_ADDRESS=' } | Select-Object -First 1
+$bindAddress = if ($bindAddressLine) { $bindAddressLine.Substring("TERRASYS_BIND_ADDRESS=".Length).Trim() } else { "0.0.0.0" }
+$displayHost = if ($bindAddress -in @("", "0.0.0.0", "::", "[::]")) { "localhost" } else { $bindAddress }
 
 Write-Host ""
 Write-Host "TerraSys is starting."
 Write-Host "Advanced offline engines: $(if ($advancedReady) { 'enabled' } else { 'not prepared' })"
 Write-Host "Maintenance worker: enabled"
-Write-Host "Map: http://localhost:8080/"
-Write-Host "Health: run D:\TerraSys\health-check.cmd"
+Write-Host "Map: http://${displayHost}:$httpPort/"
+Write-Host "Health: run ./terrasys.sh health (Linux) or health-check.cmd (Windows)"

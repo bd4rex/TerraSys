@@ -6,7 +6,7 @@
 
 > English | [简体中文](README.zh-CN.md)
 >
-> Documentation snapshot: `2026-08-09` · Product identity: `TerraSys`
+> Documentation snapshot: `2026-08-31` · Product identity: `TerraSys`
 
 TerraSys is a local-first personal geographic information system for owning, exploring, and recovering offline map data. It combines an OpenStreetMap-style local renderer, portable regional vector maps, private places and tracks, address search, routing, terrain, weather, nautical references, a Chinese encyclopedia and travel guide, resource lifecycle management, backups, and disconnected recovery.
 
@@ -71,15 +71,27 @@ The active Compose profile contains eight services: `web`, `api`, `postgis`, `ma
 
 ## Start and verify
 
+Windows:
+
 ```powershell
 D:\TerraSys\start-terrasys.cmd
 D:\TerraSys\health-check.cmd
 D:\TerraSys\smoke-test.cmd
 ```
 
+Linux:
+
+```bash
+./terrasys.sh start
+./terrasys.sh health
+./terrasys.sh smoke
+```
+
+For a fresh host, start with the [deployment guide](docs/deployment/README.md), then follow either the [Windows workstation](docs/deployment/WINDOWS.md) or [Linux server](docs/deployment/LINUX.md) procedure. The two methods share data formats and lifecycle scripts but use platform-specific startup and backup scheduling.
+
 Ongoing development uses the layered [test suite](tests/README.md): `static` for every commit, `browser` for map and resource UI coverage, `full` for API and personal-data lifecycles, and `recovery` for the isolated disconnected recovery drill.
 
-`start-terrasys.cmd` creates local secrets when required, starts Docker Desktop, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
+The start command creates local secrets when required, ensures Docker is available, applies ordered PostGIS migrations, builds the API image, starts the core stack, enables prepared advanced services, and starts the allowlisted maintenance worker.
 
 Prepare or rebuild advanced offline capabilities:
 
@@ -111,6 +123,8 @@ The resource console exposes Available, Local, and Updates views. Regular update
 
 ## Storage and ownership
 
+The complete tracked/generated/private-data boundary is documented in [Project structure](docs/PROJECT_STRUCTURE.md).
+
 | Path | Role |
 | --- | --- |
 | `web/` | Browser application, local assets, and resource console |
@@ -134,6 +148,8 @@ The [documentation index](docs/README.md) provides every guide in English and Si
 
 | Subject | English | 简体中文 |
 | --- | --- | --- |
+| Deployment | [English](docs/deployment/README.md) | [中文](docs/deployment/README.zh-CN.md) |
+| Project structure | [English](docs/PROJECT_STRUCTURE.md) | [中文](docs/PROJECT_STRUCTURE.zh-CN.md) |
 | Architecture | [English](docs/ARCHITECTURE.md) | [中文](docs/ARCHITECTURE.zh-CN.md) |
 | Configuration | [English](docs/CONFIGURATION.md) | [中文](docs/CONFIGURATION.zh-CN.md) |
 | Data pipeline | [English](docs/DATA_PIPELINE.md) | [中文](docs/DATA_PIPELINE.zh-CN.md) |

@@ -47,7 +47,9 @@ Every PBF first lands in a staging file. Osmium reads its metadata and checks re
 
 When a provider publishes an MD5 checksum, the staged file must match it. The shared China source currently has no adjacent checksum, so Osmium `fileinfo -e` and `check-refs` are mandatory before atomic activation. A failed download or validation never replaces the active snapshot.
 
-Some regional provider extracts report missing external node references near cut boundaries. The build uses `complete_ways`, and Planetiler may log a small number of skipped ways when the upstream China extract itself lacks a node. Treat a large increase in these warnings as a data-quality regression.
+Some regional provider extracts report omitted external references near cut or filter boundaries. The build uses `complete_ways` for mainland province cuts, and Planetiler may log skipped ways when an upstream extract itself lacks a node. Every direct download, regional build, and shared-source merge parses the exact Osmium count against a source-specific finite limit; an unrecognized error or any increase beyond that limit stops activation.
+
+The current OpenStreetMap Korea North Korea non-military extract reports 18,086 missing way-node references after a complete PBF scan, while the corresponding South Korea extract reports zero. The North Korea source profile therefore declares a 20,000 maximum instead of silently accepting the condition. Shared capability builds sum the declared limits of their verified inputs, record the observed merged count in their manifest, and retain the same fail-closed behavior.
 
 ## Build
 
@@ -87,7 +89,7 @@ Planetiler is pinned by digest, receives a 6GB Java heap, and uses the OpenMapTi
 
 The generated archive must be larger than 10MB and begin with the seven-byte `PMTiles` signature. SHA256 is printed after replacement. A machine-readable manifest is written beside each archive with region identity, source timestamp/sequence, bounds, sizes, and hashes. Derivative pipelines discover every installed and enabled manifest instead of maintaining a separate hard-coded province list.
 
-The upstream China snapshot currently reports two missing way-node references. The generic build accepts an explicitly parsed count up to 100 and prints a warning; a larger count, an unrecognized check failure, a bad PMTiles header, or a hash/size mismatch stops replacement.
+Mainland province extraction accepts an explicitly parsed provider-boundary count up to 100 per input and prints a warning. A larger count, an unrecognized check failure, a bad PMTiles header, or a hash/size mismatch stops replacement. Product manifests record the observed and maximum reference counts alongside the source hash.
 
 ## Offline reference-search flow
 

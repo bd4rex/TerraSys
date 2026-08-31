@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f5f2" />
+    <title>附加信息源 - TerraSys</title>
+    <link rel="icon" href="/assets/brand/terrasys-favicon.ico?v=1" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/assets/brand/terrasys-favicon.svg?v=1" />
+    <link rel="apple-touch-icon" href="/assets/brand/terrasys-app-icon.png" />
+    <link rel="stylesheet" href="/src/information-layers.css?v=20260810-1" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="icon-button" href="/" title="返回地图" aria-label="返回地图"><i data-lucide="arrow-left"></i></a>
+      <img class="header-brand-mark" src="/assets/brand/terrasys-mark.png" alt="" width="40" height="40" />
+      <div class="app-title">
+        <h1>附加信息源</h1>
+        <p>TerraSys · 地图实时与事件图层控制台</p>
+      </div>
+      <span id="serviceState" class="status-pill neutral">正在连接</span>
+      <button id="refreshButton" class="icon-button" type="button" title="刷新运行状态" aria-label="刷新运行状态">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+      <button id="testAllButton" class="command-button" type="button">
+        <i data-lucide="radio-tower"></i><span>测试全部免密源</span>
+      </button>
+    </header>
+
+    <section class="metric-strip" aria-label="信息源概况">
+      <div><span>免密运行源</span><strong id="runtimeMetric">--</strong><small>P0 + P1</small></div>
+      <div><span>已启用</span><strong id="enabledMetric">--</strong><small>会出现在地图入口</small></div>
+      <div><span>已验证可用</span><strong id="readyMetric">--</strong><small>本进程最近检测</small></div>
+      <div><span>需密钥候选</span><strong id="candidateMetric">--</strong><small>仅目录，不调用</small></div>
+    </section>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <div class="workspace">
+      <aside class="section-nav">
+        <nav aria-label="附加信息源视图">
+          <button class="active" type="button" data-view="runtime">
+            <i data-lucide="layers-3"></i><span>全部免密源</span><b id="runtimeBadge">--</b>
+          </button>
+          <button type="button" data-view="p0">
+            <i data-lucide="zap"></i><span>核心图层 P0</span><b id="p0Badge">--</b>
+          </button>
+          <button type="button" data-view="p1">
+            <i data-lucide="puzzle"></i><span>扩展图层 P1</span><b id="p1Badge">--</b>
+          </button>
+          <button type="button" data-view="keyed">
+            <i data-lucide="key-round"></i><span>需密钥候选</span><b id="keyedBadge">--</b>
+          </button>
+        </nav>
+        <div class="nav-summary">
+          <span>当前接入策略</span>
+          <strong>NO-KEY</strong>
+          <small>管理页不会收集或保存 API 密钥；候选源仅供比较。</small>
+        </div>
+        <a class="resource-console-link" href="/resources.html">
+          <i data-lucide="database"></i><span>地图资源管理</span><i data-lucide="chevron-right"></i>
+        </a>
+      </aside>
+
+      <main class="content">
+        <header class="view-header">
+          <div>
+            <h2 id="viewTitle">全部免密源</h2>
+            <p id="viewDescription">启停会影响地图里的附加图层入口；连接测试只读取公开数据。</p>
+          </div>
+          <label class="search-field">
+            <i data-lucide="search"></i>
+            <input id="sourceSearch" type="search" placeholder="搜索图层、提供方或许可" autocomplete="off" />
+          </label>
+        </header>
+        <div id="sourceList" class="source-list" aria-live="polite"></div>
+      </main>
+
+      <aside class="activity-rail" aria-labelledby="runtimeHeading">
+        <header class="activity-rail-header">
+          <span>
+            <h2 id="runtimeHeading">运行状态</h2>
+            <small>状态来自当前 API 进程</small>
+          </span>
+          <b id="healthBadge">--</b>
+        </header>
+        <div class="activity-rail-scroll">
+          <section class="rail-section">
+            <div class="section-title"><h3>AIS 实时连接</h3><span id="aisState">读取中</span></div>
+            <div id="aisDetails" class="ais-details"></div>
+          </section>
+          <section class="rail-section">
+            <div class="section-title"><h3>最近测试</h3><span id="testCount">0 项</span></div>
+            <div id="testEvents" class="event-list"></div>
+          </section>
+          <section class="rail-section policy-section">
+            <div class="section-title"><h3>使用边界</h3></div>
+            <p>这些公开数据适合态势参考，不替代航空、航海、防灾或气象主管部门的正式信息。</p>
+            <p>每个图层保留提供方、覆盖范围、延迟和许可说明，便于后续更换适配器。</p>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <script src="/vendor/lucide/lucide.min.js"></script>
+    <script type="module" src="/src/information-layers.js?v=20260810-1"></script>
+  </body>
+</html>

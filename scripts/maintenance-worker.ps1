@@ -226,9 +226,18 @@ function Add-RegionFollowUpJobs {
 function Stop-ProcessTree {
   param([int]$ProcessId)
   if ($ProcessId -le 0) { return }
+  $isWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
   try {
-    & taskkill.exe /PID $ProcessId /T /F *> $null
-    if ($LASTEXITCODE -ne 0) { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue }
+    if ($isWindowsHost) {
+      & taskkill.exe /PID $ProcessId /T /F *> $null
+      if ($LASTEXITCODE -ne 0) { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue }
+    }
+    else {
+      & pkill -TERM -P $ProcessId *> $null
+      Start-Sleep -Milliseconds 500
+      & pkill -KILL -P $ProcessId *> $null
+      Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    }
   }
   catch { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue }
 }
@@ -312,8 +321,20 @@ function Invoke-MaintenanceJob {
       resultFile = $resultPath
     })
     $wrapper = Join-Path $PSScriptRoot "invoke-maintenance-script.ps1"
-    $arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $wrapper, "-InvocationFile", $invocationPath)
-    $process = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WindowStyle Hidden -RedirectStandardOutput $logPath -RedirectStandardError $errorPath -PassThru
+    $isWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+    $powerShellExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
+    $arguments = @("-NoLogo", "-NoProfile")
+    if ($isWindowsHost) { $arguments += @("-ExecutionPolicy", "Bypass") }
+    $arguments += @("-File", $wrapper, "-InvocationFile", $invocationPath)
+    $processStart = @{
+      FilePath = $powerShellExecutable
+      ArgumentList = $arguments
+      RedirectStandardOutput = $logPath
+      RedirectStandardError = $errorPath
+      PassThru = $true
+    }
+    if ($isWindowsHost) { $processStart.WindowStyle = "Hidden" }
+    $process = Start-Process @processStart
     while (-not $process.HasExited) {
       $latestJob = Read-JsonFile -Path $JobFile.FullName
       if ($latestJob -and $latestJob.cancelRequested) {

@@ -2,7 +2,7 @@
 
 > [English](README.md) | 简体中文
 >
-> 文档快照：`2026-08-07T14:04:59+08:00`
+> 文档快照：`2026-08-31`
 
 每份维护中的 Markdown 文档都有英文默认文件和简体中文对应文件。命令、路径、标识符、校验值和时间戳在两种语言中保持一致。
 
@@ -11,6 +11,10 @@
 | 主题 | English | 简体中文 |
 | --- | --- | --- |
 | 项目概览 | [README](../README.md) | [README](../README.zh-CN.md) |
+| 部署选择 | [Deployment guide](deployment/README.md) | [部署指南](deployment/README.zh-CN.md) |
+| Windows 部署 | [Windows workstation](deployment/WINDOWS.md) | [Windows 工作站](deployment/WINDOWS.zh-CN.md) |
+| Linux 部署 | [Linux server](deployment/LINUX.md) | [Linux 服务器](deployment/LINUX.zh-CN.md) |
+| 项目布局 | [Project structure](PROJECT_STRUCTURE.md) | [项目结构](PROJECT_STRUCTURE.zh-CN.md) |
 | 架构 | [Architecture](ARCHITECTURE.md) | [架构](ARCHITECTURE.zh-CN.md) |
 | 配置 | [Configuration](CONFIGURATION.md) | [配置](CONFIGURATION.zh-CN.md) |
 | 数据流水线 | [Data pipeline](DATA_PIPELINE.md) | [数据流水线](DATA_PIPELINE.zh-CN.md) |
@@ -23,6 +27,8 @@
 | 资源生命周期 | [Resource and version management](RESOURCE_AND_VERSION_MANAGEMENT.md) | [资源与版本管理](RESOURCE_AND_VERSION_MANAGEMENT.zh-CN.md) |
 | OSM 更新策略 | [Incremental updates](OSM_INCREMENTAL_UPDATES.md) | [增量更新](OSM_INCREMENTAL_UPDATES.zh-CN.md) |
 | 来源与许可 | [Sources and licenses](SOURCES_AND_LICENSES.md) | [来源与许可](SOURCES_AND_LICENSES.zh-CN.md) |
+| 附加信息图层 | [Additional information layers](ADDITIONAL_INFORMATION_LAYERS.md) | [附加信息图层](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) |
+| 需要密钥的数据源 | [Keyed source catalog](KEYED_DATA_SOURCES.md) | [密钥源决策目录](KEYED_DATA_SOURCES.zh-CN.md) |
 | 路线图 | [Roadmap](ROADMAP.md) | [路线图](ROADMAP.zh-CN.md) |
 
 ## 历史与设计记录
