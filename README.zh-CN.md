@@ -6,7 +6,7 @@
 
 > [English](README.md) | 简体中文
 >
-> 文档快照：`2026-08-09` · 产品标识：`TerraSys`
+> 文档快照：`2026-08-31` · 产品标识：`TerraSys`
 
 TerraSys 是一套本地优先的个人地理信息系统，用于拥有、浏览和恢复离线地图数据。系统组合了 OpenStreetMap 风格本地渲染、可移植区域矢量地图、个人点位与轨迹、地址搜索、路线规划、地形、天气、航海参考、中文百科与旅行指南、资源生命周期管理、备份和断网恢复。
 
@@ -87,7 +87,7 @@ Linux：
 ./terrasys.sh smoke
 ```
 
-磁盘扩容、系统/运行时安装、服务器公网直下、systemd 开机启动和备份计划详见 [Linux 服务器部署](docs/LINUX_DEPLOYMENT.zh-CN.md)。
+新主机先阅读[部署指南](docs/deployment/README.zh-CN.md)，再按 [Windows 工作站](docs/deployment/WINDOWS.zh-CN.md)或 [Linux 服务器](docs/deployment/LINUX.zh-CN.md)流程操作。两种方式共享数据格式和生命周期脚本，但使用各自平台的启动与备份计划。
 
 后续开发使用分层的[测试用例集](tests/README.zh-CN.md)：`static` 适合每次提交，`browser` 覆盖地图与资源界面，`full` 增加 API 和个人数据生命周期，`recovery` 增加隔离断网恢复演练。
 
@@ -123,6 +123,8 @@ D:\TerraSys\stop-terrasys.cmd
 
 ## 存储与所有权
 
+版本控制、生成产品与私人数据的完整边界见[项目结构](docs/PROJECT_STRUCTURE.zh-CN.md)。
+
 | 路径 | 作用 |
 | --- | --- |
 | `web/` | 浏览器应用、本地资源和资源管理页面 |
@@ -146,6 +148,8 @@ D:\TerraSys\stop-terrasys.cmd
 
 | 主题 | English | 简体中文 |
 | --- | --- | --- |
+| 部署 | [English](docs/deployment/README.md) | [中文](docs/deployment/README.zh-CN.md) |
+| 项目结构 | [English](docs/PROJECT_STRUCTURE.md) | [中文](docs/PROJECT_STRUCTURE.zh-CN.md) |
 | 架构 | [English](docs/ARCHITECTURE.md) | [中文](docs/ARCHITECTURE.zh-CN.md) |
 | 配置 | [English](docs/CONFIGURATION.md) | [中文](docs/CONFIGURATION.zh-CN.md) |
 | 数据流水线 | [English](docs/DATA_PIPELINE.md) | [中文](docs/DATA_PIPELINE.zh-CN.md) |

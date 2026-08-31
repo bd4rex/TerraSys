@@ -111,7 +111,7 @@ case "$command_name" in
 esac
 
 if ! command -v pwsh >/dev/null 2>&1; then
-  printf 'PowerShell (pwsh) is required. See docs/LINUX_DEPLOYMENT.md.\n' >&2
+  printf 'PowerShell (pwsh) is required. See docs/deployment/LINUX.md.\n' >&2
   exit 127
 fi
 

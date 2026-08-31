@@ -1,6 +1,8 @@
 # Linux server deployment
 
-> English | [简体中文](LINUX_DEPLOYMENT.zh-CN.md)
+> English | [简体中文](LINUX.zh-CN.md)
+>
+> Deployment index: [English](README.md) | [简体中文](README.zh-CN.md)
 >
 > Supported baseline: Ubuntu Server 24.04 LTS, Docker Engine, Docker Compose plugin, and PowerShell 7.
 

@@ -2,7 +2,7 @@
 
 > English | [简体中文](CHANGELOG.zh-CN.md)
 >
-> History updated: `2026-08-07T13:09:44+08:00`
+> History updated: `2026-08-31`
 
 This changelog documents user-visible development milestones. It follows the human-readable grouping used by mature open-source projects and records ISO 8601 timestamps.
 
@@ -10,10 +10,12 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 ## Unreleased — resilient global browsing and regional expansion
 
-- **Development snapshot:** `2026-08-07T13:09:44+08:00`
+- **Development snapshot:** `2026-08-31`
 
 ### Added
 
+- A unified bilingual deployment index with maintained Windows workstation and Linux server procedures, equivalent command mapping, safe upgrade order, network-boundary guidance, and host-specific backup scheduling.
+- A bilingual project-structure guide separating stable entry points, version-controlled implementation, private host state, generated products, and recovery material.
 - A complete Ubuntu server deployment path with a unified `terrasys.sh` command surface, Docker Engine/PowerShell 7 compatibility, systemd boot service, daily backup timer, configurable trusted-interface binding, and Linux CI coverage.
 - An independent additional-information-layer module with normalized GeoJSON adapters, TTL caching, viewport cropping, and graceful degradation for USGS, NASA EONET, GDACS, Open-Meteo, ADSB.lol, NOAA NDBC, and the Norwegian open AIS stream.
 - The former contour shortcut is now the P0/P1 information-layer entry; contours remain in the ordinary layer panel, with ADS-B/AIS refresh, provenance popups, and a quick jump to the AIS coverage area.
@@ -26,6 +28,7 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 ### Fixed
 
+- Treat an unconfigured Windows WSL `bash.exe` shim as unavailable during static checks instead of failing the entire Windows validation; usable Bash installations and Linux CI still parse every shell entry point.
 - Kept the verified existing geocoder and routing scope usable while newly installed regions are still being indexed.
 - Kept a regional PMTiles vector fallback visible until OSM Carto has caught up, preventing blank maps after installing a region.
 - Deduplicated overlapping regional OSM objects before Carto, search, and routing builds.
@@ -37,6 +40,7 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 ### Improved
 
+- Grouped platform deployment documentation under `docs/deployment/` while retaining every root Windows `.cmd` launcher and `terrasys.sh` as stable compatibility entry points; documentation contracts now recurse into organized subdirectories.
 - Accelerated terrain tile generation by loading each required HGT grid once per row group instead of once per pixel.
 - Minified the generated global catalog without changing its 547 browse regions or 554 buildable datasets, and enabled nginx compression and explicit config revalidation.
 - Expanded world-map regression coverage for Carto lag, vector fallback, global movement, country selection, and persistent overview rendering.

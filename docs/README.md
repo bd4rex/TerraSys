@@ -2,7 +2,7 @@
 
 > English | [简体中文](README.zh-CN.md)
 >
-> Documentation snapshot: `2026-08-07T14:04:59+08:00`
+> Documentation snapshot: `2026-08-31`
 
 Every maintained Markdown document has an English default file and a Simplified Chinese companion. Commands, paths, identifiers, checksums, and timestamps are intentionally kept identical between languages.
 
@@ -11,11 +11,14 @@ Every maintained Markdown document has an English default file and a Simplified 
 | Subject | English | 简体中文 |
 | --- | --- | --- |
 | Project overview | [README](../README.md) | [README](../README.zh-CN.md) |
+| Deployment choice | [Deployment guide](deployment/README.md) | [部署指南](deployment/README.zh-CN.md) |
+| Windows deployment | [Windows workstation](deployment/WINDOWS.md) | [Windows 工作站](deployment/WINDOWS.zh-CN.md) |
+| Linux deployment | [Linux server](deployment/LINUX.md) | [Linux 服务器](deployment/LINUX.zh-CN.md) |
+| Project layout | [Project structure](PROJECT_STRUCTURE.md) | [项目结构](PROJECT_STRUCTURE.zh-CN.md) |
 | Architecture | [Architecture](ARCHITECTURE.md) | [架构](ARCHITECTURE.zh-CN.md) |
 | Configuration | [Configuration](CONFIGURATION.md) | [配置](CONFIGURATION.zh-CN.md) |
 | Data pipeline | [Data pipeline](DATA_PIPELINE.md) | [数据流水线](DATA_PIPELINE.zh-CN.md) |
 | Operations | [Operations](OPERATIONS.md) | [运维](OPERATIONS.zh-CN.md) |
-| Linux deployment | [Linux server deployment](LINUX_DEPLOYMENT.md) | [Linux 服务器部署](LINUX_DEPLOYMENT.zh-CN.md) |
 | MCP adapter | [MCP adapter](../mcp/README.md) | [MCP 适配器](../mcp/README.zh-CN.md) |
 | Test suite | [Test suite](../tests/README.md) | [测试用例集](../tests/README.zh-CN.md) |
 | Weaker-model full rebuild | [AI rebuild playbook](AI_REBUILD_EXECUTION_PLAN.md) | [重建执行手册](AI_REBUILD_EXECUTION_PLAN.zh-CN.md) |

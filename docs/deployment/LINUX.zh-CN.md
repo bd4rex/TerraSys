@@ -1,6 +1,8 @@
 # Linux 服务器部署
 
-> [English](LINUX_DEPLOYMENT.md) | 简体中文
+> [English](LINUX.md) | 简体中文
+>
+> 部署索引：[English](README.md) | [简体中文](README.zh-CN.md)
 >
 > 支持基线：Ubuntu Server 24.04 LTS、Docker Engine、Docker Compose 插件和 PowerShell 7。
 

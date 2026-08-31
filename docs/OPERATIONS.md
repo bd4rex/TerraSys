@@ -18,7 +18,7 @@ Linux uses the unified command surface:
 ./terrasys.sh stop
 ```
 
-See [Linux server deployment](LINUX_DEPLOYMENT.md) for host preparation, direct public downloads, systemd, and backups.
+See the [deployment guide](deployment/README.md) for the shared contract, [Windows workstation deployment](deployment/WINDOWS.md) for Docker Desktop and Task Scheduler, or [Linux server deployment](deployment/LINUX.md) for direct public downloads, systemd, and backups.
 
 Open `http://localhost:8080/` after health checks pass.
 

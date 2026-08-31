@@ -18,7 +18,7 @@ Linux 使用统一命令入口：
 ./terrasys.sh stop
 ```
 
-主机准备、服务器公网直下、systemd 和备份配置见 [Linux 服务器部署](LINUX_DEPLOYMENT.zh-CN.md)。
+共同部署约定见[部署指南](deployment/README.zh-CN.md)；Docker Desktop 与任务计划程序见 [Windows 工作站部署](deployment/WINDOWS.zh-CN.md)；服务器公网直下、systemd 和备份配置见 [Linux 服务器部署](deployment/LINUX.zh-CN.md)。
 
 健康检查通过后打开 `http://localhost:8080/`。
 

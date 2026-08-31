@@ -16,7 +16,7 @@ function Add-ContractFailure {
 function Get-MarkdownFiles {
   $files = New-Object System.Collections.Generic.List[System.IO.FileInfo]
   foreach ($file in @(Get-ChildItem -LiteralPath $root -File -Filter "*.md")) { $files.Add($file) }
-  foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "docs") -File -Filter "*.md")) { $files.Add($file) }
+  foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "docs") -Recurse -File -Filter "*.md")) { $files.Add($file) }
   foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $root "tests") -File -Filter "*.md")) { $files.Add($file) }
   return @($files)
 }
@@ -201,8 +201,18 @@ $bashFiles = @(
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 $bashUsable = $false
 if ($bash) {
-  & $bash.Source --version *> $null
-  $bashUsable = $LASTEXITCODE -eq 0
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "SilentlyContinue"
+    & $bash.Source --version *> $null
+    $bashUsable = $LASTEXITCODE -eq 0
+  }
+  catch {
+    $bashUsable = $false
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+  }
 }
 if ($bashUsable) {
   foreach ($file in $bashFiles) {
