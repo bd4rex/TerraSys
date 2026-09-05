@@ -152,7 +152,8 @@ export class LiveLayersModule {
     this.counts = new Map();
     this.statuses = new Map();
     this.lastFetch = new Map();
-    this.requestIds = new Map();
+    this.requests = new Map();
+    this.data = new Map();
     this.timer = null;
     this.viewportRefreshTimer = null;
     this.interactionsBound = false;
@@ -176,8 +177,12 @@ export class LiveLayersModule {
         description: definition.description
       }));
       for (const definition of this.definitions) {
-        if (definition.enabled === false) this.visible.delete(definition.id);
+        if (definition.enabled === false) {
+          this.visible.delete(definition.id);
+          this.cancelRequest(definition.id);
+        }
       }
+      if (!this.visible.size) this.stopTimer();
       this.renderList();
       this.ensureLayers();
       this.onStateChange();
@@ -194,7 +199,7 @@ export class LiveLayersModule {
       const source = sourceId(definition.id);
       const layer = layerId(definition.id);
       if (!this.map.getSource(source)) {
-        this.map.addSource(source, { type: "geojson", data: EMPTY_COLLECTION, attribution: SOURCE_ATTRIBUTION[definition.id] });
+        this.map.addSource(source, { type: "geojson", data: this.data.get(definition.id) || EMPTY_COLLECTION, attribution: SOURCE_ATTRIBUTION[definition.id] });
       }
       if (!this.map.getLayer(layer)) this.map.addLayer(pointLayer(definition));
       this.map.setLayoutProperty(layer, "visibility", this.visible.has(definition.id) ? "visible" : "none");
@@ -255,6 +260,7 @@ export class LiveLayersModule {
       return;
     }
     if (visible) this.visible.add(id); else this.visible.delete(id);
+    if (!visible) this.cancelRequest(id);
     this.ensureLayers();
     if (this.map.getLayer(layerId(id))) this.map.setLayoutProperty(layerId(id), "visibility", visible ? "visible" : "none");
     const input = this.listElement?.querySelector(`[data-live-layer="${id}"]`);
@@ -286,31 +292,57 @@ export class LiveLayersModule {
   stopTimer() {
     if (this.timer) window.clearInterval(this.timer);
     this.timer = null;
+    window.clearTimeout(this.viewportRefreshTimer);
+    this.viewportRefreshTimer = null;
+  }
+
+  cancelRequest(id) {
+    const request = this.requests.get(id);
+    this.requests.delete(id);
+    request?.controller.abort();
   }
 
   async refresh(id, force = false) {
     if (!this.visible.has(id)) return;
     const definition = this.definitions.find((item) => item.id === id);
     if (!definition || definition.enabled === false) return;
+    const query = viewportQuery(this.map);
+    const active = this.requests.get(id);
+    // Polling and style reloads must not invalidate a slow request for this viewport.
+    if (active && (!force || active.query === query)) return;
     const now = Date.now();
     if (!force && now - (this.lastFetch.get(id) || 0) < definition.refreshSeconds * 1000) return;
-    const requestId = (this.requestIds.get(id) || 0) + 1;
-    this.requestIds.set(id, requestId);
+    this.cancelRequest(id);
+    const request = { query, controller: new AbortController() };
+    this.requests.set(id, request);
+    this.lastFetch.set(id, now);
     this.statuses.set(id, "loading");
     this.updateRow(id);
     try {
-      const payload = await this.api(`/live/${id}?${viewportQuery(this.map)}`);
-      if (this.requestIds.get(id) !== requestId) return;
+      const payload = await this.api(`/live/${id}?${query}`, { signal: request.controller.signal });
+      if (this.requests.get(id) !== request || !this.visible.has(id)) return;
+      if (payload.properties?.status === "disabled") {
+        definition.enabled = false;
+        this.data.delete(id);
+        this.counts.set(id, 0);
+        this.statuses.set(id, "disabled");
+        this.map.getSource(sourceId(id))?.setData(EMPTY_COLLECTION);
+        this.setVisible(id, false);
+        return;
+      }
+      this.data.set(id, payload);
       this.ensureLayers();
       this.map.getSource(sourceId(id))?.setData(payload);
       this.counts.set(id, payload.features?.length || 0);
       this.statuses.set(id, payload.properties?.status || "ok");
       this.lastFetch.set(id, Date.now());
     } catch (error) {
-      if (this.requestIds.get(id) !== requestId) return;
+      if (this.requests.get(id) !== request || !this.visible.has(id)) return;
       this.statuses.set(id, "unavailable");
       this.counts.set(id, 0);
       console.warn(`Live layer ${id} failed`, error);
+    } finally {
+      if (this.requests.get(id) === request) this.requests.delete(id);
     }
     this.updateRow(id);
     this.updateStatus();
@@ -323,6 +355,8 @@ export class LiveLayersModule {
 
   scheduleViewportRefresh() {
     window.clearTimeout(this.viewportRefreshTimer);
+    this.viewportRefreshTimer = null;
+    if (!this.visible.size) return;
     this.viewportRefreshTimer = window.setTimeout(() => this.refreshVisible(true), 280);
   }
 

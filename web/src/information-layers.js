@@ -103,7 +103,7 @@ function effectiveStatus(id) {
 }
 
 function statusLabel(status) {
-  return ({ ready: "可用", unavailable: "暂不可用", testing: "测试中", connecting: "连接中", idle: "未检测" })[status] || status;
+  return ({ ready: "可用", unavailable: "暂不可用", testing: "测试中", connecting: "连接中", disabled: "已停用", idle: "未检测" })[status] || status;
 }
 
 function renderMetrics() {
@@ -303,13 +303,14 @@ async function testSource(id) {
   try {
     const payload = await api(`/live/${encodeURIComponent(id)}?${TEST_QUERIES[id]}`);
     const latencyMs = Math.round(performance.now() - started);
-    const unavailable = payload.properties?.status === "unavailable";
+    const reportedStatus = payload.properties?.status;
+    const status = ["unavailable", "connecting", "disabled"].includes(reportedStatus) ? reportedStatus : "ready";
     result = {
-      status: unavailable ? "unavailable" : "ready",
+      status,
       count: payload.features?.length || 0,
       latencyMs,
       checkedAt: new Date().toISOString(),
-      message: payload.properties?.message || ""
+      message: payload.properties?.message || (status === "disabled" ? "信源已停用" : status === "connecting" ? "仍在连接，尚未就绪" : "")
     };
   } catch (error) {
     result = { status: "unavailable", count: 0, latencyMs: Math.round(performance.now() - started), checkedAt: new Date().toISOString(), message: error.message };

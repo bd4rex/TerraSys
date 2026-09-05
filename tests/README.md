@@ -8,7 +8,7 @@ This suite turns regressions found during the project's iterative development in
 
 | Profile | When to use it | Coverage | Typical cost and dependencies |
 | --- | --- | --- | --- |
-| `static` | Every commit and GitHub PR | JSON, PowerShell syntax, bilingual docs, relative links, case catalog, browser-image completeness | Seconds; no Docker or running services |
+| `static` | Every commit and GitHub PR | Repository contracts plus MCP, API transactions, frontend requests, cache, offline-kit and recovery failure regressions | Typically under a minute; Python test dependencies, Node.js and PowerShell 7; no running services |
 | `browser` | UI, map, or resource-console changes | `static`, health, main UI, resource console, world map, and performance regressions | Requires Docker and the running eight-service stack |
 | `full` | API, resource lifecycle, data-model changes, or pre-release | `browser` plus the complete API and personal-data lifecycle | Creates temporary personal records and media; the script cleans them in `finally` |
 | `recovery` | Backup, recovery, image, or migration changes | `full` plus an isolated offline-kit recovery drill | Highest cost; requires a complete generated offline kit |
@@ -16,13 +16,15 @@ This suite turns regressions found during the project's iterative development in
 Run these commands from the project directory:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile static
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile browser
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile full
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile static
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile browser
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile full
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile recovery
 ```
 
-Every profile runs the deterministic `tests/test_live_layers.py` unit suite. Fixed fixtures cover caching, antimeridian bounds, USGS normalization, and AIS NMEA decoding without internet access.
+Every profile also runs deterministic reliability tests: standard MCP subprocesses, real FastAPI requests with transaction fixtures, delayed frontend responses, cache/AIS lifecycle, offline-project copying, and map/restore failure injection. These tests use temporary directories and mocked Docker commands; they do not operate the personal database or installed maps. Python 3.11+, Node.js 20+ and PowerShell 7 are required. Install `python -m pip install -r tests/requirements.txt` in a virtual environment, then pass its Python path through `-PythonExecutable` when needed.
+
+Actual PostGIS tests only run with an explicit `TERRASYS_TEST_DATABASE_URL` pointing to an empty dedicated database named `terrasys_reliability_test`. Never use the personal database. CI provisions that disposable database in a separate Linux job; locally these three SQL tests are reported as skipped when it is absent. All other reliability checks run without Docker.
 
 The browser profiles build `terrasys-ui-test:suite` and share the `terrasys-web` network namespace. Use `-SkipImageBuild` to reuse an existing image during repeated runs; do not skip the build after changing a test or its baseline.
 

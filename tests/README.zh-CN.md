@@ -8,7 +8,7 @@
 
 | Profile | 适用时机 | 内容 | 典型耗时与依赖 |
 | --- | --- | --- | --- |
-| `static` | 每次提交、GitHub PR | JSON、PowerShell 语法、双语文档、相对链接、用例目录、浏览器镜像完整性 | 数秒；不需要 Docker 或运行服务 |
+| `static` | 每次提交、GitHub PR | 仓库契约，以及 MCP、API 事务、前端异步、缓存、离线包和恢复故障回归 | 通常一分钟内；Python 测试依赖、Node.js 和 PowerShell 7；无需运行服务 |
 | `browser` | 界面、地图或资源页改动 | `static`、健康检查、主界面、资源页、全球地图、性能回归 | 需要正在运行的八服务栈和 Docker |
 | `full` | API、资源生命周期、数据模型或发布前 | `browser` 加 API/个人数据完整生命周期 | 会创建临时个人记录和媒体，脚本在 `finally` 中清理 |
 | `recovery` | 备份、恢复、镜像或迁移改动 | `full` 加最新恢复包的隔离断网恢复演练 | 成本最高；需要已生成的完整离线包 |
@@ -16,13 +16,15 @@
 从项目目录运行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile static
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile browser
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile full
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\run-suite.ps1 -Profile recovery
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile static
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile browser
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile full
+pwsh -NoProfile -File ./tests/run-suite.ps1 -Profile recovery
 ```
 
-所有 profile 都会运行 `tests/test_live_layers.py` 的确定性单元测试；它使用固定夹具验证缓存、跨日期变更线 bbox、USGS 规范化和 AIS NMEA 解码，不访问公网。
+所有 profile 也会执行确定性的可靠性测试：标准 MCP 子进程、真实 FastAPI 请求与事务夹具、前端延迟响应、缓存/AIS 生命周期、离线项目复制和地图/恢复故障注入。测试只使用临时目录与模拟 Docker 命令，不操作个人数据库或已安装地图。需要 Python 3.11+、Node.js 20+ 和 PowerShell 7。请在虚拟环境执行 `python -m pip install -r tests/requirements.txt`，必要时通过 `-PythonExecutable` 指定其 Python 路径。
+
+真实 PostGIS 测试仅在显式设置 `TERRASYS_TEST_DATABASE_URL` 时运行，并强制要求空的专用数据库 `terrasys_reliability_test`。不得使用个人数据库。CI 在独立 Linux job 中提供一次性测试库；本机缺少该环境时，这 3 项 SQL 测试会明确显示 skipped，其余可靠性检查不需要 Docker。
 
 浏览器层会构建 `terrasys-ui-test:suite`，并与 `terrasys-web` 共享网络命名空间。重复测试时可用 `-SkipImageBuild` 复用已构建镜像；测试脚本或基线有变化时不要跳过构建。
 

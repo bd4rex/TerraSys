@@ -9,6 +9,8 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
+. (Join-Path $PSScriptRoot "offline-kit-support.ps1")
+. (Join-Path $PSScriptRoot "offline-map-snapshot.ps1")
 if (-not $OutputRoot) { $OutputRoot = Join-Path $root "offline-kit" }
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $target = Join-Path ([IO.Path]::GetFullPath($OutputRoot)) $timestamp
@@ -61,14 +63,7 @@ $latestBackup = Get-ChildItem -LiteralPath (Join-Path $root "backups") -Director
 if (-not $latestBackup) { throw "No database backup is available for the offline kit." }
 
 Write-Host "Copying project and offline data..."
-foreach ($directory in @("docs", "scripts", "services", "tests", "web")) {
-  Copy-PayloadTree (Join-Path $root $directory) $directory
-}
-foreach ($file in Get-ChildItem -LiteralPath $root -File -Force) {
-  if ($file.Name -eq "README.md" -or $file.Name -eq ".gitignore" -or $file.Extension -eq ".cmd") {
-    Copy-PayloadFile $file.FullName $file.Name
-  }
-}
+Copy-TerraSysOfflineProject -Root $root -Destination $payload
 
 $mapPackState = Join-Path $root "data\maintenance\map-pack-state.json"
 if (Test-Path -LiteralPath $mapPackState -PathType Leaf) {
@@ -85,36 +80,8 @@ $catalog = Get-TerraSysExpandedCatalog -Root $root
 $includedPacks = @()
 $skippedPackCount = 0
 foreach ($dataset in @($catalog.datasets)) {
-  $productFile = [IO.Path]::GetFileName([string]$dataset.url)
-  $manifestFile = [IO.Path]::GetFileName([string]$dataset.manifestUrl)
-  $productRelative = Join-Path "products\tiles\pmtiles" $productFile
-  $manifestRelative = Join-Path "products\tiles\pmtiles" $manifestFile
-  $productPath = Join-Path $root $productRelative
-  $manifestPath = Join-Path $root $manifestRelative
-  $productExists = Test-Path -LiteralPath $productPath -PathType Leaf
-  $manifestExists = Test-Path -LiteralPath $manifestPath -PathType Leaf
-  if (-not $productExists -and -not $manifestExists) {
-    $skippedPackCount++
-    continue
-  }
-  if ($productExists -ne $manifestExists) {
-    throw "Regional pack $($dataset.id) is partially installed; both PMTiles and manifest are required."
-  }
-  $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-  $sourceRelative = ([string]$manifest.source.file).Replace('/', '\')
-  $detailsRelative = if ($manifest.details.file) { ([string]$manifest.details.file).Replace('/', '\') } else { $null }
-  if (-not $detailsRelative -or -not (Test-Path -LiteralPath (Join-Path $root $detailsRelative) -PathType Leaf)) {
-    throw "Regional pack $($dataset.id) is missing its rich-detail PMTiles companion."
-  }
-  foreach ($relative in @($productRelative, $manifestRelative, $detailsRelative, $sourceRelative)) {
-    Copy-PayloadFile (Join-Path $root $relative) $relative
-  }
-  $includedPacks += [pscustomobject][ordered]@{
-    id = [string]$dataset.id
-    product = $productRelative.Replace('\', '/')
-    details = $detailsRelative.Replace('\', '/')
-    source = $sourceRelative.Replace('\', '/')
-  }
+  $snapshot = Copy-TerraSysOfflineMap -Root $root -Destination $payload -Dataset $dataset
+  if ($snapshot) { $includedPacks += $snapshot } else { $skippedPackCount++ }
 }
 Write-Host "Included $($includedPacks.Count) installed map packs; skipped $skippedPackCount catalogued but uninstalled packs."
 Copy-PayloadTree (Join-Path $root "raw\osm\polygons") "raw\osm\polygons"
@@ -158,38 +125,7 @@ if ($advancedIncluded) {
   Copy-PayloadTree (Join-Path $root "products\elevation") "products\elevation"
 }
 
-$osmCartoDigest = "sha256:b6a79da39b6d0758368f7c62d22e49dd3ec59e78b194a5ef9dee2723b1f3fa79"
-$osmCartoImage = "overv/openstreetmap-tile-server@$osmCartoDigest"
-$nominatimDigest = "sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8"
-$nominatimImage = "mediagis/nominatim@$nominatimDigest"
-$serviceEnv = Join-Path $root "services\.env"
-if (Test-Path -LiteralPath $serviceEnv -PathType Leaf) {
-  $osmCartoImageLine = Get-Content -LiteralPath $serviceEnv | Where-Object { $_ -match '^OSM_CARTO_IMAGE=' } | Select-Object -First 1
-  if ($osmCartoImageLine) { $osmCartoImage = ([string]$osmCartoImageLine).Substring("OSM_CARTO_IMAGE=".Length).Trim() }
-  $nominatimImageLine = Get-Content -LiteralPath $serviceEnv | Where-Object { $_ -match '^NOMINATIM_IMAGE=' } | Select-Object -First 1
-  if ($nominatimImageLine) { $nominatimImage = ([string]$nominatimImageLine).Substring("NOMINATIM_IMAGE=".Length).Trim() }
-}
-if (-not $osmCartoImage.EndsWith("@$osmCartoDigest", [StringComparison]::OrdinalIgnoreCase)) {
-  throw "OSM_CARTO_IMAGE must be pinned to the approved digest $osmCartoDigest."
-}
-if (-not ($nominatimImage.Equals($nominatimDigest, [StringComparison]::OrdinalIgnoreCase) -or
-    $nominatimImage.EndsWith("@$nominatimDigest", [StringComparison]::OrdinalIgnoreCase))) {
-  throw "NOMINATIM_IMAGE must be pinned to the approved digest $nominatimDigest."
-}
-
-$images = @(
-  "postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538",
-  "ghcr.io/maplibre/martin@sha256:0650e9025f5fcffdc686358114679421b5e6b0ca37b374ad8a66f14709d59d2b",
-  "nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
-  "terrasys-api:1",
-  "terrasys-osmium:1",
-  "ghcr.io/onthegomap/planetiler:latest",
-  "terrasys-ui-test:1",
-  $osmCartoImage,
-  $nominatimImage,
-  "ghcr.io/valhalla/valhalla-scripted@sha256:3d7a08f7e78b356ee873b61711b743ad81bcc114b0ca5731217da8bba6ba39d1",
-  "ghcr.io/kiwix/kiwix-serve@sha256:57baa553c46cd30770905df15a9a687258aa5471c30c8edaefe278f1784e1aa8"
-)
+$images = @(Get-TerraSysOfflineKitImages -Root $root)
 
 $nominatimIndexIncluded = $false
 $nominatimArchiveName = "nominatim-data.tar.gz"
@@ -251,7 +187,7 @@ if (-not $SkipDockerImages) {
 }
 
 $kitInfo = [ordered]@{
-  schemaVersion = 4
+  schemaVersion = 5
   id = $timestamp
   generatedAt = (Get-Date).ToUniversalTime().ToString("o")
   sourceRoot = $root

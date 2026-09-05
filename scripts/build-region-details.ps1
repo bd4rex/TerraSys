@@ -1,22 +1,26 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$PackId,
-  [string]$MaintenanceJobId = ""
+  [string]$MaintenanceJobId = "",
+  [string]$ManifestPath = "",
+  [switch]$DeferCleanup
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
+. (Join-Path $PSScriptRoot "map-version-utils.ps1")
+. (Join-Path $PSScriptRoot "offline-kit-support.ps1")
 $catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 
-$planetilerImage = "ghcr.io/onthegomap/planetiler@sha256:90c9d29ef013fb30af30b8e117a7847c7ef56e9bf05f25633c7d7228d6955cf0"
+$planetilerImage = Get-TerraSysToolImage -Root $root -Name planetiler
 $sourceRelative = ([string]$pack.sourceFile).Replace('/', '\')
 $source = Join-Path $root $sourceRelative
 $schema = Join-Path $root "config\planetiler\poi-details.yml"
 $outputRoot = Join-Path $root "products\tiles\pmtiles"
-$manifestPath = Join-Path $outputRoot "$PackId.manifest.json"
+if (-not $ManifestPath) { $ManifestPath = Join-Path $outputRoot "$PackId.manifest.json" }
 $staged = Join-Path $outputRoot "$PackId.details.staged.pmtiles"
 $dockerJobArguments = if ($MaintenanceJobId) { @("--label", "terrasys.maintenance-job=$MaintenanceJobId") } else { @() }
 
@@ -112,15 +116,7 @@ try {
   $manifestUpdated = $true
 
   Write-Host "DETAIL_STAGE 3/3 CLEAN $PackId"
-  $referenced = New-Object System.Collections.Generic.HashSet[string]([StringComparer]::OrdinalIgnoreCase)
-  foreach ($candidateManifest in @($manifestPath, (Join-Path $outputRoot "$PackId.previous.manifest.json"))) {
-    if (-not (Test-Path -LiteralPath $candidateManifest -PathType Leaf)) { continue }
-    $candidate = Get-Content -Raw -LiteralPath $candidateManifest | ConvertFrom-Json
-    if ($candidate.details.file) { [void]$referenced.Add([IO.Path]::GetFileName([string]$candidate.details.file)) }
-  }
-  Get-ChildItem -LiteralPath $outputRoot -Filter "$PackId.details.*.pmtiles" -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne "$PackId.details.staged.pmtiles" -and -not $referenced.Contains($_.Name) } |
-    Remove-Item -Force
+  if (-not $DeferCleanup) { Remove-TerraSysUnusedMapDetails -ProductRoot $outputRoot -PackId $PackId }
 
   Get-Item -LiteralPath $final, $manifestPath | Select-Object FullName, Length, LastWriteTime
 }

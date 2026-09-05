@@ -7,12 +7,19 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
+. (Join-Path $PSScriptRoot "map-version-utils.ps1")
+. (Join-Path $PSScriptRoot "offline-kit-support.ps1")
 $catalog = Get-TerraSysExpandedCatalog -Root $root
 $pack = @($catalog.datasets) | Where-Object { $_.id -eq $PackId } | Select-Object -First 1
 if (-not $pack) { throw "Unknown region pack: $PackId" }
 
+$outputRoot = Join-Path $root "products\tiles\pmtiles"
+$mapOperationLock = Enter-TerraSysMapLock -ProductRoot $outputRoot -PackId $PackId
+try {
+Restore-TerraSysMapActivation -ProductRoot $outputRoot -PackId $PackId
+
 $osmiumImage = "terrasys-osmium:1"
-$planetilerImage = "ghcr.io/onthegomap/planetiler@sha256:90c9d29ef013fb30af30b8e117a7847c7ef56e9bf05f25633c7d7228d6955cf0"
+$planetilerImage = Get-TerraSysToolImage -Root $root -Name planetiler
 $profile = $pack.sourceProfile
 $buildMode = if ($profile.mode) { [string]$profile.mode } else { "extract" }
 $snapshotRelative = ([string]$profile.snapshotFile).Replace('/', '\')
@@ -25,6 +32,7 @@ $sourceStaged = if ($buildMode -eq "extract") { Join-Path (Split-Path -Parent $s
 $outputRoot = Join-Path $root "products\tiles\pmtiles"
 $output = Join-Path $outputRoot "$PackId.pmtiles"
 $outputStaged = Join-Path $outputRoot "$PackId.staged.pmtiles"
+$manifestStaged = Join-Path $outputRoot "$PackId.staged.manifest.json"
 $dockerJobArguments = if ($MaintenanceJobId) { @("--label", "terrasys.maintenance-job=$MaintenanceJobId") } else { @() }
 
 function Assert-NativeSuccess([string]$Operation) {
@@ -161,12 +169,8 @@ try {
   finally { $stream.Dispose() }
   if ([Text.Encoding]::ASCII.GetString($header) -ne "PMTiles") { throw "$PackId PMTiles header is invalid." }
 
-  $previousOutput = Join-Path $outputRoot "$PackId.previous.pmtiles"
   $manifestPath = Join-Path $outputRoot "$PackId.manifest.json"
-  $previousManifestPath = Join-Path $outputRoot "$PackId.previous.manifest.json"
   $historyRoot = Join-Path $outputRoot "history\$PackId"
-  $sameProduct = (Test-Path -LiteralPath $output) -and
-    ((Get-FileHash -Algorithm SHA256 -LiteralPath $output).Hash -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $outputStaged).Hash)
 
   if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
     New-Item -ItemType Directory -Force -Path $historyRoot | Out-Null
@@ -181,42 +185,25 @@ try {
     }
   }
 
-  if ($sameProduct) {
-    Write-Host "$PackId generated product is byte-identical; keeping one copy and refreshing its manifest."
-    Remove-Item -LiteralPath $outputStaged -Force
-    & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId `
-      -MissingWayNodes $sourceReferenceIntegrity.missingWayNodes `
-      -MissingRelationMembers $sourceReferenceIntegrity.missingRelationMembers `
-      -MaxMissingReferences $sourceReferenceIntegrity.maximumMissingReferences
-    & (Join-Path $PSScriptRoot "build-region-details.ps1") -PackId $PackId -MaintenanceJobId $MaintenanceJobId
-  }
-  else {
-    if (Test-Path -LiteralPath $output) { Move-Item -LiteralPath $output -Destination $previousOutput -Force }
-    if (Test-Path -LiteralPath $manifestPath) { Move-Item -LiteralPath $manifestPath -Destination $previousManifestPath -Force }
-    try {
-      Move-Item -LiteralPath $outputStaged -Destination $output -Force
-      & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId `
-        -MissingWayNodes $sourceReferenceIntegrity.missingWayNodes `
-        -MissingRelationMembers $sourceReferenceIntegrity.missingRelationMembers `
-        -MaxMissingReferences $sourceReferenceIntegrity.maximumMissingReferences
-      & (Join-Path $PSScriptRoot "build-region-details.ps1") -PackId $PackId -MaintenanceJobId $MaintenanceJobId
-    }
-    catch {
-      if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Force }
-      if (Test-Path -LiteralPath $manifestPath) { Remove-Item -LiteralPath $manifestPath -Force }
-      if ((Test-Path -LiteralPath $previousOutput) -and -not (Test-Path -LiteralPath $output)) {
-        Move-Item -LiteralPath $previousOutput -Destination $output -Force
-      }
-      if ((Test-Path -LiteralPath $previousManifestPath) -and -not (Test-Path -LiteralPath $manifestPath)) {
-        Move-Item -LiteralPath $previousManifestPath -Destination $manifestPath -Force
-      }
-      throw
-    }
-  }
+  # Build and validate all three candidate artifacts before touching the active
+  # filenames. Cancellation during the expensive detail build leaves the current
+  # and rollback versions untouched.
+  & (Join-Path $PSScriptRoot "write-region-manifest.ps1") -PackId $PackId `
+    -ProductPath $outputStaged -ManifestPath $manifestStaged `
+    -MissingWayNodes $sourceReferenceIntegrity.missingWayNodes `
+    -MissingRelationMembers $sourceReferenceIntegrity.missingRelationMembers `
+    -MaxMissingReferences $sourceReferenceIntegrity.maximumMissingReferences
+  & (Join-Path $PSScriptRoot "build-region-details.ps1") -PackId $PackId `
+    -MaintenanceJobId $MaintenanceJobId -ManifestPath $manifestStaged -DeferCleanup
+  Invoke-TerraSysMapActivation -ProductRoot $outputRoot -PackId $PackId `
+    -CandidateProduct $outputStaged -CandidateManifest $manifestStaged
+  try { Remove-TerraSysUnusedMapDetails -ProductRoot $outputRoot -PackId $PackId }
+  catch { Write-Warning "The map is active; unused detail files can be cleaned later: $($_.Exception.Message)" }
 }
 finally {
   if ($sourceStaged -and (Test-Path -LiteralPath $sourceStaged)) { Remove-Item -LiteralPath $sourceStaged -Force }
   if (Test-Path -LiteralPath $outputStaged) { Remove-Item -LiteralPath $outputStaged -Force }
+  if (Test-Path -LiteralPath $manifestStaged) { Remove-Item -LiteralPath $manifestStaged -Force }
   foreach ($hostExtract in $hostExtracts) {
     if (Test-Path -LiteralPath $hostExtract) { Remove-Item -LiteralPath $hostExtract -Force }
   }
@@ -224,3 +211,5 @@ finally {
 
 Get-Item -LiteralPath $sourceHost, $output, (Join-Path $outputRoot "$PackId.manifest.json") |
   Select-Object FullName, Length, LastWriteTime
+}
+finally { $mapOperationLock.Dispose() }

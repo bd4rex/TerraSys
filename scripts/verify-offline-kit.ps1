@@ -46,6 +46,51 @@ foreach ($entry in $entries) {
   $verifiedBytes += $file.Length
 }
 
+$projectComplete = $false
+$imagesComplete = $false
+$includesDockerImages = $kitInfo.PSObject.Properties['includesDockerImages'] -and [bool]$kitInfo.includesDockerImages
+if ([int]$kitInfo.schemaVersion -ge 5) {
+  $contractEntry = "payload/TerraSys/config/offline-kit.json"
+  if (-not ($entries.Path -contains $contractEntry)) { throw "Offline-kit build contract is missing: $contractEntry" }
+  $contract = Get-Content -Raw -LiteralPath (Join-Path $kit $contractEntry) | ConvertFrom-Json
+  if ([int]$contract.schemaVersion -ne 1 -or @($contract.requiredFiles).Count -lt 1 -or
+      -not $contract.PSObject.Properties['images'] -or @($contract.images.PSObject.Properties).Count -lt 1) {
+    throw "Offline-kit build contract is invalid."
+  }
+  foreach ($relative in $contract.requiredFiles) {
+    $requiredEntry = "payload/TerraSys/$relative"
+    if (-not ($entries.Path -contains $requiredEntry)) { throw "Rebuild-ready offline-kit payload is incomplete: $requiredEntry" }
+  }
+  $projectComplete = $true
+  if ($includesDockerImages) {
+    $inventory = if ($kitInfo.PSObject.Properties['dockerImages']) { @($kitInfo.dockerImages) } else { @() }
+    # Keep the top-level verifier standalone; do not execute scripts from the kit payload.
+    foreach ($property in $contract.images.PSObject.Properties) {
+      $required = [string]$property.Value
+      $digest = if ($required -match '@(sha256:[a-fA-F0-9]{64})$') { $Matches[1] } else { $null }
+      $found = $false
+      foreach ($image in $inventory) {
+        $candidate = ([string]$image).Trim()
+        if ($candidate.Equals($required, [StringComparison]::Ordinal) -or
+            ($digest -and ($candidate.Equals($digest, [StringComparison]::OrdinalIgnoreCase) -or
+              $candidate.EndsWith("@$digest", [StringComparison]::OrdinalIgnoreCase)))) {
+          $found = $true
+          break
+        }
+      }
+      if (-not $found) { throw "Offline-kit Docker image inventory is incomplete: $required" }
+    }
+    $imagesComplete = $true
+  }
+}
+else {
+  Write-Warning "Legacy offline kit: existing files are verified, but Linux entry points and rebuild inputs are not guaranteed. Refresh the kit to validate rebuild completeness."
+}
+if ($includesDockerImages -and -not ($entries.Path -contains "docker/terrasys-images.tar")) {
+  throw "Offline-kit metadata references a missing Docker image archive."
+}
+$rebuildReady = $projectComplete -and $imagesComplete
+
 if ($kitInfo.advancedCapabilities) {
   foreach ($relative in @(
     "payload/TerraSys/raw/osm/china/terrasys-core-latest.osm.pbf",
@@ -97,6 +142,8 @@ if ($kitInfo.osmCartoIncluded) {
 $verification = [ordered]@{
   schemaVersion = 1
   status = "verified"
+  projectComplete = $projectComplete
+  rebuildReady = $rebuildReady
   verifiedAt = (Get-Date).ToUniversalTime().ToString("o")
   manifestSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $manifestPath).Hash.ToLowerInvariant()
   files = $entries.Count
@@ -109,6 +156,8 @@ Move-Item -LiteralPath $verificationTempPath -Destination $verificationPath -For
 
 [pscustomobject]@{
   Status = "verified"
+  ProjectComplete = $projectComplete
+  RebuildReady = $rebuildReady
   Kit = $kit
   Files = $entries.Count
   Bytes = $verifiedBytes

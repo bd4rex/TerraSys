@@ -5,6 +5,8 @@ import math
 import os
 import socket
 import threading
+from collections import OrderedDict
+from concurrent.futures import Future
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import monotonic
@@ -91,30 +93,47 @@ def text_request(url: str, timeout: float = 15.0) -> str:
 
 
 class TtlCache:
-    def __init__(self) -> None:
-        self._values: dict[str, tuple[float, Any, str]] = {}
+    def __init__(self, max_entries: int = 128) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries must be positive")
+        self.max_entries = max_entries
+        self._values: OrderedDict[str, tuple[float, Any, str]] = OrderedDict()
         self._lock = threading.Lock()
-        self._load_locks: dict[str, threading.Lock] = {}
+        self._inflight: dict[str, Future[tuple[Any, str]]] = {}
 
     def get(self, key: str, ttl_seconds: float, loader: Callable[[], Any]) -> tuple[Any, str]:
         now = monotonic()
         with self._lock:
+            for expired in [item for item, value in self._values.items() if value[0] <= now]:
+                del self._values[expired]
             cached = self._values.get(key)
-            if cached and cached[0] > now:
+            if cached:
+                self._values.move_to_end(key)
                 return cached[1], cached[2]
-        with self._lock:
-            load_lock = self._load_locks.setdefault(key, threading.Lock())
-        with load_lock:
-            now = monotonic()
-            with self._lock:
-                cached = self._values.get(key)
-                if cached and cached[0] > now:
-                    return cached[1], cached[2]
+            pending = self._inflight.get(key)
+            owner = pending is None
+            if pending is None:
+                pending = Future()
+                self._inflight[key] = pending
+        if not owner:
+            return pending.result()
+        try:
             value = loader()
             fetched_at = iso_utc()
             with self._lock:
-                self._values[key] = (now + ttl_seconds, value, fetched_at)
-            return value, fetched_at
+                self._values[key] = (monotonic() + ttl_seconds, value, fetched_at)
+                self._values.move_to_end(key)
+                while len(self._values) > self.max_entries:
+                    self._values.popitem(last=False)
+            result = value, fetched_at
+            pending.set_result(result)
+            return result
+        except BaseException as exc:
+            pending.set_exception(exc)
+            raise
+        finally:
+            with self._lock:
+                self._inflight.pop(key, None)
 
 
 def longitude_in_bounds(longitude: float, west: float, east: float) -> bool:
@@ -210,6 +229,10 @@ class AisTcpReceiver:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._lifecycle_lock = threading.Lock()
+        self._connection: socket.socket | None = None
+        self._demand_until = 0.0
+        self._restart_requested = False
         self._positions: dict[int, dict[str, Any]] = {}
         self._static: dict[int, dict[str, Any]] = {}
         self._fragments: dict[tuple[str, str], dict[str, Any]] = {}
@@ -218,26 +241,54 @@ class AisTcpReceiver:
         self.last_message_at: str | None = None
         self.last_error: str | None = None
 
-    def start(self) -> None:
-        if not self.enabled or (self._thread and self._thread.is_alive()):
-            return
-        self._stop.clear()
+    def start(self, lease_seconds: float = 30) -> None:
+        with self._lifecycle_lock:
+            if not self.enabled:
+                return
+            self._demand_until = monotonic() + lease_seconds
+            if self._thread and self._thread.is_alive():
+                if self._stop.is_set():
+                    self._restart_requested = True
+                return
+            self._start_unlocked()
+
+    def _start_unlocked(self) -> None:
+        self._stop = threading.Event()
+        self._restart_requested = False
         self._thread = threading.Thread(target=self._run, name="open-ais-receiver", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
-        self._stop.set()
+        with self._lifecycle_lock:
+            self._stop.set()
+            self._demand_until = 0.0
+            self._restart_requested = False
+            connection = self._connection
+            if connection is not None:
+                try:
+                    connection.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                connection.close()
+            self.connected = False
 
     def _run(self) -> None:
-        while not self._stop.is_set():
+        while not self._stop.is_set() and monotonic() < self._demand_until:
             try:
                 with socket.create_connection((self.host, self.port), timeout=15) as connection:
-                    connection.settimeout(20)
-                    self.connected = True
-                    self.last_error = None
+                    with self._lifecycle_lock:
+                        if self._stop.is_set() or monotonic() >= self._demand_until:
+                            break
+                        self._connection = connection
+                        self.connected = True
+                        self.last_error = None
                     buffer = b""
-                    while not self._stop.is_set():
-                        chunk = connection.recv(65536)
+                    while not self._stop.is_set() and monotonic() < self._demand_until:
+                        connection.settimeout(max(0.1, min(20, self._demand_until - monotonic())))
+                        try:
+                            chunk = connection.recv(65536)
+                        except socket.timeout:
+                            continue
                         if not chunk:
                             raise ConnectionError("AIS stream closed")
                         buffer += chunk
@@ -246,9 +297,18 @@ class AisTcpReceiver:
                             self._consume_line(raw_line.decode("ascii", errors="ignore").strip())
             except Exception as exc:
                 self.connected = False
-                self.last_error = clean_text(exc, exc.__class__.__name__)[:240]
-                self._stop.wait(5)
-        self.connected = False
+                if not self._stop.is_set() and monotonic() < self._demand_until:
+                    self.last_error = clean_text(exc, exc.__class__.__name__)[:240]
+                    self._stop.wait(min(5, max(0, self._demand_until - monotonic())))
+            finally:
+                with self._lifecycle_lock:
+                    self._connection = None
+        with self._lifecycle_lock:
+            self.connected = False
+            # A new request can arrive while a stopped connection is still
+            # unwinding. Hand its lease to a fresh thread only after cleanup.
+            if (self._restart_requested or not self._stop.is_set()) and self.enabled and monotonic() < self._demand_until:
+                self._start_unlocked()
 
     @staticmethod
     def _payload_bits(payload: str, fill_bits: int) -> str:
@@ -423,7 +483,7 @@ class LiveLayerService:
         )
 
     def start(self) -> None:
-        self.ais.start()
+        """Receivers start only when a user requests their layer, never at API startup."""
 
     def stop(self) -> None:
         self.ais.stop()
@@ -491,14 +551,26 @@ class LiveLayerService:
                 layer_settings["refreshSeconds"] = refresh_seconds
             payload["updatedAt"] = iso_utc()
             self._write_settings_unlocked(payload)
+            if layer_id == "vessels" and enabled is False:
+                self.ais.stop()
         return next(item for item in self.catalog()["layers"] if item["id"] == layer_id)
+
+    def vessels(self, bounds: tuple[float, float, float, float], limit: int) -> dict[str, Any]:
+        with self._settings_lock:
+            override = self._read_settings_unlocked().get("layers", {}).get("vessels", {})
+            if not self.ais.enabled or (isinstance(override, dict) and not override.get("enabled", True)):
+                return feature_collection([], source="open-ais-norway", status="disabled")
+            refresh = integer(override.get("refreshSeconds")) if isinstance(override, dict) else None
+            self.ais.start(lease_seconds=max(30, min(600, (refresh or 8) * 2)))
+        return self.ais.features(bounds, limit)
 
     def runtime_status(self) -> dict[str, Any]:
         with self._metrics_lock:
             layers = [dict(self._metrics[item["id"]]) for item in LIVE_LAYER_CATALOG]
         vessel = next(item for item in layers if item["id"] == "vessels")
+        vessel_enabled = self.ais.enabled and next(item for item in self.catalog()["layers"] if item["id"] == "vessels")["enabled"]
         vessel["stream"] = {
-            "enabled": self.ais.enabled,
+            "enabled": vessel_enabled,
             "connected": self.ais.connected,
             "receivedCount": self.ais.received_count,
             "lastMessageAt": self.ais.last_message_at,
@@ -506,10 +578,13 @@ class LiveLayerService:
             "host": self.ais.host,
             "port": self.ais.port,
         }
-        if vessel["status"] == "idle":
-            vessel["status"] = "ready" if self.ais.connected else ("unavailable" if self.ais.last_error else "connecting")
-            vessel["lastSuccessAt"] = self.ais.last_message_at
-            vessel["lastError"] = self.ais.last_error
+        demanded = monotonic() < self.ais._demand_until and not self.ais._stop.is_set()
+        vessel["status"] = (
+            "disabled" if not vessel_enabled else "ready" if self.ais.connected else
+            ("unavailable" if self.ais.last_error else "connecting") if demanded else "idle"
+        )
+        vessel["lastSuccessAt"] = self.ais.last_message_at or vessel["lastSuccessAt"]
+        vessel["lastError"] = self.ais.last_error if vessel["status"] == "unavailable" else None
         return {
             "schemaVersion": 1,
             "generatedAt": iso_utc(),
@@ -522,13 +597,17 @@ class LiveLayerService:
         checked_at = iso_utc()
         error: str | None = None
         try:
-            result = loader()
+            setting = next((item for item in self.catalog()["layers"] if item["id"] == layer_id), None)
+            if setting and not setting["enabled"]:
+                result = feature_collection([], source=layer_id, status="disabled")
+            else:
+                result = loader()
         except Exception as exc:
             error = clean_text(exc, exc.__class__.__name__)[:300]
             result = feature_collection([], source=layer_id, status="unavailable", message=error)
         properties = result.get("properties", {}) if isinstance(result, dict) else {}
         reported_status = properties.get("status")
-        status = reported_status if reported_status in {"unavailable", "connecting"} else "ready"
+        status = reported_status if reported_status in {"unavailable", "connecting", "disabled"} else "ready"
         metric = {
             "id": layer_id,
             "status": status,

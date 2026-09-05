@@ -13,12 +13,15 @@ trap {
 }
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "catalog-utils.ps1")
+. (Join-Path $PSScriptRoot "map-version-utils.ps1")
 $catalog = Get-TerraSysExpandedCatalog -Root $root
 $packs = @($catalog.datasets)
 if ($PackId) {
   $packs = @($packs | Where-Object { $_.id -eq $PackId })
   if ($packs.Count -ne 1) { throw "Unknown region pack: $PackId" }
 }
+
+Repair-TerraSysMapActivations -ProductRoot (Join-Path $root "products\tiles\pmtiles") -PackId $PackId
 
 if ($Action -eq "Plan") {
   if (-not $PackId) { throw "-Plan requires -PackId." }
@@ -54,12 +57,16 @@ if ($Action -eq "Remove") {
   if (-not $PackId) { throw "-Remove requires -PackId." }
   if (-not $ConfirmRemove) { throw "Removal requires -ConfirmRemove." }
   $productRoot = [IO.Path]::GetFullPath((Join-Path $root "products\tiles\pmtiles"))
+  $operationLock = Enter-TerraSysMapLock -ProductRoot $productRoot -PackId $PackId
+  try {
+  Restore-TerraSysMapActivation -ProductRoot $productRoot -PackId $PackId
   $targets = @(
     Join-Path $productRoot "$PackId.pmtiles"
     Join-Path $productRoot "$PackId.manifest.json"
     Join-Path $productRoot "$PackId.previous.pmtiles"
     Join-Path $productRoot "$PackId.previous.manifest.json"
     Join-Path $productRoot "$PackId.staged.pmtiles"
+    Join-Path $productRoot "$PackId.staged.manifest.json"
     Join-Path $productRoot "$PackId.details.staged.pmtiles"
   )
   $targets += Get-ChildItem -LiteralPath $productRoot -File -Filter "$PackId.details.*.pmtiles" -ErrorAction SilentlyContinue |
@@ -74,51 +81,22 @@ if ($Action -eq "Remove") {
     }
     if (Test-Path -LiteralPath $resolved -PathType Leaf) { Remove-Item -LiteralPath $resolved -Force }
   }
+  }
+  finally { $operationLock.Dispose() }
   Write-Host "$PackId current, rollback, and incomplete map products removed. Regional PBF, boundaries, and version audit metadata were retained."
   exit 0
 }
 
 if ($Action -eq "Rollback") {
   if (-not $PackId) { throw "-Rollback requires -PackId." }
-  $productRoot = [IO.Path]::GetFullPath((Join-Path $root "products\tiles\pmtiles"))
-  $currentProduct = Join-Path $productRoot "$PackId.pmtiles"
-  $currentManifest = Join-Path $productRoot "$PackId.manifest.json"
-  $previousProduct = Join-Path $productRoot "$PackId.previous.pmtiles"
-  $previousManifest = Join-Path $productRoot "$PackId.previous.manifest.json"
-  foreach ($required in @($currentProduct, $currentManifest, $previousProduct, $previousManifest)) {
-    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
-      throw "Rollback is unavailable because a complete current and previous version pair is required."
-    }
-  }
-  foreach ($versionManifest in @($currentManifest, $previousManifest)) {
-    $version = Get-Content -Raw -LiteralPath $versionManifest | ConvertFrom-Json
-    if (-not $version.details.file) { throw "Rollback requires rich-detail metadata for both map versions." }
-    $detailsPath = Join-Path $root ([string]$version.details.file).Replace('/', '\')
-    if (-not (Test-Path -LiteralPath $detailsPath -PathType Leaf)) {
-      throw "Rollback detail companion is missing: $detailsPath"
-    }
-  }
-  $swapId = [Guid]::NewGuid().ToString("N")
-  $swapProduct = Join-Path $productRoot "$PackId.swap-$swapId.pmtiles"
-  $swapManifest = Join-Path $productRoot "$PackId.swap-$swapId.manifest.json"
+  $productRoot = Join-Path $root "products\tiles\pmtiles"
+  $operationLock = Enter-TerraSysMapLock -ProductRoot $productRoot -PackId $PackId
   try {
-    Move-Item -LiteralPath $currentProduct -Destination $swapProduct
-    Move-Item -LiteralPath $currentManifest -Destination $swapManifest
-    Move-Item -LiteralPath $previousProduct -Destination $currentProduct
-    Move-Item -LiteralPath $previousManifest -Destination $currentManifest
-    Move-Item -LiteralPath $swapProduct -Destination $previousProduct
-    Move-Item -LiteralPath $swapManifest -Destination $previousManifest
+    Restore-TerraSysMapActivation -ProductRoot $productRoot -PackId $PackId
+    Invoke-TerraSysMapActivation -ProductRoot $productRoot -PackId $PackId -Rollback
   }
-  catch {
-    if ((Test-Path -LiteralPath $swapProduct) -and -not (Test-Path -LiteralPath $currentProduct)) {
-      Move-Item -LiteralPath $swapProduct -Destination $currentProduct -Force
-    }
-    if ((Test-Path -LiteralPath $swapManifest) -and -not (Test-Path -LiteralPath $currentManifest)) {
-      Move-Item -LiteralPath $swapManifest -Destination $currentManifest -Force
-    }
-    throw
-  }
-  Write-Host "$PackId current and previous map versions were swapped atomically."
+  finally { $operationLock.Dispose() }
+  Write-Host "$PackId current and previous complete map versions were swapped."
   exit 0
 }
 
