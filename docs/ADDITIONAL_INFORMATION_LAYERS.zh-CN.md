@@ -1,6 +1,6 @@
 # 附加信息图层模块
 
-> [English](ADDITIONAL_INFORMATION_LAYERS.md) | 简体中文 · 更新于 2026-08-10
+> [English](ADDITIONAL_INFORMATION_LAYERS.md) | 简体中文 · 更新于 2026-09-06
 
 附加信息图层是独立于底图、个人数据和离线资源包的可插拔模块。它负责短时效公网数据的信源差异、缓存、刷新、许可和地图样式，避免把频繁变化的第三方接口散落在主地图代码中。
 
@@ -48,7 +48,7 @@
 | `/live/air-quality` | Open-Meteo/CAMS 空气质量视口采样 | 15 分钟 |
 | `/live/floods` | Open-Meteo/GloFAS 河流流量视口采样 | 6 小时 |
 | `/live/aircraft` | ADSB.lol 当前飞机 | 5–8 秒 |
-| `/live/vessels` | 挪威沿岸开放 AIS 船舶 | 接收流持续更新，前端 8 秒刷新 |
+| `/live/vessels` | 挪威沿岸开放 AIS 船舶 | 按需启动接收，前端 8 秒刷新 |
 | `/live/ocean-buoys` | NOAA NDBC 最新浮标观测 | 10 分钟 |
 | `/live/cyclones` | GDACS 热带气旋 | 5 分钟 |
 
@@ -72,6 +72,8 @@
 - `LIVE_LAYER_SETTINGS_PATH=/data/maintenance/live-layer-settings.json`
 
 接收器只保留最近 15 分钟船位；静态船名可能晚于位置消息到达，因此初次显示会使用 MMSI。公开流仅覆盖挪威经济区、斯瓦尔巴和扬马延附近，并排除部分小型船只。
+
+API 启动时不连接 AIS。地图请求或显式连接测试才启动接收器，并续期为刷新周期两倍的租期，下限 30 秒、上限 600 秒。没有后续请求时，租期结束即断开；管理页停用会停止接收并阻止新的上游请求。共享响应缓存清理过期项，并按 LRU 顺序最多保留 128 项。
 
 ## 新增适配器步骤
 

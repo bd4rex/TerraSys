@@ -12,6 +12,14 @@ The repository had no tags or GitHub Releases before this file was introduced. T
 
 - **Development snapshot:** `2026-08-31`
 
+### Reliability fixes — 2026-09-06
+
+- Standard MCP NDJSON transport; atomic GPX imports; geography-based distance calculation and migration 008 to correct stored track lengths.
+- Complete staged map versions, activation journals, failure recovery, and coordinated personal database/media recovery checkpoints.
+- Offline-kit schema v5 with shared project/image inventories, required build configurations and Linux entry points; guarded map snapshots and repeatable refresh.
+- Current-input route snapshots, cancellation of stale requests, slow-live-source handling, empty map catalogs, on-demand AIS, and bounded TTL/LRU caching.
+- Deterministic failure-path regressions in every test profile and a dedicated PostGIS CI job. See [reliability upgrade notes](docs/RELIABILITY_FIXES.md).
+
 ### Added
 
 - A unified bilingual deployment index with maintained Windows workstation and Linux server procedures, equivalent command mapping, safe upgrade order, network-boundary guidance, and host-specific backup scheduling.

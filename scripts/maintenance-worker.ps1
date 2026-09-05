@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "map-version-utils.ps1")
 $maintenanceRoot = Join-Path $root "data\maintenance"
 $jobsRoot = Join-Path $maintenanceRoot "jobs"
 $logsRoot = Join-Path $maintenanceRoot "logs"
@@ -265,6 +266,9 @@ function Remove-RegionStaging {
   if ($Job.operation -ne "region-pack" -or $Job.action -notin @("build", "update", "rebuild")) { return }
   $stagedProduct = Join-Path $root "products\tiles\pmtiles\$($Job.resourceId).staged.pmtiles"
   Remove-Item -LiteralPath $stagedProduct -Force -ErrorAction SilentlyContinue
+  foreach ($suffix in @('staged.manifest.json', 'details.staged.pmtiles')) {
+    Remove-Item -LiteralPath (Join-Path $root "products\tiles\pmtiles\$($Job.resourceId).$suffix") -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Get-JobCommand {
@@ -312,6 +316,7 @@ function Invoke-MaintenanceJob {
   Write-WorkerState -CurrentJobId $jobId
 
   $cancelled = $false
+  $process = $null
   try {
     $command = Get-JobCommand -Job $Job
     if (-not (Test-Path -LiteralPath $command.Script -PathType Leaf)) { throw "Maintenance script is missing: $($command.Script)" }
@@ -325,7 +330,7 @@ function Invoke-MaintenanceJob {
     $powerShellExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $arguments = @("-NoLogo", "-NoProfile")
     if ($isWindowsHost) { $arguments += @("-ExecutionPolicy", "Bypass") }
-    $arguments += @("-File", $wrapper, "-InvocationFile", $invocationPath)
+    $arguments += @("-File", ('"' + $wrapper + '"'), "-InvocationFile", ('"' + $invocationPath + '"'))
     $processStart = @{
       FilePath = $powerShellExecutable
       ArgumentList = $arguments
@@ -392,6 +397,17 @@ function Invoke-MaintenanceJob {
     }
   }
   finally {
+    if ($Job.operation -eq "region-pack") {
+      try {
+        if ($process -and -not $process.HasExited) { [void]$process.WaitForExit(5000) }
+        Repair-TerraSysMapActivations -ProductRoot (Join-Path $root "products\tiles\pmtiles") -PackId ([string]$Job.resourceId)
+      }
+      catch {
+        Set-ObjectProperty -Value $Job -Name "status" -PropertyValue "failed"
+        Set-ObjectProperty -Value $Job -Name "message" -PropertyValue "地图版本恢复未完成，已保留恢复日志并暂停该版本使用：$($_.Exception.Message)"
+        Set-ObjectProperty -Value $Job -Name "exitCode" -PropertyValue 1
+      }
+    }
     Remove-Item -LiteralPath $invocationPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $resultPath -Force -ErrorAction SilentlyContinue
     if ($Job.status -ne "queued") { Set-ObjectProperty -Value $Job -Name "finishedAt" -PropertyValue ([DateTimeOffset]::Now.ToString("o")) }
@@ -426,6 +442,7 @@ if (-not $mutex.WaitOne(0)) { exit 0 }
 
 try {
   Write-WorkerState
+  Repair-TerraSysMapActivations -ProductRoot (Join-Path $root "products\tiles\pmtiles")
   Restore-InterruptedJobs
   Remove-ExpiredHistory
   $nextHistoryCleanup = [DateTimeOffset]::Now.AddHours(1)

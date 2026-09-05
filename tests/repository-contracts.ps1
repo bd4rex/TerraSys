@@ -149,7 +149,7 @@ if ($composeSource -notmatch [regex]::Escape('${NOMINATIM_IMAGE:-mediagis/nomina
     $startSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimDigest') -or
     $sharedIndexSource -notmatch [regex]::Escape('configuredImages.NOMINATIM_IMAGE') -or
     $sharedIndexSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimImageDigest') -or
-    $offlineKitSource -notmatch [regex]::Escape('$nominatimImage.Equals($nominatimDigest')) {
+    $offlineKitSource -notmatch [regex]::Escape('Get-TerraSysOfflineKitImages -Root $root')) {
   Add-ContractFailure "Nominatim does not preserve its pinned digest across registry fallback, local image-ID recovery, Compose, index rebuilds, and offline export."
 }
 if ($composeSource -notmatch '(?s)valhalla:.*?mem_limit:\s*4g.*?memswap_limit:\s*5g.*?server_threads:\s*"3"') {

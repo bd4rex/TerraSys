@@ -105,6 +105,8 @@ const state = {
   searchResults: [],
   suggestionResults: [],
   searchSuggestionTimer: null,
+  searchSuggestionRequestId: 0,
+  searchSuggestionController: null,
   serviceStatus: null,
   capabilities: null,
   datasetManifest: null,
@@ -113,7 +115,11 @@ const state = {
     locations: [null, null],
     costing: "auto",
     result: null,
-    requestId: 0
+    resultInput: null,
+    requestId: 0,
+    controller: null,
+    locationSearchIds: [0, 0],
+    drafts: [null, null]
   },
   selectedMapFeature: null,
   detailRequestId: 0,
@@ -324,8 +330,7 @@ function installedRegionViews() {
 }
 
 function syncInstalledCatalogDatasets() {
-  const installed = state.mapPacks.filter((pack) => pack.installed);
-  if (installed.length) state.catalog.datasets = installed;
+  state.catalog.datasets = state.mapPacks.filter((pack) => pack.installed);
 }
 
 function renderViewSwitcher() {
@@ -2033,8 +2038,9 @@ function updateRouteCoverageStatus() {
 }
 
 function updateRoutePanel() {
-  if (document.activeElement !== elements.routeStartLabel) elements.routeStartLabel.value = state.route.locations[0] ? routePointLabel(state.route.locations[0]) : "";
-  if (document.activeElement !== elements.routeEndLabel) elements.routeEndLabel.value = state.route.locations[1] ? routePointLabel(state.route.locations[1]) : "";
+  [elements.routeStartLabel, elements.routeEndLabel].forEach((input, index) => {
+    if (document.activeElement !== input) input.value = state.route.drafts[index] ?? (state.route.locations[index] ? routePointLabel(state.route.locations[index]) : "");
+  });
   document.querySelectorAll("[data-route-costing]").forEach((button) => {
     button.classList.toggle("active", button.dataset.routeCosting === state.route.costing);
   });
@@ -2070,23 +2076,35 @@ function openRoutePanel() {
 }
 
 function closeRoutePanel() {
+  state.route.locationSearchIds = state.route.locationSearchIds.map((id) => id + 1);
+  if (state.route.controller) invalidateRoute();
   elements.routePanel.hidden = true;
   document.body.classList.remove("route-open");
   elements.routeButton.classList.remove("active");
   if (state.mode === "route-start" || state.mode === "route-end") setMode(null);
 }
 
-function clearRoute() {
+function invalidateRoute() {
   state.route.requestId += 1;
-  state.route.locations = [null, null];
+  state.route.controller?.abort();
+  state.route.controller = null;
   state.route.result = null;
+  state.route.resultInput = null;
   elements.routeResult.hidden = true;
   elements.routeEmpty.hidden = false;
   elements.routeEmpty.innerHTML = '<i data-lucide="navigation"></i><span>在地图上设置起点和终点</span>';
   elements.routeSaveButton.disabled = true;
   elements.routeSpeakButton.disabled = true;
-  updateRoutePanel();
   updateRouteSource();
+  return state.route.requestId;
+}
+
+function clearRoute() {
+  state.route.locations = [null, null];
+  state.route.drafts = [null, null];
+  state.route.locationSearchIds = state.route.locationSearchIds.map((id) => id + 1);
+  invalidateRoute();
+  updateRoutePanel();
   setMode("route-start");
   icons();
 }
@@ -2094,35 +2112,29 @@ function clearRoute() {
 async function setRouteLocation(index, coordinate, name = "") {
   const location = { longitude: coordinate[0], latitude: coordinate[1], name };
   state.route.locations[index] = location;
-  state.route.result = null;
-  elements.routeResult.hidden = true;
-  elements.routeEmpty.hidden = false;
-  elements.routeEmpty.innerHTML = '<i data-lucide="navigation"></i><span>在地图上设置起点和终点</span>';
-  elements.routeSaveButton.disabled = true;
-  elements.routeSpeakButton.disabled = true;
+  state.route.drafts[index] = null;
+  state.route.locationSearchIds[index] += 1;
+  invalidateRoute();
   updateRoutePanel();
-  updateRouteSource();
   if (index === 0 && !state.route.locations[1]) setMode("route-end");
   else if (state.route.locations.every(Boolean)) setMode(null);
 
-  try {
-    const result = await api(`/reverse?longitude=${coordinate[0]}&latitude=${coordinate[1]}`);
-    if (state.route.locations[index] !== location) return;
-    if (!location.name) location.name = result.name || result.subtitle || "";
-    updateRoutePanel();
-  } catch {
-    // Coordinates remain a valid offline route endpoint while the address index is rebuilding.
+  // Address lookup only enriches the label; route geometry can be calculated immediately.
+  const routePromise = state.route.locations.every(Boolean) ? runRoute() : Promise.resolve();
+  if (!location.name) {
+    try {
+      const result = await api(`/reverse?longitude=${coordinate[0]}&latitude=${coordinate[1]}`);
+      if (state.route.locations[index] !== location) return;
+      location.name = result.name || result.subtitle || "";
+      updateRoutePanel();
+    } catch {
+      // Coordinates remain a valid offline route endpoint while the address index is rebuilding.
+    }
   }
-
+  if (state.route.locations[index] !== location) return;
   rememberRouteLocation(location);
   updateRouteCoverageStatus();
-
-  if (index === 0 && !state.route.locations[1]) {
-    return;
-  }
-  if (state.route.locations.every(Boolean)) {
-    await runRoute();
-  }
+  await routePromise;
 }
 
 async function searchRouteLocation(index) {
@@ -2132,12 +2144,15 @@ async function searchRouteLocation(index) {
     setMode(index === 0 ? "route-start" : "route-end");
     return;
   }
+  const searchId = ++state.route.locationSearchIds[index];
+  invalidateRoute();
   try {
     const encoded = encodeURIComponent(query);
     const responses = await Promise.allSettled([
       api(`/geocode?q=${encoded}&limit=8`),
       api(`/search?q=${encoded}&limit=12`)
     ]);
+    if (searchId !== state.route.locationSearchIds[index] || input.value.trim() !== query) return;
     const candidates = responses.flatMap((response) => response.status === "fulfilled" ? (response.value.results || []) : [])
       .filter((item) => Number.isFinite(Number(item.longitude)) && Number.isFinite(Number(item.latitude)));
     const normalizedQuery = query.toLocaleLowerCase("zh-CN").replace(/\s+/g, "");
@@ -2153,19 +2168,39 @@ async function searchRouteLocation(index) {
     };
     const match = candidates.sort((left, right) => score(left) - score(right))[0];
     if (!match) throw new Error("没有找到可用于路线的地点");
-    await setRouteLocation(index, [Number(match.longitude), Number(match.latitude)], match.name || query);
+    const routePromise = setRouteLocation(index, [Number(match.longitude), Number(match.latitude)], match.name || query);
+    const selectedLocation = state.route.locations[index];
+    await routePromise;
+    if (state.route.locations[index] !== selectedLocation) return;
     state.map.easeTo({ center: [Number(match.longitude), Number(match.latitude)], zoom: Math.max(state.map.getZoom(), 12), duration: 500 });
   } catch (error) {
+    if (searchId !== state.route.locationSearchIds[index]) return;
     showToast(error.message, true);
   }
 }
 
 async function swapRouteLocations() {
   state.route.locations = [state.route.locations[1], state.route.locations[0]];
-  state.route.result = null;
+  state.route.drafts = [state.route.drafts[1], state.route.drafts[0]];
+  state.route.locationSearchIds = state.route.locationSearchIds.map((id) => id + 1);
+  invalidateRoute();
   updateRoutePanel();
-  updateRouteSource();
   if (state.route.locations.every(Boolean)) await runRoute();
+}
+
+async function setRouteCosting(costing) {
+  state.route.costing = costing;
+  invalidateRoute();
+  updateRoutePanel();
+  if (state.route.locations.every(Boolean)) await runRoute();
+}
+
+function editRouteLocation(index) {
+  state.route.locations[index] = null;
+  state.route.drafts[index] = (index === 0 ? elements.routeStartLabel : elements.routeEndLabel).value;
+  state.route.locationSearchIds[index] += 1;
+  invalidateRoute();
+  updateRouteCoverageStatus();
 }
 
 function useCurrentRouteLocation() {
@@ -2278,17 +2313,22 @@ function renderRouteResult(result) {
 
 async function runRoute() {
   if (!state.route.locations.every(Boolean)) return;
-  const requestId = ++state.route.requestId;
+  const requestId = invalidateRoute();
+  const input = { costing: state.route.costing, locations: state.route.locations.map((location) => ({ ...location })) };
+  const controller = new AbortController();
+  state.route.controller = controller;
   elements.routeEmpty.hidden = false;
   elements.routeEmpty.innerHTML = '<i data-lucide="loader-circle"></i><span>正在计算本地路线</span>';
   icons();
   try {
     const result = await api("/route", {
       method: "POST",
-      body: JSON.stringify({ costing: state.route.costing, locations: state.route.locations })
+      body: JSON.stringify(input),
+      signal: controller.signal
     });
     if (requestId !== state.route.requestId) return;
     state.route.result = result;
+    state.route.resultInput = input;
     updateRouteSource();
     renderRouteResult(result);
     const bounds = result.geometry.coordinates.reduce(
@@ -2304,23 +2344,27 @@ async function runRoute() {
     elements.routeEmpty.innerHTML = '<i data-lucide="triangle-alert"></i><span>路线计算失败</span>';
     icons();
     showToast(error.message, true);
+  } finally {
+    if (state.route.controller === controller) state.route.controller = null;
   }
 }
 
 async function saveRouteTrack() {
-  if (!state.route.result?.geometry) return;
-  const [start, end] = state.route.locations;
+  const result = state.route.result;
+  const input = state.route.resultInput;
+  if (!result?.geometry || !input) return;
+  const [start, end] = input.locations;
   const activities = { auto: "driving", bicycle: "cycling", pedestrian: "walking" };
   try {
     await api("/tracks", {
       method: "POST",
       body: JSON.stringify({
         name: `${routePointLabel(start)} 至 ${routePointLabel(end)}`,
-        activity: activities[state.route.costing],
+        activity: activities[input.costing],
         note: "由 TerraSys 离线 Valhalla 路线引擎生成",
-        tags: ["offline-route", state.route.costing],
+        tags: ["offline-route", input.costing],
         color: "#2679a6",
-        geometry: state.route.result.geometry
+        geometry: result.geometry
       })
     });
     await refreshData();
@@ -3940,9 +3984,9 @@ function localSearchExtras(query) {
   return [...(coordinate ? [coordinate] : []), ...packs];
 }
 
-async function unifiedSearch(query, limit = 30) {
+async function unifiedSearch(query, limit = 30, options = {}) {
   const extras = localSearchExtras(query);
-  const response = await api(`/search?q=${encodeURIComponent(query)}&limit=${Math.max(1, limit - extras.length)}`);
+  const response = await api(`/search?q=${encodeURIComponent(query)}&limit=${Math.max(1, limit - extras.length)}`, options);
   const seen = new Set(extras.map((item) => `${item.kind}:${item.id}`));
   return [...extras, ...(response.results || []).filter((item) => !seen.has(`${item.kind}:${item.id}`))].slice(0, limit);
 }
@@ -3960,8 +4004,35 @@ function searchResultSource(result) {
 }
 
 function closeSearchSuggestions() {
+  clearTimeout(state.searchSuggestionTimer);
+  state.searchSuggestionTimer = null;
+  state.searchSuggestionRequestId += 1;
+  state.searchSuggestionController?.abort();
+  state.searchSuggestionController = null;
   elements.searchSuggestions.hidden = true;
   elements.searchInput.setAttribute("aria-expanded", "false");
+}
+
+function scheduleSearchSuggestions() {
+  closeSearchSuggestions();
+  const query = elements.searchInput.value.trim();
+  if (!query) return;
+  const requestId = state.searchSuggestionRequestId;
+  state.searchSuggestionTimer = setTimeout(async () => {
+    if (requestId !== state.searchSuggestionRequestId || elements.searchInput.value.trim() !== query) return;
+    state.searchSuggestionTimer = null;
+    const controller = new AbortController();
+    state.searchSuggestionController = controller;
+    const isCurrent = () => requestId === state.searchSuggestionRequestId && elements.searchInput.value.trim() === query;
+    try {
+      const results = await unifiedSearch(query, 9, { signal: controller.signal });
+      if (isCurrent()) renderSearchSuggestions(results);
+    } catch {
+      if (isCurrent()) renderSearchSuggestions(localSearchExtras(query));
+    } finally {
+      if (state.searchSuggestionController === controller) state.searchSuggestionController = null;
+    }
+  }, 220);
 }
 
 function renderSearchSuggestions(results) {
@@ -4782,21 +4853,7 @@ function wireUi() {
     }
   });
 
-  elements.searchInput.addEventListener("input", () => {
-    clearTimeout(state.searchSuggestionTimer);
-    const query = elements.searchInput.value.trim();
-    if (!query) {
-      closeSearchSuggestions();
-      return;
-    }
-    state.searchSuggestionTimer = setTimeout(async () => {
-      try {
-        renderSearchSuggestions(await unifiedSearch(query, 9));
-      } catch {
-        renderSearchSuggestions(localSearchExtras(query));
-      }
-    }, 220);
-  });
+  elements.searchInput.addEventListener("input", scheduleSearchSuggestions);
   elements.searchSuggestions.addEventListener("click", (event) => {
     const button = event.target.closest("[data-suggestion-id]");
     if (!button) return;
@@ -4810,6 +4867,7 @@ function wireUi() {
 
   elements.searchInput.addEventListener("search", async () => {
     if (elements.searchInput.value) return;
+    closeSearchSuggestions();
     state.searchQuery = "";
     state.resultMode = null;
     state.resultLabel = "";
@@ -4846,6 +4904,7 @@ function wireUi() {
     button.addEventListener("click", () => searchRouteLocation(Number(button.dataset.routeSearch)));
   });
   [elements.routeStartLabel, elements.routeEndLabel].forEach((input, index) => {
+    input.addEventListener("input", () => editRouteLocation(index));
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") { event.preventDefault(); searchRouteLocation(index); }
     });
@@ -4854,11 +4913,7 @@ function wireUi() {
     button.addEventListener("click", () => setMode(button.dataset.routePoint === "0" ? "route-start" : "route-end"));
   });
   document.querySelectorAll("[data-route-costing]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      state.route.costing = button.dataset.routeCosting;
-      updateRoutePanel();
-      if (state.route.locations.every(Boolean)) await runRoute();
-    });
+    button.addEventListener("click", () => setRouteCosting(button.dataset.routeCosting));
   });
 
   document.querySelectorAll("[data-dialog-close]").forEach((button) => {

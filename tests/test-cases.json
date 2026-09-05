@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-17",
+  "updatedAt": "2026-09-06",
   "profiles": {
     "static": "Repository contracts that need neither Docker nor running TerraSys services.",
     "browser": "Static contracts, service health, and all browser regressions.",
@@ -263,6 +263,64 @@
         "Temporary recovery containers, volumes, and network are removed after the drill."
       ],
       "evidence": "runtime/recovery-audit report."
+    },
+    {
+      "id": "TC-RELIABILITY-001",
+      "title": "Standard MCP handshake and atomic GPX import",
+      "area": "personal data",
+      "risk": "Nonstandard framing prevents MCP initialization; per-track commits leave partial GPX imports after errors.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/test_mcp.py", "tests/test_backend_reliability.py"],
+      "assertions": [
+        "Standard NDJSON initialize responds without waiting for stdin EOF.",
+        "Invalid GPX and failed later inserts do not leave partial records.",
+        "Dedicated optional PostGIS tests check ground distances, nearby boundaries, and idempotent distance migration."
+      ],
+      "evidence": "MCP subprocess and FastAPI HTTP transaction fixtures; distance and migration SQL checks require an explicit dedicated PostGIS test database."
+    },
+    {
+      "id": "TC-RELIABILITY-002",
+      "title": "Delayed frontend work remains bound to current user intent",
+      "area": "main UI",
+      "risk": "Out-of-order responses can draw or save obsolete routes, starve live-layer updates, or retain removed maps.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/frontend-reliability.cjs"],
+      "assertions": [
+        "Slow polling reuses in-flight work and disabled layers stop querying.",
+        "Route edits invalidate old responses and saved geometry uses its original input snapshot.",
+        "Empty installed catalogs and reversed or dismissed search responses are handled correctly."
+      ],
+      "evidence": "Node VM tests execute application functions with delayed and reversed requests and simulated MapLibre sources."
+    },
+    {
+      "id": "TC-RELIABILITY-003",
+      "title": "Map and personal-data interruptions preserve recoverable versions",
+      "area": "recovery",
+      "risk": "Interrupted file replacement or database restore can mix versions or discard the only usable recovery snapshot.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/operations-reliability.ps1"],
+      "assertions": [
+        "Incomplete detail builds do not replace the active map.",
+        "Every map activation failure point can restore consistent file pairs.",
+        "Interrupted recovery can itself be retried without consuming original snapshots.",
+        "Personal restore failures preserve database/media checkpoints and coordinate service availability."
+      ],
+      "evidence": "Temporary-directory failure injection, simulated Docker, and termination of test-owned processes; no production database or map changes."
+    },
+    {
+      "id": "TC-RELIABILITY-004",
+      "title": "Offline project and image inventories remain complete",
+      "area": "recovery",
+      "risk": "A hash-valid package can still omit required build inputs or include image metadata inconsistent with build scripts.",
+      "profiles": ["static", "browser", "full", "recovery"],
+      "automation": ["tests/offline-kit-reliability.ps1", "tests/offline-map-reliability.ps1"],
+      "assertions": [
+        "Required configurations and Linux entry points survive empty-directory restore.",
+        "Repeated refresh excludes transient verification receipts.",
+        "Map snapshot copying respects mutation locks and rejects source hash mismatches.",
+        "Image inventory uses the build dependency digest and rejects mismatched overrides."
+      ],
+      "evidence": "Temporary project copy, refresh, verification and empty-directory restore; archive metadata checks do not replace real Docker load and offline rebuild drills."
     }
   ]
 }

@@ -5,6 +5,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "map-version-utils.ps1")
+Repair-TerraSysMapActivations -ProductRoot (Join-Path $root "products\tiles\pmtiles")
+if (Test-Path -LiteralPath (Join-Path $root "data\restore-recovery\active.json")) {
+  throw "A personal-data restore was interrupted. Run restore-terrasys.ps1 -RecoverInterrupted before starting TerraSys."
+}
 $services = Join-Path $root "services"
 $envFile = Join-Path $services ".env"
 $isWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
@@ -317,7 +322,7 @@ if (-not $workerRunning) {
   $workerExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
   $workerArguments = @("-NoLogo", "-NoProfile")
   if ($isWindowsHost) { $workerArguments += @("-ExecutionPolicy", "Bypass") }
-  $workerArguments += @("-File", $workerScript)
+  $workerArguments += @("-File", ('"' + $workerScript + '"'))
   $workerStart = @{
     FilePath = $workerExecutable
     ArgumentList = $workerArguments

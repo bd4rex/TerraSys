@@ -1,6 +1,6 @@
 # Additional Information Layer Module
 
-> English | [简体中文](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) · Updated 2026-08-10
+> English | [简体中文](ADDITIONAL_INFORMATION_LAYERS.zh-CN.md) · Updated 2026-09-06
 
 Additional information layers are a plug-in boundary separate from base maps, personal data, and offline resource packs. The module owns short-lived provider differences, caching, refresh policy, attribution, and map styling so changing third-party APIs do not spread through the main map application.
 
@@ -27,7 +27,7 @@ Every adapter returns a GeoJSON `FeatureCollection`. Collection metadata include
 | `/live/air-quality` | Open-Meteo/CAMS viewport samples | 15 minutes |
 | `/live/floods` | Open-Meteo/GloFAS discharge samples | 6 hours |
 | `/live/aircraft` | ADSB.lol aircraft | 5–8 seconds |
-| `/live/vessels` | Norwegian Coastal Administration open AIS | continuous receiver; 8-second browser refresh |
+| `/live/vessels` | Norwegian Coastal Administration open AIS | on-demand receiver; 8-second browser refresh |
 | `/live/ocean-buoys` | NOAA NDBC latest observations | 10 minutes |
 | `/live/cyclones` | GDACS tropical cyclones | 5 minutes |
 
@@ -44,6 +44,8 @@ Every adapter returns a GeoJSON `FeatureCollection`. Collection metadata include
 ## AIS configuration
 
 The default no-registration stream is `153.44.253.27:5631`. The same receiver can point at user-owned AIS hardware with `AIS_TCP_ENABLED`, `AIS_TCP_HOST`, and `AIS_TCP_PORT`. `LIVE_LAYER_SETTINGS_PATH` controls the management-setting file. Positions expire after 15 minutes. Coverage and public-disclosure limits are those of the Norwegian open AIS service.
+
+API startup does not connect to AIS. A map request or explicit connection test starts the receiver and renews a lease of twice the configured refresh interval, bounded to 30–600 seconds. With no further requests, the receiver disconnects when that lease expires. Disabling the source in the console stops the receiver and blocks new upstream requests. The shared response cache evicts expired entries and keeps at most 128 entries using LRU order.
 
 ## Adding an adapter
 

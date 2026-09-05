@@ -5,6 +5,7 @@ param(
   [string]$UiImage = "terrasys-ui-test:suite",
   [string]$BrowserBaseUrl = "http://127.0.0.1",
   [string]$KitDirectory = "",
+  [string]$PythonExecutable = "",
   [switch]$SkipImageBuild
 )
 
@@ -15,7 +16,9 @@ $root = Split-Path -Parent $PSScriptRoot
 $startedAt = Get-Date
 $results = New-Object System.Collections.Generic.List[object]
 $powerShellExecutable = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } elseif (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { throw "PowerShell was not found on PATH." }
-$pythonExecutable = if (Get-Command python -ErrorAction SilentlyContinue) { "python" } elseif (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" } else { throw "Python was not found on PATH." }
+if (-not $PythonExecutable) {
+  $PythonExecutable = if (Get-Command python -ErrorAction SilentlyContinue) { "python" } elseif (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" } else { throw "Python was not found on PATH." }
+}
 
 function Invoke-SuiteStep {
   param(
@@ -67,12 +70,22 @@ function Invoke-BrowserTest {
   Invoke-NativeCommand -Executable "docker" -Arguments $arguments -Operation "Browser test $ScriptName"
 }
 
+Push-Location -LiteralPath $root
+try {
 Invoke-SuiteStep -Id "static" -Description "repository configuration, scripts, bilingual docs, links, and test catalog" -Action {
   & (Join-Path $PSScriptRoot "repository-contracts.ps1")
 }
 
-Invoke-SuiteStep -Id "live-layer-unit" -Description "keyless live-layer adapters, cache, bounds, and AIS NMEA decoding" -Action {
-  Invoke-NativeCommand -Executable $pythonExecutable -Arguments @("-m", "unittest", "tests.test_live_layers", "-v") -Operation "Live-layer unit tests"
+Invoke-SuiteStep -Id "python-reliability" -Description "MCP framing, GPX transactions, live-layer lifecycle and cache behavior" -Action {
+  Invoke-NativeCommand -Executable $PythonExecutable -Arguments @("-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v") -Operation "Python reliability tests (install tests/requirements.txt first)"
+}
+Invoke-SuiteStep -Id "frontend-reliability" -Description "delayed responses, route snapshots, and empty map catalogs" -Action {
+  Invoke-NativeCommand -Executable "node" -Arguments @("tests/frontend-reliability.cjs") -Operation "Frontend reliability tests"
+}
+foreach ($reliabilityScript in @("offline-kit-reliability.ps1", "offline-map-reliability.ps1", "operations-reliability.ps1")) {
+  Invoke-SuiteStep -Id ([IO.Path]::GetFileNameWithoutExtension($reliabilityScript)) -Description "isolated files and failure recovery" -Action {
+    Invoke-NativeCommand -Executable $powerShellExecutable -Arguments @("-NoProfile", "-File", (Join-Path $PSScriptRoot $reliabilityScript)) -Operation $reliabilityScript
+  }
 }
 
 if ($Profile -in @("browser", "full", "recovery")) {
@@ -116,3 +129,5 @@ if ($Profile -eq "recovery") {
 $duration = [math]::Round(((Get-Date) - $startedAt).TotalSeconds, 1)
 Write-Host "`nTest profile '$Profile' passed in $duration s."
 Write-Host ($results | ConvertTo-Json -Depth 3)
+}
+finally { Pop-Location }

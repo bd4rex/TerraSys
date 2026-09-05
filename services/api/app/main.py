@@ -30,7 +30,7 @@ from PIL import Image
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from starlette.requests import Request as StarletteRequest
 
 from app.personal_export import gpx_document
@@ -1348,7 +1348,7 @@ def live_vessels(
     limit: int = Query(default=5000, ge=1, le=10000),
 ) -> dict[str, Any]:
     bounds = live_bounds(west, south, east, north)
-    return live_layers.safe("vessels", lambda: live_layers.ais.features(bounds, limit))
+    return live_layers.safe("vessels", lambda: live_layers.vessels(bounds, limit))
 
 
 @app.get("/live/ocean-buoys")
@@ -1667,24 +1667,27 @@ def map_pack_state(
     preference_enabled = str(dataset.get("id")) not in (disabled_pack_ids if disabled_pack_ids is not None else set(map_pack_preferences()["disabledPackIds"]))
     product_path = pack_file(str(dataset.get("url", "")))
     manifest_path = pack_file(str(dataset.get("manifestUrl", "")))
+    activation_path = MAP_PACK_ROOT / f"{dataset.get('id')}.activation.json"
+    active_revision = tuple(file_revision(path) for path in (product_path, manifest_path, activation_path))
+    activation_pending = activation_path.is_file()
     manifest = None
-    manifest_exists_on_disk = manifest_path.name in known_pack_files if known_pack_files is not None else manifest_path.is_file()
+    manifest_exists_on_disk = not activation_pending and (manifest_path.name in known_pack_files if known_pack_files is not None else manifest_path.is_file())
     if manifest_exists_on_disk:
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception:
             manifest = None
-    product_exists = product_path.name in known_pack_files if known_pack_files is not None else product_path.is_file()
+    product_exists = not activation_pending and (product_path.name in known_pack_files if known_pack_files is not None else product_path.is_file())
     manifest_exists = manifest is not None
     installed = product_exists and manifest_exists
     enabled = installed and preference_enabled
-    actual_bytes = product_path.stat().st_size if product_exists else 0
+    actual_bytes = max(0, file_revision(product_path)[0]) if product_exists else 0
     expected_product = manifest.get("product", {}) if manifest else {}
     expected_bytes = int(expected_product.get("bytes", 0) or 0)
     expected_details = manifest.get("details", {}) if manifest and isinstance(manifest.get("details"), dict) else {}
     details_path = pack_file(str(expected_details.get("url") or expected_details.get("file"))) if expected_details else None
     details_exists = bool(details_path and details_path.is_file())
-    details_bytes = details_path.stat().st_size if details_exists else 0
+    details_bytes = max(0, file_revision(details_path)[0]) if details_exists else 0
     expected_details_bytes = int(expected_details.get("bytes", 0) or 0)
     details_size_matches = bool(
         details_exists and expected_details_bytes > 0 and details_bytes == expected_details_bytes
@@ -1734,13 +1737,13 @@ def map_pack_state(
     update_available = bool(installed and sequence_relation is not None and sequence_relation > 0)
     previous_product_path = MAP_PACK_ROOT / f"{dataset.get('id')}.previous.pmtiles"
     previous_manifest_path = MAP_PACK_ROOT / f"{dataset.get('id')}.previous.manifest.json"
-    previous_product_exists = previous_product_path.name in known_pack_files if known_pack_files is not None else previous_product_path.is_file()
-    previous_manifest_exists = previous_manifest_path.name in known_pack_files if known_pack_files is not None else previous_manifest_path.is_file()
+    previous_product_exists = not activation_pending and (previous_product_path.name in known_pack_files if known_pack_files is not None else previous_product_path.is_file())
+    previous_manifest_exists = not activation_pending and (previous_manifest_path.name in known_pack_files if known_pack_files is not None else previous_manifest_path.is_file())
     previous_manifest = read_json_file(previous_manifest_path) if previous_manifest_exists else None
     rollback_details = previous_manifest.get("details", {}) if previous_manifest and isinstance(previous_manifest.get("details"), dict) else {}
     rollback_details_path = pack_file(str(rollback_details.get("url") or rollback_details.get("file"))) if rollback_details else None
     rollback_details_exists = bool(rollback_details_path and rollback_details_path.is_file())
-    rollback_details_bytes = rollback_details_path.stat().st_size if rollback_details_exists else 0
+    rollback_details_bytes = max(0, file_revision(rollback_details_path)[0]) if rollback_details_exists else 0
     rollback_artifacts = previous_product_exists or previous_manifest is not None or rollback_details_exists
     rollback_ready = bool(
         previous_product_exists
@@ -1766,7 +1769,7 @@ def map_pack_state(
         ) or any(MAP_PACK_ROOT.glob(f"{dataset.get('id')}.swap-*"))
     rollback_product = previous_manifest.get("product", {}) if previous_manifest else {}
     rollback_source = previous_manifest.get("source", {}) if previous_manifest else {}
-    return {
+    state = {
         "id": dataset.get("id"),
         "name": dataset.get("name"),
         "shortName": dataset.get("shortName"),
@@ -1802,6 +1805,7 @@ def map_pack_state(
         "buildReady": source_acquirable and boundary_ready,
         "installed": installed,
         "enabled": enabled,
+        "activationPending": activation_pending,
         "hasLocalArtifacts": has_local_artifacts,
         "partialInstall": product_exists != manifest_exists or bool(expected_details and not details_exists),
         "bytes": actual_bytes + details_bytes,
@@ -1822,16 +1826,26 @@ def map_pack_state(
         "currentSourceUpdatedAt": current_state.get("timestamp"),
         "rollbackReady": rollback_ready,
         "rollbackArtifacts": rollback_artifacts,
-        "rollbackBytes": (previous_product_path.stat().st_size if previous_product_exists else 0) + rollback_details_bytes,
+        "rollbackBytes": (max(0, file_revision(previous_product_path)[0]) if previous_product_exists else 0) + rollback_details_bytes,
         "rollbackGeneratedAt": previous_manifest.get("generatedAt") if previous_manifest else None,
         "rollbackSourceSequence": rollback_source.get("sequenceNumber") if rollback_source else None,
         "rollbackSourceUpdatedAt": rollback_source.get("updatedAt") if rollback_source else None,
         "rollbackSizeMatches": bool(
             rollback_ready
-            and int(rollback_product.get("bytes", 0) or 0) == previous_product_path.stat().st_size
+            and int(rollback_product.get("bytes", 0) or 0) == file_revision(previous_product_path)[0]
             and int(rollback_details.get("bytes", 0) or 0) == rollback_details_bytes
         ),
     }
+    if activation_path.is_file() or active_revision != tuple(
+        file_revision(path) for path in (product_path, manifest_path, activation_path)
+    ):
+        # The host may have begun or completed a multi-file activation while we read.
+        state.update({
+            "installed": False, "enabled": False, "activationPending": True,
+            "sizeMatches": False, "richDetailsReady": False, "rollbackReady": False,
+            "detailsUrl": None, "detailsLayer": None,
+        })
+    return state
 
 
 def map_pack_states(catalog: dict[str, Any], verify_sha256: bool = False) -> list[dict[str, Any]]:
@@ -2119,10 +2133,14 @@ def get_map_pack_manifest(pack_id: str) -> dict[str, Any]:
     dataset = next((item for item in catalog["datasets"] if str(item.get("id")) == pack_id), None)
     if not dataset:
         raise HTTPException(status_code=404, detail="Map pack not found")
-    manifest = read_json_file(pack_file(str(dataset.get("manifestUrl", ""))))
+    manifest_path = pack_file(str(dataset.get("manifestUrl", "")))
+    revision = file_revision(manifest_path)
+    manifest = read_json_file(manifest_path)
     if not manifest:
         raise HTTPException(status_code=404, detail="Map pack manifest is not installed")
     state = map_pack_state(dataset)
+    if state.get("activationPending") or revision != file_revision(manifest_path):
+        raise HTTPException(status_code=409, detail="Map pack activation is in progress; retry after recovery or completion")
     return {
         **manifest,
         "management": {
@@ -3348,13 +3366,12 @@ def nearby_reference_places(
                    ) AS details
             FROM app.reference_places AS reference
             CROSS JOIN point
-            WHERE reference.geom && ST_Expand(point.geom, %s / 111000.0)
-              AND ST_DWithin(reference.geom::geography, point.geom::geography, %s)
+            WHERE ST_DWithin(reference.geom::geography, point.geom::geography, %s)
               AND (%s = '' OR reference.category = %s OR subtype = %s)
             ORDER BY ST_Distance(reference.geom::geography, point.geom::geography), name
             LIMIT %s
             """,
-            [longitude, latitude, radius_m, radius_m,
+            [longitude, latitude, radius_m,
              category_filter, category_filter, category_filter, limit],
         ).fetchall()
     return {
@@ -3454,24 +3471,28 @@ def tracks_geojson(q: str = Query(default="", max_length=200)) -> dict[str, Any]
     return {"type": "FeatureCollection", "features": [track_feature(row) for row in rows]}
 
 
-def insert_track(payload: TrackInput, source: str = "manual") -> str:
+def insert_track_in_connection(conn: Any, payload: TrackInput, source: str = "manual") -> str:
     track_id = payload.id or str(uuid.uuid4())
     geometry_json = json.dumps(payload.geometry, ensure_ascii=False)
-    with pool.connection() as conn:
-        row = conn.execute(
-            """
-            INSERT INTO app.tracks
-              (id, name, activity, note, tags, color, distance_m, source, geom)
-            VALUES
-              (%s, %s, %s, %s, %s, %s,
-               ST_Length(ST_Transform(ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), 3857)),
-               %s, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)))
-            RETURNING id
-            """,
-            [track_id, payload.name, payload.activity, payload.note, Jsonb(payload.tags),
-             payload.color, geometry_json, source, geometry_json],
-        ).fetchone()
+    row = conn.execute(
+        """
+        INSERT INTO app.tracks
+          (id, name, activity, note, tags, color, distance_m, source, geom)
+        VALUES
+          (%s, %s, %s, %s, %s, %s,
+           ST_Length(ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))::geography),
+           %s, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)))
+        RETURNING id
+        """,
+        [track_id, payload.name, payload.activity, payload.note, Jsonb(payload.tags),
+         payload.color, geometry_json, source, geometry_json],
+    ).fetchone()
     return row["id"]
+
+
+def insert_track(payload: TrackInput, source: str = "manual") -> str:
+    with pool.connection() as conn:
+        return insert_track_in_connection(conn, payload, source)
 
 
 @app.post("/tracks", status_code=201)
@@ -3492,7 +3513,7 @@ def update_track(track_id: str, payload: TrackInput) -> dict[str, Any]:
             """
             UPDATE app.tracks
             SET name=%s, activity=%s, note=%s, tags=%s, color=%s,
-                distance_m=ST_Length(ST_Transform(ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), 3857)),
+                distance_m=ST_Length(ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))::geography),
                 geom=ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), sync_state='local'
             WHERE id=%s AND version=%s
             RETURNING id, version
@@ -3560,7 +3581,7 @@ async def import_gpx(file: UploadFile = File(...)) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=422, detail="Invalid GPX document") from exc
 
-    created: list[str] = []
+    payloads: list[TrackInput] = []
     for track_index, track in enumerate(element for element in root.iter() if local_name(element.tag) == "trk"):
         name_node = next((node for node in track if local_name(node.tag) == "name"), None)
         name = (name_node.text or "").strip() if name_node is not None else ""
@@ -3570,23 +3591,31 @@ async def import_gpx(file: UploadFile = File(...)) -> dict[str, Any]:
             for point in (node for node in segment if local_name(node.tag) == "trkpt"):
                 try:
                     points.append([float(point.attrib["lon"]), float(point.attrib["lat"])])
-                except (KeyError, ValueError):
-                    continue
+                except (KeyError, ValueError) as exc:
+                    raise HTTPException(
+                        status_code=422, detail=f"GPX track {track_index + 1} contains invalid coordinates"
+                    ) from exc
             if len(points) >= 2:
                 segments.append(points)
         if not segments:
             continue
         geometry = {"type": "MultiLineString", "coordinates": segments}
-        payload = TrackInput(
-            name=name or f"{Path(file.filename or 'track.gpx').stem} {track_index + 1}",
-            activity="other",
-            tags=["gpx"],
-            geometry=geometry,
-        )
-        created.append(insert_track(payload, source="gpx"))
+        try:
+            payloads.append(TrackInput(
+                name=name or f"{Path(file.filename or 'track.gpx').stem} {track_index + 1}",
+                activity="other",
+                tags=["gpx"],
+                geometry=geometry,
+            ))
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail=f"GPX track {track_index + 1} is invalid: {exc.errors()[0]['msg']}"
+            ) from exc
 
-    if not created:
+    if not payloads:
         raise HTTPException(status_code=422, detail="No valid GPX tracks were found")
+    with pool.connection() as conn:
+        created = [insert_track_in_connection(conn, payload, source="gpx") for payload in payloads]
     return {"created": created, "count": len(created)}
 
 

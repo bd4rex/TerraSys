@@ -233,29 +233,21 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def read_message() -> dict[str, Any] | None:
-    headers: dict[str, str] = {}
-    while True:
-        line = sys.stdin.buffer.readline()
-        if line == b"":
-            return None
-        if line in (b"\r\n", b"\n"):
-            break
-        name, _, value = line.decode("ascii", errors="replace").partition(":")
-        headers[name.lower()] = value.strip()
-    length = int(headers.get("content-length", "0"))
-    if length <= 0:
-        raise McpError(-32700, "Missing Content-Length header")
-    body = sys.stdin.buffer.read(length)
+    line = sys.stdin.buffer.readline()
+    if line == b"":
+        return None
     try:
-        return json.loads(body.decode("utf-8"))
-    except json.JSONDecodeError as exc:
+        message = json.loads(line.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise McpError(-32700, "Invalid JSON-RPC payload") from exc
+    if not isinstance(message, dict):
+        raise McpError(-32600, "JSON-RPC message must be an object")
+    return message
 
 
 def write_message(payload: dict[str, Any]) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    sys.stdout.buffer.write(f"Content-Length: {len(body)}\r\n\r\n".encode("ascii"))
-    sys.stdout.buffer.write(body)
+    sys.stdout.buffer.write(body + b"\n")
     sys.stdout.buffer.flush()
 
 
@@ -298,6 +290,7 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
 
 def main() -> int:
     while True:
+        message = None
         try:
             message = read_message()
             if message is None:

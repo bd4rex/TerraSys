@@ -27,6 +27,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Install isolated test dependencies
+        shell: pwsh
+        run: python -m pip install -r tests/requirements.txt
       - name: Run static test profile
         shell: pwsh
         run: ./tests/run-suite.ps1 -Profile static
@@ -40,3 +43,29 @@ jobs:
           test -x terrasys.sh
           test -x scripts/install-linux-service.sh
           test -x scripts/linux/curl.exe
+
+  postgis-reliability:
+    name: Isolated PostGIS distance and migration regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      database:
+        image: postgis/postgis@sha256:1d95a92144c40198b46908fd92ac365e85d35eaf31bfc36f06c2c09a090c0538
+        env:
+          POSTGRES_USER: gis
+          POSTGRES_PASSWORD: ephemeral-test-only
+          POSTGRES_DB: terrasys_reliability_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gis -d terrasys_reliability_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Install test dependencies
+        run: python -m pip install -r tests/requirements.txt
+      - name: Run actual SQL regressions in the dedicated test database
+        env:
+          TERRASYS_TEST_DATABASE_URL: postgresql://gis:ephemeral-test-only@127.0.0.1:5432/terrasys_reliability_test
+        run: python -B -m unittest discover -s tests -p test_backend_reliability.py -v

@@ -2,7 +2,8 @@ param()
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$planetilerImage = "ghcr.io/onthegomap/planetiler@sha256:90c9d29ef013fb30af30b8e117a7847c7ef56e9bf05f25633c7d7228d6955cf0"
+. (Join-Path $PSScriptRoot "offline-kit-support.ps1")
+$planetilerImage = Get-TerraSysToolImage -Root $root -Name "planetiler"
 $schema = Join-Path $root "config\planetiler\world-overview.yml"
 $outputRoot = Join-Path $root "web\assets\overview"
 $target = Join-Path $outputRoot "world-overview.pmtiles"

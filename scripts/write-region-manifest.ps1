@@ -1,6 +1,8 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$PackId,
+  [string]$ProductPath = "",
+  [string]$ManifestPath = "",
   [int64]$MissingWayNodes = 0,
   [int64]$MissingRelationMembers = 0,
   [int64]$MaxMissingReferences = 0
@@ -17,8 +19,8 @@ $source = Join-Path $root ([string]$pack.sourceFile).Replace('/', '\')
 $stateFile = if ($pack.sourceProfile.stateFile) {
   Join-Path $root ([string]$pack.sourceProfile.stateFile).Replace('/', '\')
 } else { $null }
-$product = Join-Path $root "products\tiles\pmtiles\$PackId.pmtiles"
-$manifestPath = Join-Path $root "products\tiles\pmtiles\$PackId.manifest.json"
+$product = if ($ProductPath) { $ProductPath } else { Join-Path $root "products\tiles\pmtiles\$PackId.pmtiles" }
+if (-not $ManifestPath) { $ManifestPath = Join-Path $root "products\tiles\pmtiles\$PackId.manifest.json" }
 $supportingSourceManifestPath = Join-Path $root "raw\planetiler-sources\manifest.json"
 if (-not (Test-Path -LiteralPath $source) -or -not (Test-Path -LiteralPath $product)) {
   throw "The $PackId source PBF and PMTiles product are required."
@@ -69,9 +71,11 @@ $manifest = [ordered]@{
   attribution = @("OpenStreetMap contributors", "OpenMapTiles")
 }
 
+$temporaryManifest = "$ManifestPath.$([Guid]::NewGuid().ToString('N')).tmp"
 [IO.File]::WriteAllText(
-  $manifestPath,
+  $temporaryManifest,
   ($manifest | ConvertTo-Json -Depth 7),
   (New-Object Text.UTF8Encoding($false))
 )
+Move-Item -LiteralPath $temporaryManifest -Destination $ManifestPath -Force
 Write-Host "Region manifest written: $manifestPath"
